@@ -1,0 +1,22 @@
+---
+description: MaoX Launcher 的 GitHub 仓库与发布流程，以及开发测试约定
+alwaysApply: true
+---
+
+# GitHub 仓库
+
+项目已经有公开仓库 https://github.com/JinRuiMaoMao/MaoX-Launcher （分支 main），不需要再问或再设置 GitHub。
+
+- 每次改完代码并测试通过后，直接 `git commit` 并 `git push origin main`，保持仓库是最新的。
+- 推送后用 `gh run list -R JinRuiMaoMao/MaoX-Launcher -L 1` 看 CI（Windows + macOS 构建和冒烟测试），失败就修好再推。
+- 发布新版本（用户能通过启动器自动更新收到）：
+  1. 改 `src/Directory.Build.props` 里的 `<Version>`，提交并推送，等 CI 通过；
+  2. `git tag -a vX.Y.Z -m "更新内容"`，`git push origin vX.Y.Z`，CI 会自动创建 Release。
+- 不要提交 `launcher_config.json`（里面有账号令牌）、`.minecraft/`、根目录的 exe。
+
+# 开发测试约定
+
+- 用中文回复。
+- 测试版本输出到 `build\dev`（`dotnet build src/MaoX/MaoX.csproj -nologo -v q -o build\dev`），不要关掉用户正在用的启动器（根目录 `MaoX Launcher.exe`）或用户自己的游戏，只按 PID 结束测试进程。
+- 冒烟测试用临时数据目录：`$env:MAOX_HOME="$env:TEMP\maox-smoke-home"`，不要改动真实配置；不要往真实 `.minecraft` 装加载器。
+- 测试结束后清理临时文件，不留下 Java / 陶瓦联机进程。
