@@ -41,9 +41,12 @@ public static class Updater
     }
 
     /// <summary>只有发布版（Windows 单文件 exe、macOS .app）才能自我更新，开发时运行的版本不行。</summary>
+    // 单文件发布时 Assembly.Location 为空，正好用来判断是不是发布版
+#pragma warning disable IL3000
     public static bool CanSelfUpdate =>
         AssetName != null && !string.IsNullOrEmpty(Environment.ProcessPath)
         && (Platform.IsWindows ? string.IsNullOrEmpty(typeof(Updater).Assembly.Location) : AppBundle != null);
+#pragma warning restore IL3000
 
     /// <summary>比较版本号（忽略开头的 v 和 -beta 之类的后缀）。</summary>
     public static bool IsNewer(string candidate, string current) =>

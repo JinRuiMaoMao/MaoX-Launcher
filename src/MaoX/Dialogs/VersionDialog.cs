@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -46,7 +47,8 @@ public class VersionDialog : DialogView
 
         var root = new StackPanel();
         root.Children.Add(new TextBlock { Text = version, Classes = { "h2" } });
-        root.Children.Add(Text(_gl.DescribeVersion(version), "muted"));
+        var played = PlayTime.Describe(_gl, version);
+        root.Children.Add(Text(_gl.DescribeVersion(version) + (played == "" ? "" : "  ·  " + played), "muted"));
 
         // 版本设置
         var isolation = _settings.BoolOrNull("isolation");
@@ -139,7 +141,13 @@ public class VersionDialog : DialogView
         left.Children.Add(MakeButton("复制", onClick: Duplicate));
         bar.Children.Add(left);
         var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        right.Children.Add(MakeButton("导出整合包", icon: "upload", onClick: Export));
+        var export = MakeButton("导出", icon: "upload");
+        var menu = new MenuFlyout { Placement = PlacementMode.TopEdgeAlignedRight };
+        menu.Items.Add(MenuEntry("导出整合包（.mrpack）", Export));
+        menu.Items.Add(MenuEntry("导出启动脚本", ExportScript));
+        menu.Items.Add(MenuEntry("创建桌面快捷方式", CreateShortcut));
+        export.Flyout = menu;
+        right.Children.Add(export);
         right.Children.Add(MakeButton("完成", "primary", onClick: () => Close()));
         Grid.SetColumn(right, 2);
         bar.Children.Add(right);
@@ -187,7 +195,9 @@ public class VersionDialog : DialogView
 
     private void Save()
     {
-        var s = (JsonObject)_settings.DeepClone();
+        // 重新读取文件，避免覆盖对话框打开期间别处写入的字段（如游戏时长）
+        var latest = _gl.VersionSettings(_version);
+        var s = (JsonObject)latest.DeepClone();
         if (_isolation.IsChecked != _isolationInitial || s.ContainsKey("isolation"))
             s["isolation"] = _isolation.IsChecked == true;
         s["custom"] = _custom.IsChecked == true;
@@ -198,7 +208,7 @@ public class VersionDialog : DialogView
             s["java_path"] = java == FollowGlobal ? "" : _javaMap.GetValueOrDefault(java, "");
             s["jvm_args"] = (_jvm.Text ?? "").Trim();
         }
-        if (JsonNode.DeepEquals(s, _settings) || !Directory.Exists(_gl.VersionDir(_version)))
+        if (JsonNode.DeepEquals(s, latest) || !Directory.Exists(_gl.VersionDir(_version)))
             return;
         _gl.SaveVersionSettings(_version, s);
         _settings = s;
@@ -397,5 +407,58 @@ public class VersionDialog : DialogView
     {
         Close();
         _ = Main.ShowDialogAsync(new ModpackExportDialog(_version));
+    }
+
+    private static MenuItem MenuEntry(string text, Action onClick)
+    {
+        var item = new MenuItem { Header = text };
+        item.Click += (_, _) => onClick();
+        return item;
+    }
+
+    private async void ExportScript()
+    {
+        var account = Main.CurrentAccount;
+        if (account == null)
+        {
+            Main.Toast("请先添加一个账号", "warn");
+            return;
+        }
+        if (account.Type != "offline"
+            && !await Main.Confirm("导出启动脚本",
+                                   "脚本里会包含当前账号的登录令牌，请不要发给别人。令牌过期后（正版账号大约 1 天）需要重新导出。",
+                                   "继续导出"))
+            return;
+        var ext = Platform.IsWindows ? "bat" : Platform.IsMac ? "command" : "sh";
+        var path = await Main.SaveFile("导出启动脚本", $"启动 {_version}.{ext}", "启动脚本", "*." + ext);
+        if (path == null)
+            return;
+        var cfg = Main.Cfg.Clone();
+        var launcher = Main.MakeLauncher();
+        await Main.RunTask("导出启动脚本", async () =>
+        {
+            var (auth, changed) = await Accounts.PrepareLaunchAsync(account, cfg, launcher.Dl, AppPaths.ToolsDir, Main.Log);
+            if (changed)
+                Avalonia.Threading.Dispatcher.UIThread.Post(Main.AccountsChanged);
+            var (command, gameDir) = await launcher.PrepareCommandAsync(_version, null, auth);
+            Shortcuts.WriteLaunchScript(path, command, gameDir, _version);
+        }, () =>
+        {
+            Main.Toast("启动脚本已导出");
+            Platform.RevealFile(path);
+        });
+    }
+
+    private async void CreateShortcut()
+    {
+        try
+        {
+            await Task.Run(() => Shortcuts.CreateDesktopShortcut(_version));
+            Main.Toast("已在桌面创建快捷方式，双击即可直接启动这个版本");
+        }
+        catch (Exception e)
+        {
+            await Main.Dialog("创建快捷方式失败", MainWindow.ErrorText(e), "error");
+        }
     }
 }

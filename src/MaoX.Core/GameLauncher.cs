@@ -898,18 +898,25 @@ public class GameLauncher
             values.TryGetValue(m.Groups[1].Value, out var v) ? v : m.Value)).ToList();
     }
 
-    /// <summary>准备文件、选择 Java 并启动游戏。返回已启动的进程（标准输出与错误输出已重定向并合并读取）。</summary>
-    public async Task<Process> LaunchAsync(string versionId, string server = null, LaunchAuth auth = null)
+    /// <summary>补全游戏文件并选择 Java，返回完整的启动命令（第一项是 java 路径）和工作目录。</summary>
+    public async Task<(List<string> Command, string GameDir)> PrepareCommandAsync(string versionId, string server = null,
+                                                                                 LaunchAuth auth = null)
     {
         Cfg = EffectiveConfig(versionId);
         var info = await PrepareAsync(versionId);
         var java = await SelectJavaAsync(info.VJson);
         Log($"使用 Java：{java}");
-        var cmd = BuildCommand(info.VJson, java, info, server, auth);
+        return (BuildCommand(info.VJson, java, info, server, auth), info.GameDir);
+    }
+
+    /// <summary>准备文件、选择 Java 并启动游戏。返回已启动的进程（标准输出与错误输出已重定向并合并读取）。</summary>
+    public async Task<Process> LaunchAsync(string versionId, string server = null, LaunchAuth auth = null)
+    {
+        var (cmd, gameDir) = await PrepareCommandAsync(versionId, server, auth);
         Log($"正在启动 {versionId}（玩家 {auth?.Name ?? Cfg.Username}，最大内存 {Cfg.MaxMemory} MB）...");
         var psi = new ProcessStartInfo(cmd[0])
         {
-            WorkingDirectory = info.GameDir,
+            WorkingDirectory = gameDir,
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardInput = true,

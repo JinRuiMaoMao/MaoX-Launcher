@@ -130,6 +130,8 @@ public partial class LaunchPage : UserControl, IPage
             Main.SelectVersion(version);
     }
 
+    public void RefreshHero() => UpdateHero();
+
     private void UpdateHero()
     {
         var version = Main.SelectedVersion;
@@ -148,7 +150,9 @@ public partial class LaunchPage : UserControl, IPage
         HeroTitle.Text = version;
         try
         {
-            HeroMeta.Text = new GameLauncher(Main.Cfg).DescribeVersion(version);
+            var gl = new GameLauncher(Main.Cfg);
+            var played = PlayTime.Describe(gl, version);
+            HeroMeta.Text = gl.DescribeVersion(version) + (played == "" ? "" : "  ·  " + played);
         }
         catch (Exception)
         {

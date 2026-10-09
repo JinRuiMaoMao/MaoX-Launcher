@@ -100,7 +100,26 @@ public partial class MainWindow : Window
             Updater.CleanupOldVersion();
             if (Cfg.AutoCheckUpdate && Updater.CanSelfUpdate && !SmokeTest.Active)
                 DispatcherTimer.RunOnce(() => _ = CheckForUpdate(true), TimeSpan.FromSeconds(3));
+            if (!SmokeTest.Active)
+                LaunchFromCommandLine();
         };
+    }
+
+    /// <summary>处理桌面快捷方式传来的 --launch &lt;版本&gt;。</summary>
+    private void LaunchFromCommandLine()
+    {
+        var args = Environment.GetCommandLineArgs();
+        var index = Array.IndexOf(args, "--launch");
+        if (index < 0 || index + 1 >= args.Length)
+            return;
+        var version = args[index + 1];
+        if (!Installed.Contains(version))
+        {
+            Toast($"找不到版本 {version}，可能已被删除或改名", "error");
+            return;
+        }
+        SelectVersion(version);
+        Launch();
     }
 
     // ------------------------------------------------------------------ 启动器更新
@@ -811,7 +830,8 @@ public partial class MainWindow : Window
         StatusText.Text = "游戏运行中";
         Toast("游戏已启动");
         LaunchPage.OnGameStateChanged();
-        _ = Task.Run(() => WatchGame(process, gameDir, since));
+        var started = DateTime.Now;
+        _ = Task.Run(() => WatchGame(process, version, gameDir, since, started));
         switch (Cfg.AfterLaunch)
         {
             case "minimize":
@@ -827,7 +847,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task WatchGame(Process process, string gameDir, DateTime since)
+    private async Task WatchGame(Process process, string version, string gameDir, DateTime since, DateTime started)
     {
         var parser = new LogParser();
         var recent = new Queue<string>();
@@ -862,6 +882,14 @@ public partial class MainWindow : Window
         }
         await process.WaitForExitAsync();
         var code = process.ExitCode;
+        try
+        {
+            PlayTime.Record(new GameLauncher(Cfg), version, started, DateTime.Now);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // 记录时长失败不影响其他流程
+        }
         CrashReport report;
         try
         {
@@ -882,6 +910,7 @@ public partial class MainWindow : Window
         if (_gameProcess == process)
             _gameProcess = null;
         LaunchPage.OnGameStateChanged();
+        LaunchPage.RefreshHero();
         if (_hiddenForGame)
         {
             _hiddenForGame = false;
