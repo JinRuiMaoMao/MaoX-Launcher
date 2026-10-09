@@ -86,6 +86,7 @@ public class LauncherConfig
     public bool AutoCheckUpdate { get; set; } = true;
     /// <summary>用户选择"跳过"的版本，不再自动提示</summary>
     public string SkippedUpdate { get; set; } = "";
+    public List<ServerEntry> Servers { get; set; } = [];
 
     public static LauncherConfig Load()
     {
@@ -97,6 +98,7 @@ public class LauncherConfig
                 if (cfg != null)
                 {
                     cfg.Accounts ??= [];
+                    cfg.Servers ??= [];
                     if (string.IsNullOrWhiteSpace(cfg.MinecraftDir))
                         cfg.MinecraftDir = AppPaths.DefaultMinecraftDir;
                     return cfg;

@@ -55,13 +55,7 @@ public partial class MultiplayerPage : UserControl, IPage
 
     public bool InRoom => StateName is { } s && RoomStates.Contains(s);
 
-    public void OnShow()
-    {
-        if (_phase == "init")
-            Bootstrap();
-        Render();
-        Schedule(0);
-    }
+    public void OnShow() => SetTab(_tab);
 
     public void Shutdown()
     {

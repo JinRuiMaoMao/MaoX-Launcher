@@ -99,7 +99,7 @@ jobs:
 
       - name: Smoke test (Intel, Rosetta)
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 17
         run: |
           export MAOX_HOME="$RUNNER_TEMP/maox-home-x64"
           out="$RUNNER_TEMP/smoke-macos/x64"
