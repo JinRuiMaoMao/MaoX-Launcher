@@ -111,11 +111,6 @@ public partial class MultiplayerPage : UserControl, IPage
 
     private async void Install()
     {
-        if (Main.Busy)
-        {
-            Main.Toast("当前有任务正在进行，请稍候", "warn");
-            return;
-        }
         SetPhase("installing");
         await Main.RunTask("下载陶瓦联机", () => _tc.InstallAsync((d, t) => Main.Progress(d, t, "下载陶瓦联机")));
         if (await _tc.InstalledAsync())

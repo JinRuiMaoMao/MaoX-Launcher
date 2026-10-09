@@ -152,6 +152,42 @@ internal static class SmokeTest
             return count > 0 ? $"{count} versions" : throw new InvalidOperationException("版本列表没有加载");
         });
 
+        await Check("task center", async () =>
+        {
+            var dl = window.MakeLauncher().Dl;
+            var entry = window.Manifest.Items("versions").First(v => v.Str("id") == "1.21.1");
+            var clientUrl = (await dl.FetchJsonAsync(entry.Str("url"))).Get("downloads").Get("client").Str("url");
+            var file = Path.Combine(Path.GetTempPath(), $"maox-smoke-{Guid.NewGuid():N}.jar");
+            var a = window.RunTask("测试任务（进度）", async () =>
+            {
+                for (var i = 1; i <= 12; i++)
+                {
+                    window.Progress(i, 12, "测试进度");
+                    await Task.Delay(150, TaskContext.Token);
+                }
+            });
+            var b = window.RunTask("测试任务（取消下载）",
+                                   () => dl.DownloadManyAsync([new DownloadTask(clientUrl, file)],
+                                                              (d, t) => window.Progress(d, t, "下载")));
+            await Task.Delay(400);
+            var running = window.Tasks.Count(t => t.Running);
+            window.Tasks.First(t => t.Name == "测试任务（取消下载）").Cancel.Cancel();
+            window.ShowTaskCenter();
+            await Task.Delay(400);
+            ScreenshotControl(window.TaskCenterView, Path.Combine(output, "task-center.png"));
+            await Task.WhenAll(a, b);
+            await Task.Delay(300);
+            ScreenshotControl(window.TaskCenterView, Path.Combine(output, "task-center-done.png"));
+            var states = string.Join(", ", window.Tasks.Select(t => $"{t.Name}={t.State}"));
+            File.Delete(file);
+            if (running != 2 || window.Tasks.Any(t => t.State == "failed")
+                || window.Tasks.First(t => t.Name == "测试任务（进度）").State != "done"
+                || window.Tasks.First(t => t.Name == "测试任务（取消下载）").State != "cancelled")
+                throw new Exception($"unexpected task states (parallel={running}): {states}");
+            window.ClearFinishedTasks();
+            return $"parallel={running}; {states}";
+        });
+
         await Check("terracotta", async () =>
         {
             var tc = new Terracotta(null, window.MakeLauncher().Dl, _ => { })
@@ -184,6 +220,15 @@ internal static class SmokeTest
         lock (reportPath)
             File.AppendAllText(reportPath, (failed ? "RESULT: FAIL" : "RESULT: PASS") + Environment.NewLine);
         return failed;
+    }
+
+    private static void ScreenshotControl(Control control, string path)
+    {
+        var scale = TopLevel.GetTopLevel(control)?.RenderScaling ?? 1;
+        var size = new PixelSize(Math.Max(1, (int)(control.Bounds.Width * scale)), Math.Max(1, (int)(control.Bounds.Height * scale)));
+        using var bitmap = new RenderTargetBitmap(size, new Vector(96 * scale, 96 * scale));
+        bitmap.Render(control);
+        bitmap.Save(path);
     }
 
     private static void Screenshot(MainWindow window, string path)

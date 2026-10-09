@@ -30,7 +30,14 @@ public partial class MainWindow : Window
 
     public LauncherConfig Cfg { get; }
     public JsonNode Manifest { get; set; }
-    public bool Busy { get; private set; }
+    /// <summary>任务中心里的任务，最新的在前。</summary>
+    public List<TaskItem> Tasks { get; } = [];
+
+    /// <summary>是否有任务正在进行。</summary>
+    public bool Busy => Tasks.Any(t => t.Running);
+
+    /// <summary>是否正在准备启动游戏（启动按钮在此期间不可用）。</summary>
+    public bool Launching => Tasks.Any(t => t.Running && t.Name.StartsWith("启动 ", StringComparison.Ordinal));
     public HashSet<string> Installed { get; private set; } = [];
     public List<string> InstalledList { get; private set; } = [];
 
@@ -60,8 +67,9 @@ public partial class MainWindow : Window
     private bool _forceClose;
 
     // 后台线程报告的进度先存下来，由定时器统一刷新界面，避免下载时刷屏
-    private readonly object _progressLock = new();
-    private (int Done, int Total, string Text)? _pendingProgress;
+    private readonly TaskCenterView _taskCenter = new();
+    private string _idleStatus = "就绪";
+    private bool _barIndeterminate;
 
     public MainWindow()
     {
@@ -304,31 +312,83 @@ public partial class MainWindow : Window
 
     public void Log(string text, string kind) => LaunchPage.AppendLog(text, kind);
 
+    /// <summary>报告进度，记到当前 async 调用链所属的任务上（不在任务里调用时忽略）。</summary>
     public void Progress(int done, int total, string text = "")
     {
-        if (total <= 0)
-            return;
-        lock (_progressLock)
-            _pendingProgress = (done, total, text);
+        if (total > 0)
+            TaskItem.Current.Value?.Report(done, total, text);
     }
 
     private void FlushProgress()
     {
-        (int Done, int Total, string Text)? p;
-        lock (_progressLock)
-        {
-            p = _pendingProgress;
-            _pendingProgress = null;
-        }
-        if (p is not { } v || !Busy)
-            return;
-        ProgressBar.Set((double)v.Done / v.Total);
-        if (!string.IsNullOrEmpty(v.Text))
-            StatusText.Text = v.Text;
-        ProgressText.Text = $"{v.Done} / {v.Total}   {v.Done * 100.0 / v.Total:0}%";
+        var changed = false;
+        foreach (var task in Tasks)
+            changed |= task.Flush();
+        if (changed)
+            UpdateStatusBar();
     }
 
-    public void SetStatus(string text) => StatusText.Text = text;
+    /// <summary>没有任务时状态栏显示的文字。</summary>
+    public void SetStatus(string text)
+    {
+        _idleStatus = text;
+        UpdateStatusBar();
+    }
+
+    private void UpdateStatusBar()
+    {
+        var running = Tasks.Where(t => t.Running).ToList();
+        TasksButton.IsVisible = Tasks.Count > 0;
+        TasksLabel.Text = running.Count > 0 ? $"任务 {running.Count}" : "任务";
+        if (running.Count == 0)
+        {
+            StatusText.Text = GameRunning ? "游戏运行中" : _idleStatus;
+            ProgressText.Text = "";
+            ProgressBar.Set(0);
+            _barIndeterminate = false;
+        }
+        else
+        {
+            var first = running[^1];
+            StatusText.Text = running.Count == 1
+                ? first.Name + "…"
+                : $"{running.Count} 个任务进行中：{string.Join("、", running.Select(t => t.Name))}";
+            var known = running.Where(t => t.Fraction != null).ToList();
+            if (known.Count == 0)
+            {
+                ProgressText.Text = "";
+                if (!_barIndeterminate)
+                    ProgressBar.Start();
+                _barIndeterminate = true;
+            }
+            else
+            {
+                var fraction = known.Average(t => t.Fraction!.Value);
+                ProgressBar.Set(fraction);
+                _barIndeterminate = false;
+                ProgressText.Text = running.Count == 1 ? first.Detail + $"   {fraction * 100:0}%" : $"{fraction * 100:0}%";
+            }
+        }
+        if (_taskCenter.IsAttachedToVisualTree())
+            _taskCenter.Refresh();
+    }
+
+    public Control TaskCenterView => _taskCenter;
+
+    public void ShowTaskCenter() => OnTasksButtonClick(null, null);
+
+    private void OnTasksButtonClick(object sender, RoutedEventArgs e)
+    {
+        _taskCenter.Refresh();
+        var flyout = new Flyout { Content = _taskCenter, Placement = PlacementMode.TopEdgeAlignedRight };
+        flyout.ShowAt(TasksButton);
+    }
+
+    public void ClearFinishedTasks()
+    {
+        Tasks.RemoveAll(t => !t.Running);
+        UpdateStatusBar();
+    }
 
     public GameLauncher MakeLauncher()
     {
@@ -337,32 +397,56 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ 任务
 
-    /// <summary>在后台执行一个独占任务（同一时间只允许一个），失败时弹出错误对话框。</summary>
+    public bool IsTaskRunning(string name) => Tasks.Any(t => t.Running && t.Name == name);
+
+    /// <summary>
+    /// 在后台执行一个任务，显示在任务中心里，可以和其他任务同时进行、单独取消（同名任务不能重复开始）。
+    /// 失败时弹出错误对话框，取消时只记日志。
+    /// </summary>
     public async Task RunTask<T>(string name, Func<Task<T>> job, Action<T> onDone = null)
     {
-        if (Busy)
+        if (IsTaskRunning(name))
         {
-            Toast("当前有任务正在进行，请稍候", "warn");
+            Toast("这个任务已经在进行中了", "warn");
             return;
         }
         if (!SaveSettings())
             return;
-        SetBusy(true, name);
+        var task = new TaskItem(name);
+        Tasks.Insert(0, task);
+        if (Tasks.Count > 30)
+            Tasks.RemoveAll(t => !t.Running && Tasks.IndexOf(t) >= 30);
+        OnTasksChanged();
         T result;
         try
         {
-            result = await Task.Run(job);
+            result = await Task.Run(async () =>
+            {
+                TaskItem.Current.Value = task;
+                TaskContext.Token = task.Cancel.Token;
+                return await job();
+            });
+        }
+        catch (Exception e) when (task.Cancel.IsCancellationRequested
+                                  && e is OperationCanceledException or DownloadException { InnerException: OperationCanceledException })
+        {
+            task.Finish("cancelled");
+            OnTasksChanged();
+            Log($"{name}已取消", "warn");
+            return;
         }
         catch (Exception e)
         {
-            SetBusy(false);
             var message = ErrorText(e);
+            task.Finish("failed", message);
+            OnTasksChanged();
             Log($"[错误] {name}失败：{message}", "error");
             Trace.WriteLine(e);
             await Dialog(name + "失败", message, "error");
             return;
         }
-        SetBusy(false);
+        task.Finish("done");
+        OnTasksChanged();
         onDone?.Invoke(result);
     }
 
@@ -385,22 +469,10 @@ public partial class MainWindow : Window
         };
     }
 
-    private void SetBusy(bool busy, string text = "")
+    private void OnTasksChanged()
     {
-        Busy = busy;
-        if (busy)
-        {
-            StatusText.Text = text + "…";
-            ProgressText.Text = "";
-            ProgressBar.Start();
-        }
-        else
-        {
-            StatusText.Text = GameRunning ? "游戏运行中" : "就绪";
-            ProgressText.Text = "";
-            ProgressBar.Set(0);
-        }
-        BusyChanged?.Invoke(busy);
+        UpdateStatusBar();
+        BusyChanged?.Invoke(Busy);
     }
 
     // ------------------------------------------------------------------ 对话框与提示
@@ -798,9 +870,9 @@ public partial class MainWindow : Window
             ManageAccounts();
             return;
         }
-        if (Busy)
+        if (Launching)
         {
-            Toast("当前有任务正在进行，请稍候", "warn");
+            Toast("游戏正在启动，请稍候", "warn");
             return;
         }
         if (GameRunning && !await Confirm("游戏正在运行", "已有一个游戏实例在运行，确定要再启动一个吗？", "再启动一个"))
@@ -828,7 +900,7 @@ public partial class MainWindow : Window
     {
         _gameProcess = process;
         _runningVersion = version;
-        StatusText.Text = "游戏运行中";
+        UpdateStatusBar();
         Toast("游戏已启动");
         LaunchPage.OnGameStateChanged();
         var started = DateTime.Now;
@@ -919,8 +991,7 @@ public partial class MainWindow : Window
             Activate();
         }
         Log($"游戏已退出（退出码 {code}）", code == 0 ? "launcher" : "error");
-        if (!Busy)
-            StatusText.Text = GameRunning ? "游戏运行中" : "就绪";
+        UpdateStatusBar();
         var reasons = report.Reasons.Where(r => code != 0 || r.Kind == CrashAnalyzer.Mod).Select(r => r.Text).ToList();
         if (code == 0 && reasons.Count == 0)
             return;
@@ -944,6 +1015,18 @@ public partial class MainWindow : Window
             e.Cancel = true;
             if (!await Confirm("正在联机", "关闭启动器会同时关闭联机房间，确定要退出吗？", "退出"))
                 return;
+            _forceClose = true;
+            Close();
+            return;
+        }
+        if (Busy && !SmokeTest.Active)
+        {
+            e.Cancel = true;
+            var names = string.Join("、", Tasks.Where(t => t.Running).Select(t => t.Name));
+            if (!await Confirm("还有任务没完成", $"正在进行：{names}。\n现在退出会中断这些任务，确定要退出吗？", "退出"))
+                return;
+            foreach (var task in Tasks.Where(t => t.Running))
+                task.Cancel.Cancel();
             _forceClose = true;
             Close();
             return;

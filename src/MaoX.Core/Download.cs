@@ -108,7 +108,7 @@ public static class Http
             foreach (var (key, value) in headers)
                 request.Headers.TryAddWithoutValidation(key, value);
         }
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        using var cts = TaskContext.Link(cancel);
         cts.CancelAfter(TimeSpan.FromSeconds(timeout));
         using var response = await Client.SendAsync(request, cts.Token);
         var data = await response.Content.ReadAsByteArrayAsync(cts.Token);
@@ -262,6 +262,7 @@ public class Downloader
         {
             for (var attempt = 0; attempt < Retries; attempt++)
             {
+                TaskContext.ThrowIfCancelled();
                 try
                 {
                     return await action(candidate);
@@ -273,11 +274,12 @@ public class Downloader
                         break;
                 }
                 catch (Exception e) when (e is HttpRequestException or IOException or TaskCanceledException
-                                              or DownloadException or System.Text.Json.JsonException)
+                                              or DownloadException or System.Text.Json.JsonException
+                                          && !TaskContext.Token.IsCancellationRequested)
                 {
                     last = e;
                 }
-                await Task.Delay(500 * (attempt + 1));
+                await Task.Delay(500 * (attempt + 1), TaskContext.Token);
             }
         }
         throw new DownloadException($"{url} ({last?.Message})", last)
@@ -291,7 +293,8 @@ public class Downloader
         using var request = new HttpRequestMessage(method ?? HttpMethod.Get, url);
         if (payload != null)
             request.Content = Http.JsonContent(payload);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(Timeout));
+        using var cts = TaskContext.Link(default);
+        cts.CancelAfter(TimeSpan.FromSeconds(Timeout));
         using var response = await Http.Client.SendAsync(request, cts.Token);
         if (response.StatusCode != HttpStatusCode.OK)
             throw new HttpStatusException((int)response.StatusCode, url);
@@ -320,7 +323,7 @@ public class Downloader
         {
             try
             {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+                using var cts = TaskContext.Link(cancel);
                 cts.CancelAfter(TimeSpan.FromSeconds(Math.Max(Timeout, 30) * 10));
                 using var response = await Http.Client.GetAsync(u, HttpCompletionOption.ResponseHeadersRead,
                                                                 cts.Token);
@@ -356,6 +359,8 @@ public class Downloader
     public async Task<int> DownloadManyAsync(IEnumerable<DownloadTask> tasks, Action<int, int> progress = null,
                                              CancellationToken cancel = default)
     {
+        using var linked = TaskContext.Link(cancel);
+        cancel = linked.Token;
         var unique = new Dictionary<string, DownloadTask>(Platform.IsWindows
                                                               ? StringComparer.OrdinalIgnoreCase
                                                               : StringComparer.Ordinal);

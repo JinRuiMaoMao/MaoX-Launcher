@@ -22,17 +22,12 @@ public partial class DownloadPage : UserControl, IPage
     {
         InitializeComponent();
         SearchBox.TextChanged += (_, _) => FillList();
-        Main.BusyChanged += busy =>
-        {
-            RefreshButton.IsEnabled = !busy;
-            InstallButton.IsEnabled = !busy;
-        };
         Main.VersionsChanged += FillList;
     }
 
     public void OnShow()
     {
-        if (Main.Manifest == null && !Main.Busy)
+        if (Main.Manifest == null && !Main.IsTaskRunning("获取版本列表"))
             LoadManifest();
     }
 
@@ -120,11 +115,6 @@ public partial class DownloadPage : UserControl, IPage
         if (VersionList.SelectedItem is not VersionRow row)
         {
             Main.Toast("请先在列表中选择一个版本", "warn");
-            return;
-        }
-        if (Main.Busy)
-        {
-            Main.Toast("当前有任务正在进行，请稍候", "warn");
             return;
         }
         var version = row.Id;

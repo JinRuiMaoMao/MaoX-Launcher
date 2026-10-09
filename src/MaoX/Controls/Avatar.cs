@@ -95,6 +95,19 @@ public class ProgressLine : Control
         InvalidateVisual();
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (_indeterminate)
+            _timer.Start();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _timer.Stop();
+    }
+
     public override void Render(DrawingContext context)
     {
         var accent = this.TryFindResource("Accent", out var v) && v is IBrush b ? b : Brushes.Cyan;

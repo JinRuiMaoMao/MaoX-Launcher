@@ -627,6 +627,7 @@ public partial class LoaderInstaller
             var total = processors.Count;
             for (var index = 1; index <= total; index++)
             {
+                TaskContext.ThrowIfCancelled();
                 var proc = processors[index - 1];
                 var outputs = new Dictionary<string, string>();
                 foreach (var (k, v) in proc.Obj("outputs") ?? [])

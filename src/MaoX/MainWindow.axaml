@@ -75,9 +75,13 @@
 
         <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
           <c:ProgressLine Name="ProgressBar" Height="2" />
-          <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="36,8,36,12">
-            <TextBlock Name="StatusText" Classes="small muted" Text="就绪" />
-            <TextBlock Name="ProgressText" Grid.Column="1" Classes="small muted" />
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="36,4,30,8">
+            <TextBlock Name="StatusText" Classes="small muted" Text="就绪" VerticalAlignment="Center" />
+            <TextBlock Name="ProgressText" Grid.Column="1" Classes="small muted" VerticalAlignment="Center" />
+            <Button Name="TasksButton" Grid.Column="2" Classes="ghost small" Margin="10,0,0,0" MinHeight="26"
+                    IsVisible="False" Click="OnTasksButtonClick">
+              <c:IconLabel Name="TasksLabel" Icon="layers" IconSize="14" Spacing="6" Text="任务" />
+            </Button>
           </Grid>
         </Grid>
       </Grid>

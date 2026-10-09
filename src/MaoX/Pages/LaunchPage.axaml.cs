@@ -179,8 +179,8 @@ public partial class LaunchPage : UserControl, IPage
 
     private void UpdateLaunchButton()
     {
-        LaunchButton.IsEnabled = !Main.Busy;
-        LaunchLabel.Text = Main.Busy ? "请稍候…" : "启动游戏";
+        LaunchButton.IsEnabled = !Main.Launching;
+        LaunchLabel.Text = Main.Launching ? "正在启动…" : "启动游戏";
         StopButton.IsVisible = Main.GameRunning;
     }
 
