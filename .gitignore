@@ -12,3 +12,4 @@ bin/
 obj/
 .vs/
 *.user
+/*.exe
