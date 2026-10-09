@@ -1,0 +1,106 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:MaoX.Controls"
+        x:Class="MaoX.MainWindow"
+        Title="MaoX Launcher"
+        Icon="/Assets/icon.ico"
+        Width="1180" Height="760" MinWidth="1000" MinHeight="660"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Bg}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="38">
+  <Panel>
+    <!-- 全窗口背景图 + 遮罩 -->
+    <Border Name="BackdropImage" IsVisible="False" IsHitTestVisible="False" />
+    <Border Name="BackdropMask" IsVisible="False" IsHitTestVisible="False" Background="#0C0F15" />
+
+    <Grid ColumnDefinitions="236,*">
+      <!-- 侧边栏 -->
+      <Border Name="SidebarPanel" Background="{StaticResource Sidebar}" BorderBrush="{StaticResource CardBorder}"
+              BorderThickness="0,0,1,0">
+        <DockPanel Margin="14,0,14,16">
+          <StackPanel Name="Brand" DockPanel.Dock="Top" Orientation="Horizontal" Margin="12,52,0,34">
+            <c:Logo Width="34" Height="34" />
+            <StackPanel Margin="14,0,0,0" VerticalAlignment="Center" Spacing="1">
+              <TextBlock Text="MaoX" FontSize="20" FontWeight="Bold" />
+              <TextBlock Text="LAUNCHER" Classes="overline" FontSize="10" LetterSpacing="3.2" />
+            </StackPanel>
+          </StackPanel>
+
+          <TextBlock Name="VersionText" DockPanel.Dock="Bottom" Classes="small dim" Margin="12,10,0,0" />
+          <Button Name="AccountCard" DockPanel.Dock="Bottom" Padding="12" HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Stretch" Background="#151922" CornerRadius="12"
+                  Click="OnAccountCardClick">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <c:Avatar Name="SidebarAvatar" Width="38" Height="38" />
+              <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                <TextBlock Name="SidebarAccountName" FontWeight="SemiBold" />
+                <TextBlock Name="SidebarAccountType" Classes="small muted" FontWeight="Normal" />
+              </StackPanel>
+              <c:Icon Grid.Column="2" Kind="chevron-right" Size="16" Foreground="{StaticResource Dim}" />
+            </Grid>
+          </Button>
+
+          <StackPanel Name="Nav" Spacing="4">
+            <RadioButton Classes="nav" GroupName="nav" Tag="launch" Click="OnNavClick">
+              <c:IconLabel Icon="play" Text="启动" Spacing="14" HorizontalAlignment="Left" />
+            </RadioButton>
+            <RadioButton Classes="nav" GroupName="nav" Tag="download" Click="OnNavClick">
+              <c:IconLabel Icon="download" Text="下载" Spacing="14" HorizontalAlignment="Left" />
+            </RadioButton>
+            <RadioButton Classes="nav" GroupName="nav" Tag="resources" Click="OnNavClick">
+              <c:IconLabel Icon="box" Text="资源" Spacing="14" HorizontalAlignment="Left" />
+            </RadioButton>
+            <RadioButton Classes="nav" GroupName="nav" Tag="multiplayer" Click="OnNavClick">
+              <c:IconLabel Icon="people" Text="联机" Spacing="14" HorizontalAlignment="Left" />
+            </RadioButton>
+            <RadioButton Classes="nav" GroupName="nav" Tag="settings" Click="OnNavClick">
+              <c:IconLabel Icon="settings" Text="设置" Spacing="14" HorizontalAlignment="Left" />
+            </RadioButton>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- 内容区 -->
+      <Grid Grid.Column="1" RowDefinitions="*,Auto">
+        <TransitioningContentControl Name="PageHost" Margin="36,46,36,8">
+          <TransitioningContentControl.PageTransition>
+            <CompositePageTransition>
+              <CrossFade Duration="0:0:0.18" />
+              <PageSlide Duration="0:0:0.22" Orientation="Vertical" SlideInEasing="CubicEaseOut"
+                         SlideOutEasing="CubicEaseIn" />
+            </CompositePageTransition>
+          </TransitioningContentControl.PageTransition>
+        </TransitioningContentControl>
+
+        <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
+          <c:ProgressLine Name="ProgressBar" Height="2" />
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="36,8,36,12">
+            <TextBlock Name="StatusText" Classes="small muted" Text="就绪" />
+            <TextBlock Name="ProgressText" Grid.Column="1" Classes="small muted" />
+          </Grid>
+        </Grid>
+      </Grid>
+    </Grid>
+
+    <!-- 标题栏拖动区域（扩展到客户区后需要自己处理） -->
+    <Border Name="TitleBar" Height="38" VerticalAlignment="Top" Background="Transparent"
+            PointerPressed="OnTitleBarPressed" DoubleTapped="OnTitleBarDoubleTapped" />
+
+    <!-- 提示气泡 -->
+    <StackPanel Name="ToastLayer" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,52"
+                Spacing="10" />
+
+    <!-- 窗口内对话框 -->
+    <Panel Name="DialogLayer" IsVisible="False">
+      <Border Name="DialogBackdrop" Background="{StaticResource Overlay}" Opacity="0">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+          </Transitions>
+        </Border.Transitions>
+      </Border>
+      <Panel Name="DialogStack" />
+    </Panel>
+  </Panel>
+</Window>

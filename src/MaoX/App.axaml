@@ -1,0 +1,32 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MaoX.App"
+             Name="MaoX Launcher"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark"
+                               Accent="#00D9FF"
+                               RegionColor="#151820"
+                               AltHigh="#151820"
+                               BaseHigh="#E8ECF3"
+                               ErrorText="#FF5C7A"
+                               ListLow="#232836"
+                               ListMedium="#2B3142"
+                               ChromeMediumLow="#1A1E28"
+                               ChromeLow="#10131A"
+                               ChromeMedium="#1F2430"
+                               ChromeHigh="#2C3242" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://MaoXLauncher/Styles/Theme.axaml" />
+  </Application.Styles>
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://MaoXLauncher/Styles/Icons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>

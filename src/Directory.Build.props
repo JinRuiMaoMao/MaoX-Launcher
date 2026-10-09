@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- 启动器版本号：发布时打 tag v<版本号>，GitHub Actions 会检查两者一致 -->
+    <Version>2.0.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

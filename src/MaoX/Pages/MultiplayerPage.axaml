@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MaoX.Pages.MultiplayerPage">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,22" Spacing="2">
+      <TextBlock Text="多人联机" Classes="h1" />
+      <TextBlock Text="基于陶瓦联机，无需公网 IP 就能和好友一起玩，邀请码与 HMCL、PCL 社区版互通" Classes="muted" />
+    </StackPanel>
+    <TextBlock DockPanel.Dock="Bottom" Classes="small dim titlelink" Margin="0,12,0,0" Cursor="Hand"
+               Text="联机服务由 Terracotta | 陶瓦联机 提供  ·  © Burning_TNT  ·  AGPL-3.0  ·  基于 EasyTier"
+               PointerPressed="OnCreditPressed" HorizontalAlignment="Left" />
+    <ScrollViewer Padding="0,0,4,0">
+      <ContentControl Name="Body" />
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

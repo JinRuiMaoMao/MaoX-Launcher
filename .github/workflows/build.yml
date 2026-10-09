@@ -1,0 +1,150 @@
+# 每次推送都在 Windows 和 macOS 上打包并自检；推送 v* 标签时自动发布 Release（启动器的自动更新从这里下载）。
+#   发布新版本：改 src/Directory.Build.props 里的 Version，提交后
+#   git tag -a v2.0.1 -m "更新内容..." && git push origin v2.0.1
+#   标签说明会作为更新说明显示在启动器的更新提示里。
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  SMOKE_VERSION: "1.21.1"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Check tag matches version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = (Select-Xml -Path src/Directory.Build.props -XPath "//Version").Node.InnerText
+          if ("v$version" -ne "${{ github.ref_name }}") { throw "标签 ${{ github.ref_name }} 与 Directory.Build.props 中的版本 $version 不一致" }
+
+      - name: Publish
+        shell: pwsh
+        run: ./publish.ps1
+
+      - name: Smoke test
+        shell: pwsh
+        timeout-minutes: 20
+        run: |
+          $env:MAOX_HOME = "$env:RUNNER_TEMP\maox-home"
+          $out = "$env:RUNNER_TEMP\smoke-windows"
+          $p = Start-Process -FilePath "dist\MaoX Launcher.exe" -ArgumentList "--smoke-test", "`"$out`"", "--launch", "$env:SMOKE_VERSION" -PassThru -Wait
+          Get-Content "$out\report.txt" -ErrorAction SilentlyContinue
+          exit $p.ExitCode
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-windows
+          path: ${{ runner.temp }}/smoke-windows
+
+      - name: Rename
+        shell: pwsh
+        run: Copy-Item "dist\MaoX Launcher.exe" "dist\MaoX-Launcher-Windows-x64.exe"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: MaoX-Windows
+          path: dist/MaoX-Launcher-Windows-x64.exe
+
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish
+        run: bash ./publish.sh
+
+      - name: Verify bundles
+        run: |
+          for rid in osx-arm64 osx-x64; do
+            app="dist/$rid/MaoX Launcher.app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            file "$app/Contents/MacOS/MaoXLauncher"
+            plutil -lint "$app/Contents/Info.plist"
+          done
+
+      - name: Smoke test (Apple Silicon)
+        timeout-minutes: 20
+        run: |
+          export MAOX_HOME="$RUNNER_TEMP/maox-home"
+          out="$RUNNER_TEMP/smoke-macos"
+          code=0
+          "dist/osx-arm64/MaoX Launcher.app/Contents/MacOS/MaoXLauncher" --smoke-test "$out" --launch "$SMOKE_VERSION" || code=$?
+          cat "$out/report.txt" || true
+          exit $code
+
+      - name: Smoke test (Intel, Rosetta)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          export MAOX_HOME="$RUNNER_TEMP/maox-home-x64"
+          out="$RUNNER_TEMP/smoke-macos/x64"
+          code=0
+          arch -x86_64 "dist/osx-x64/MaoX Launcher.app/Contents/MacOS/MaoXLauncher" --smoke-test "$out" || code=$?
+          cat "$out/report.txt" || true
+          exit $code
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-macos
+          path: ${{ runner.temp }}/smoke-macos
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: MaoX-macOS
+          path: dist/MaoX-Launcher-macOS-*.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: MaoX-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.md
+          if [ ! -s notes.md ]; then echo "MaoX Launcher $GITHUB_REF_NAME" > notes.md; fi
+          cat >> notes.md <<'EOF'
+
+          ---
+          **下载**：Windows 下载 `MaoX-Launcher-Windows-x64.exe`；Mac（M 系列芯片）下载 `MaoX-Launcher-macOS-arm64.zip`，Intel 芯片下载 `MaoX-Launcher-macOS-x64.zip`。
+          Mac 首次打开如果提示无法验证开发者：右键点击 → 打开，或到"系统设置 → 隐私与安全性"点"仍要打开"。需要 macOS 14 或更高版本。
+          EOF
+          gh release create "$GITHUB_REF_NAME" artifacts/* --title "MaoX Launcher $GITHUB_REF_NAME" --notes-file notes.md

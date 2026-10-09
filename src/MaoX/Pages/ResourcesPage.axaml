@@ -1,0 +1,85 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:MaoX.Controls"
+             x:Class="MaoX.Pages.ResourcesPage">
+  <DockPanel>
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,18">
+      <StackPanel Spacing="2" VerticalAlignment="Bottom">
+        <TextBlock Text="资源" Classes="h1" />
+        <TextBlock Text="模组、资源包、光影、数据包和整合包" Classes="muted" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Bottom">
+        <StackPanel Name="WorldColumn" Spacing="7" IsVisible="False">
+          <TextBlock Text="目标存档" Classes="label" />
+          <ComboBox Name="WorldBox" Width="190" SelectionChanged="OnWorldChanged" />
+        </StackPanel>
+        <StackPanel Spacing="7">
+          <TextBlock Text="目标版本" Classes="label" />
+          <ComboBox Name="VersionBox" Width="290" SelectionChanged="OnVersionChanged" PlaceholderText="未安装任何版本" />
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+      <StackPanel Name="KindChips" Orientation="Horizontal" Spacing="8" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" Margin="18,0,12,0" VerticalAlignment="Center"
+                  ClipToBounds="True">
+        <TextBlock Name="InfoLoader" Classes="accent bold" />
+        <TextBlock Name="InfoRest" Classes="muted" />
+      </StackPanel>
+      <Button Grid.Column="2" Click="OnImportModpack">
+        <c:IconLabel Icon="archive" Text="导入整合包文件" />
+      </Button>
+    </Grid>
+
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <ToggleButton Name="ModrinthTab" Classes="chip" Content="Modrinth" Tag="modrinth" Click="OnTabClick" />
+        <ToggleButton Name="CurseForgeTab" Classes="chip" Content="CurseForge" Tag="curseforge" Click="OnTabClick" />
+        <ToggleButton Name="LocalTab" Classes="chip" Content="已安装" Tag="local" Click="OnTabClick" />
+      </StackPanel>
+      <StackPanel Name="BrowseTools" Grid.Column="2" Orientation="Horizontal" Spacing="8">
+        <ComboBox Name="SortBox" Width="118" SelectionChanged="OnSortChanged" />
+        <TextBox Name="SearchBox" Width="230" Watermark="搜索">
+          <TextBox.InnerLeftContent>
+            <c:Icon Kind="search" Size="16" Margin="10,0,0,0" Foreground="{StaticResource Dim}" />
+          </TextBox.InnerLeftContent>
+        </TextBox>
+      </StackPanel>
+      <StackPanel Name="LocalTools" Grid.Column="2" Orientation="Horizontal" Spacing="8" IsVisible="False">
+        <Button Name="UpdateAllButton" Classes="primary" IsVisible="False" Click="OnUpdateAll">
+          <c:IconLabel Name="UpdateAllLabel" Icon="download" Text="全部更新" />
+        </Button>
+        <Button Name="CheckUpdateButton" Click="OnCheckUpdates">
+          <c:IconLabel Name="CheckUpdateLabel" Icon="refresh" Text="检查更新" />
+        </Button>
+        <Button Click="OnOpenFolder">
+          <c:IconLabel Icon="folder" Text="打开文件夹" />
+        </Button>
+        <Button Classes="icon" ToolTip.Tip="刷新" Click="OnRefreshLocal">
+          <c:Icon Kind="refresh" Size="17" />
+        </Button>
+      </StackPanel>
+    </Grid>
+
+    <Panel>
+      <ScrollViewer Name="BrowseView" Padding="0,0,12,0">
+        <StackPanel Name="BrowseList" Spacing="10" />
+      </ScrollViewer>
+      <ScrollViewer Name="LocalView" Padding="0,0,12,0" IsVisible="False">
+        <StackPanel Name="LocalList" Spacing="8" />
+      </ScrollViewer>
+      <StackPanel Name="EmptyView" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Margin="0,0,0,60" Spacing="6">
+        <c:Icon Kind="box" Size="46" StrokeWidth="1.4" Foreground="{StaticResource Dim}" />
+        <TextBlock Name="EmptyTitle" Classes="h3" HorizontalAlignment="Center" Margin="0,10,0,0" />
+        <TextBlock Name="EmptyText" Classes="muted" HorizontalAlignment="Center" TextAlignment="Center"
+                   TextWrapping="Wrap" LineHeight="22" />
+        <Button Name="EmptyButton" Classes="primary" HorizontalAlignment="Center" Margin="0,14,0,0"
+                Click="OnGoDownload">
+          <c:IconLabel Icon="download" Text="前往下载页" />
+        </Button>
+      </StackPanel>
+    </Panel>
+  </DockPanel>
+</UserControl>

@@ -1,0 +1,562 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:MaoX.Controls">
+  <Styles.Resources>
+    <!-- 深空黑 + 科技青 -->
+    <Color x:Key="BgColor">#151820</Color>
+    <Color x:Key="AccentColor">#00D9FF</Color>
+    <SolidColorBrush x:Key="Bg" Color="#151820" />
+    <SolidColorBrush x:Key="Sidebar" Color="#10131A" />
+    <SolidColorBrush x:Key="Card" Color="#1A1E28" />
+    <SolidColorBrush x:Key="CardBorder" Color="#252A36" />
+    <SolidColorBrush x:Key="Input" Color="#1F2430" />
+    <SolidColorBrush x:Key="InputBorder" Color="#2C3242" />
+    <SolidColorBrush x:Key="InputHover" Color="#3A4256" />
+    <SolidColorBrush x:Key="Hover" Color="#232836" />
+    <SolidColorBrush x:Key="Hover2" Color="#2B3142" />
+    <SolidColorBrush x:Key="LogBg" Color="#10131A" />
+    <SolidColorBrush x:Key="Text" Color="#E8ECF3" />
+    <SolidColorBrush x:Key="Muted" Color="#8A93A6" />
+    <SolidColorBrush x:Key="Dim" Color="#596174" />
+    <SolidColorBrush x:Key="Accent" Color="#00D9FF" />
+    <SolidColorBrush x:Key="AccentHover" Color="#5CE6FF" />
+    <SolidColorBrush x:Key="AccentPress" Color="#00B5D6" />
+    <SolidColorBrush x:Key="AccentDim" Color="#0C2F3A" />
+    <SolidColorBrush x:Key="AccentGlow" Color="#2600D9FF" />
+    <SolidColorBrush x:Key="OnAccent" Color="#06141A" />
+    <SolidColorBrush x:Key="Error" Color="#FF5C7A" />
+    <SolidColorBrush x:Key="ErrorDim" Color="#3A1A24" />
+    <SolidColorBrush x:Key="Warn" Color="#FFB547" />
+    <SolidColorBrush x:Key="WarnDim" Color="#3A2E1A" />
+    <SolidColorBrush x:Key="Success" Color="#3DDC97" />
+    <SolidColorBrush x:Key="SuccessDim" Color="#16352A" />
+    <SolidColorBrush x:Key="Overlay" Color="#B00A0C12" />
+
+    <FontFamily x:Key="UiFont">Microsoft YaHei UI, PingFang SC, Hiragino Sans GB, Noto Sans CJK SC, Segoe UI, Helvetica Neue, sans-serif</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Menlo, SF Mono, DejaVu Sans Mono, monospace</FontFamily>
+
+    <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+    <CornerRadius x:Key="OverlayCornerRadius">10</CornerRadius>
+
+    <!-- Fluent 控件颜色覆盖 -->
+    <SolidColorBrush x:Key="TextControlBackground" Color="#1F2430" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#1F2430" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#1F2430" />
+    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#1A1E28" />
+    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#2C3242" />
+    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#3A4256" />
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#00D9FF" />
+    <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="#252A36" />
+    <SolidColorBrush x:Key="TextControlForeground" Color="#E8ECF3" />
+    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#E8ECF3" />
+    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#E8ECF3" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#596174" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#596174" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#596174" />
+    <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#00A7C4" />
+    <Thickness x:Key="TextControlBorderThemeThicknessFocused">1</Thickness>
+    <Thickness x:Key="TextControlThemePadding">12,8,12,8</Thickness>
+
+    <SolidColorBrush x:Key="ComboBoxBackground" Color="#1F2430" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#1F2430" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#1F2430" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundFocused" Color="#1F2430" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundUnfocused" Color="#1F2430" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundDisabled" Color="#1A1E28" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#2C3242" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#3A4256" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#00D9FF" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushFocused" Color="#00D9FF" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushDisabled" Color="#252A36" />
+    <SolidColorBrush x:Key="ComboBoxForeground" Color="#E8ECF3" />
+    <SolidColorBrush x:Key="ComboBoxForegroundFocused" Color="#E8ECF3" />
+    <SolidColorBrush x:Key="ComboBoxForegroundFocusedPressed" Color="#E8ECF3" />
+    <SolidColorBrush x:Key="ComboBoxPlaceHolderForeground" Color="#596174" />
+    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForeground" Color="#8A93A6" />
+    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#1A1E28" />
+    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#2C3242" />
+    <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#232836" />
+    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#2B3142" />
+    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="#0C2F3A" />
+    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="#103A47" />
+    <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#00D9FF" />
+    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPointerOver" Color="#00D9FF" />
+    <Thickness x:Key="ComboBoxDropdownBorderThickness">1</Thickness>
+
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#00D9FF" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#5CE6FF" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#00B5D6" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#06141A" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#06141A" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#06141A" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#1F2430" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver" Color="#232836" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="#3A4256" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOffPointerOver" Color="#596174" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#8A93A6" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPointerOver" Color="#E8ECF3" />
+
+    <SolidColorBrush x:Key="SliderTrackFill" Color="#2C3242" />
+    <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#3A4256" />
+    <SolidColorBrush x:Key="SliderTrackValueFill" Color="#00D9FF" />
+    <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#5CE6FF" />
+    <SolidColorBrush x:Key="SliderThumbBackground" Color="#00D9FF" />
+    <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#5CE6FF" />
+    <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#00B5D6" />
+
+    <SolidColorBrush x:Key="ScrollBarThumbFill" Color="#3A4256" />
+    <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#596174" />
+    <SolidColorBrush x:Key="ScrollBarPanningThumbBackground" Color="#3A4256" />
+
+    <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="#1A1E28" />
+    <SolidColorBrush x:Key="FlyoutBorderThemeBrush" Color="#2C3242" />
+    <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#1A1E28" />
+    <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush" Color="#2C3242" />
+    <SolidColorBrush x:Key="ToolTipBackground" Color="#232836" />
+    <SolidColorBrush x:Key="ToolTipBorderBrush" Color="#2C3242" />
+    <SolidColorBrush x:Key="ToolTipForeground" Color="#E8ECF3" />
+
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#00D9FF" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#5CE6FF" />
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundChecked" Color="#06141A" />
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver" Color="#06141A" />
+  </Styles.Resources>
+
+  <!-- 全局字体 -->
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+  </Style>
+  <Style Selector="TextBlock">
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <!-- 文字样式 -->
+  <Style Selector="TextBlock.h1">
+    <Setter Property="FontSize" Value="28" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="TextBlock.h2">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="TextBlock.h3">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.hero">
+    <Setter Property="FontSize" Value="42" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="TextBlock.bold">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.small">
+    <Setter Property="FontSize" Value="12.5" />
+  </Style>
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    <Setter Property="Margin" Value="0,0,0,7" />
+  </Style>
+  <Style Selector="TextBlock.overline">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="2.5" />
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+  </Style>
+  <Style Selector="TextBlock.dim">
+    <Setter Property="Foreground" Value="{StaticResource Dim}" />
+  </Style>
+  <Style Selector="TextBlock.accent">
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+  <Style Selector="TextBlock.titlelink:pointerover">
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+  <Style Selector="TextBlock.wrap">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="None" />
+  </Style>
+
+  <!-- 卡片 -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{StaticResource Card}" />
+    <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+  </Style>
+  <Style Selector="Border.row">
+    <Setter Property="Background" Value="{StaticResource Card}" />
+    <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.row:pointerover">
+    <Setter Property="BorderBrush" Value="{StaticResource InputHover}" />
+  </Style>
+  <Style Selector="c|IconLabel.cardhead">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Spacing" Value="11" />
+    <Setter Property="IconSize" Value="20" />
+  </Style>
+  <Style Selector="c|IconLabel.cardhead > c|Icon">
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+  <Style Selector="c|IconLabel.cardhead > TextBlock">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Border.dialog">
+    <Setter Property="Background" Value="#1A1E28" />
+    <Setter Property="BorderBrush" Value="#2C3342" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="Padding" Value="28,26" />
+    <Setter Property="BoxShadow" Value="0 24 64 0 #A0000000" />
+  </Style>
+  <Style Selector="Border.toast">
+    <Setter Property="Background" Value="#20252F" />
+    <Setter Property="BorderBrush" Value="#323A4A" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="BoxShadow" Value="0 10 30 0 #80000000" />
+  </Style>
+  <Style Selector="Border.log">
+    <Setter Property="Background" Value="{StaticResource LogBg}" />
+    <Setter Property="CornerRadius" Value="0,0,13,13" />
+  </Style>
+  <Style Selector="Border.badge">
+    <Setter Property="Background" Value="{StaticResource AccentDim}" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="7,2" />
+  </Style>
+  <Style Selector="Border.badge TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- 按钮：默认是次要按钮，primary 为主色，ghost 为无背景 -->
+  <Style Selector="Button">
+    <Setter Property="Background" Value="{StaticResource Hover}" />
+    <Setter Property="BorderBrush" Value="{StaticResource InputBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.12" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Hover2}" />
+    <Setter Property="BorderBrush" Value="{StaticResource InputHover}" />
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+  </Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Input}" />
+  </Style>
+  <Style Selector="Button:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.97)" />
+  </Style>
+  <Style Selector="Button:disabled">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
+    <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+    <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
+  </Style>
+
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{StaticResource Accent}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentHover}" />
+    <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentPress}" />
+  </Style>
+
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="{StaticResource Error}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="#1A0A0F" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#FF7F96" />
+    <Setter Property="Foreground" Value="#1A0A0F" />
+  </Style>
+
+  <Style Selector="Button.ghost">
+    <Setter Property="Background" Value="#00000000" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="MinHeight" Value="32" />
+  </Style>
+  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Hover}" />
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+  </Style>
+  <Style Selector="Button.ghost.danger-text:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{StaticResource Error}" />
+  </Style>
+
+  <Style Selector="Button.link">
+    <Setter Property="Background" Value="#00000000" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="FontWeight" Value="Normal" />
+  </Style>
+  <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#00000000" />
+    <Setter Property="Foreground" Value="{StaticResource AccentHover}" />
+  </Style>
+
+  <Style Selector="Button.icon">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+  </Style>
+  <Style Selector="Button.big">
+    <Setter Property="MinHeight" Value="52" />
+    <Setter Property="FontSize" Value="17" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="28,0" />
+  </Style>
+  <Style Selector="Button.small">
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+
+  <!-- 胶囊切换按钮（筛选条件） -->
+  <Style Selector="ToggleButton.chip">
+    <Setter Property="Background" Value="{StaticResource Card}" />
+    <Setter Property="BorderBrush" Value="{StaticResource InputBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    <Setter Property="CornerRadius" Value="17" />
+    <Setter Property="Padding" Value="16,0" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="FontSize" Value="13.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="ToggleButton.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Hover}" />
+    <Setter Property="BorderBrush" Value="{StaticResource InputHover}" />
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+  </Style>
+  <Style Selector="ToggleButton.chip:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Input}" />
+  </Style>
+  <Style Selector="ToggleButton.chip:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentDim}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+
+  <!-- 侧边栏导航 -->
+  <Style Selector="RadioButton.nav">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="bg" Background="#00000000" CornerRadius="10" Height="44">
+          <Grid ColumnDefinitions="Auto,*">
+            <Border Name="bar" Width="3" Height="18" CornerRadius="2" Background="{StaticResource Accent}"
+                    Opacity="0" Margin="0,0,0,0" />
+            <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}" Margin="14,0,0,0"
+                              VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" />
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.nav /template/ Border#bg">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.nav /template/ Border#bar">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.nav:pointerover /template/ Border#bg">
+    <Setter Property="Background" Value="#181C25" />
+  </Style>
+  <Style Selector="RadioButton.nav:pointerover">
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+  </Style>
+  <Style Selector="RadioButton.nav:checked /template/ Border#bg">
+    <Setter Property="Background" Value="{StaticResource Hover}" />
+  </Style>
+  <Style Selector="RadioButton.nav:checked /template/ Border#bar">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="RadioButton.nav:checked">
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+  </Style>
+  <Style Selector="RadioButton.nav:checked c|Icon">
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+
+  <!-- 输入控件 -->
+  <Style Selector="TextBox">
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="12,6,8,6" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="ComboBoxItem">
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Margin" Value="4,1" />
+  </Style>
+  <Style Selector="ToggleSwitch">
+    <Setter Property="OnContent" Value="" />
+    <Setter Property="OffContent" Value="" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="ToggleSwitch /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="Slider">
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
+  <!-- 列表项：去掉 Fluent 的选中底色，交给内容自己绘制 -->
+  <Style Selector="ListBox.plain">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="ListBox.plain ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.plain ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.plain ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- 日志列表 -->
+  <Style Selector="ListBox.log">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ListBox.log ListBoxItem">
+    <Setter Property="Padding" Value="0,1" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
+  <Style Selector="ListBox.log ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.log ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- 表格式版本列表 -->
+  <Style Selector="ListBox.table">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="6" />
+  </Style>
+  <Style Selector="ListBox.table ListBoxItem">
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="ListBox.table ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Hover}" />
+  </Style>
+  <Style Selector="ListBox.table ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentDim}" />
+  </Style>
+  <Style Selector="ListBox.table ListBoxItem:selected TextBlock.first">
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+
+  <Style Selector="SelectableTextBlock">
+    <Setter Property="SelectionBrush" Value="#3300D9FF" />
+  </Style>
+
+  <!-- 设置了背景图：卡片半透明，让背景透出来 -->
+  <Style Selector=":is(Window).hasbg Border.card">
+    <Setter Property="Background" Value="#B81A1E28" />
+    <Setter Property="BorderBrush" Value="#30FFFFFF" />
+  </Style>
+  <Style Selector=":is(Window).hasbg Border.row">
+    <Setter Property="Background" Value="#B81A1E28" />
+    <Setter Property="BorderBrush" Value="#26FFFFFF" />
+  </Style>
+  <Style Selector=":is(Window).hasbg Border.row:pointerover">
+    <Setter Property="BorderBrush" Value="{StaticResource InputHover}" />
+  </Style>
+  <Style Selector=":is(Window).hasbg Border.log">
+    <Setter Property="Background" Value="#8010131A" />
+  </Style>
+  <Style Selector=":is(Window).hasbg ToggleButton.chip">
+    <Setter Property="Background" Value="#B81A1E28" />
+  </Style>
+</Styles>

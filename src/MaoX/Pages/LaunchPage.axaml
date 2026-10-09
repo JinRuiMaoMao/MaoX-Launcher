@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:MaoX.Controls"
+             xmlns:p="using:MaoX.Pages"
+             x:Class="MaoX.Pages.LaunchPage">
+  <Grid RowDefinitions="Auto,*">
+    <!-- 主视觉卡片 -->
+    <Border Name="Hero" Classes="card" ClipToBounds="True" MinHeight="252">
+      <Panel>
+        <c:Logo Name="Watermark" Width="230" Height="230" HorizontalAlignment="Right" VerticalAlignment="Center"
+                Margin="0,0,44,0" BarBrush="#1D222D" CrossBrush="#0E2A35" />
+
+        <DockPanel Margin="36,32,36,32">
+          <StackPanel DockPanel.Dock="Top" Spacing="2">
+            <TextBlock Text="READY  TO  PLAY" Classes="overline" />
+            <TextBlock Name="HeroTitle" Classes="hero" Margin="0,4,0,0" />
+            <TextBlock Name="HeroMeta" Classes="muted" />
+          </StackPanel>
+
+          <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Bottom" Margin="0,28,0,0">
+            <StackPanel Spacing="7" VerticalAlignment="Bottom">
+              <TextBlock Text="账号" Classes="label" />
+              <Button Name="AccountPicker" Width="214" Height="38" Padding="8,0,12,0" Background="{StaticResource Input}"
+                      BorderBrush="{StaticResource InputBorder}" HorizontalContentAlignment="Stretch"
+                      Click="OnAccountClick">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <c:Avatar Name="HeroAvatar" Width="24" Height="24" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" Margin="9,0,6,0"
+                              VerticalAlignment="Center">
+                    <TextBlock Name="HeroAccountName" FontWeight="SemiBold" />
+                    <TextBlock Name="HeroAccountType" Classes="small dim" FontWeight="Normal" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="切换" Classes="small accent" FontWeight="Normal"
+                             VerticalAlignment="Center" />
+                </Grid>
+              </Button>
+            </StackPanel>
+
+            <StackPanel Spacing="7" VerticalAlignment="Bottom">
+              <TextBlock Text="游戏版本" Classes="label" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <ComboBox Name="VersionBox" Width="250" Height="38" PlaceholderText="未安装任何版本"
+                          SelectionChanged="OnVersionChanged" />
+                <Button Classes="icon" Width="38" Height="38" ToolTip.Tip="版本设置" Click="OnVersionSettings">
+                  <c:Icon Kind="settings" Size="18" />
+                </Button>
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom" Margin="4,0,0,0">
+              <Button Name="LaunchButton" Classes="primary big" MinWidth="184" Height="46" Click="OnLaunchClick">
+                <c:IconLabel Name="LaunchLabel" Icon="play" Text="启动游戏" IconSize="20" Spacing="10" />
+              </Button>
+              <Button Name="StopButton" Classes="icon danger" Width="46" Height="46" IsVisible="False"
+                      ToolTip.Tip="结束游戏进程" Click="OnStopClick">
+                <c:Icon Kind="stop" Size="18" />
+              </Button>
+            </StackPanel>
+          </StackPanel>
+        </DockPanel>
+      </Panel>
+    </Border>
+
+    <!-- 游戏日志 -->
+    <Border Grid.Row="1" Classes="card" Margin="0,20,0,0">
+      <DockPanel>
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="20,10,10,8">
+          <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <c:Icon Kind="file" Size="16" Foreground="{StaticResource Muted}" />
+            <TextBlock Text="游戏日志" FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+            <Button Classes="ghost small" Click="OnCopyLog">
+              <c:IconLabel Icon="copy" Text="复制" IconSize="15" />
+            </Button>
+            <Button Classes="ghost small" Click="OnOpenGameDir">
+              <c:IconLabel Icon="folder" Text="打开游戏目录" IconSize="15" />
+            </Button>
+            <Button Classes="ghost small" Click="OnClearLog">
+              <c:IconLabel Icon="delete" Text="清空" IconSize="15" />
+            </Button>
+          </StackPanel>
+        </Grid>
+        <Border Classes="log">
+          <ListBox Name="LogList" Classes="log" Padding="18,10,8,10">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="p:LogLine">
+                <TextBlock Text="{Binding Text}" Foreground="{Binding Brush}" FontFamily="{StaticResource MonoFont}"
+                           FontSize="12.5" TextWrapping="Wrap" TextTrimming="None" LineHeight="19" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Border>
+      </DockPanel>
+    </Border>
+  </Grid>
+</UserControl>

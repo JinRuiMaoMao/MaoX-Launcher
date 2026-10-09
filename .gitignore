@@ -1,0 +1,14 @@
+__pycache__/
+tools/
+cache/
+.minecraft/
+launcher_config.json
+launcher_crash.log
+build/
+dist/
+.build-venv/
+*.spec
+bin/
+obj/
+.vs/
+*.user
