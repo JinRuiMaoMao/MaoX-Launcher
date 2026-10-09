@@ -12,7 +12,7 @@
   <Panel>
     <!-- 全窗口背景图 + 遮罩 -->
     <Border Name="BackdropImage" IsVisible="False" IsHitTestVisible="False" />
-    <Border Name="BackdropMask" IsVisible="False" IsHitTestVisible="False" Background="#0C0F15" />
+    <Border Name="BackdropMask" IsVisible="False" IsHitTestVisible="False" Background="{StaticResource BackdropMaskBg}" />
 
     <Grid ColumnDefinitions="236,*">
       <!-- 侧边栏 -->
@@ -29,7 +29,7 @@
 
           <TextBlock Name="VersionText" DockPanel.Dock="Bottom" Classes="small dim" Margin="12,10,0,0" />
           <Button Name="AccountCard" DockPanel.Dock="Bottom" Padding="12" HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Stretch" Background="#151922" CornerRadius="12"
+                  HorizontalContentAlignment="Stretch" Background="{StaticResource AccountCardBg}" CornerRadius="12"
                   Click="OnAccountCardClick">
             <Grid ColumnDefinitions="Auto,*,Auto">
               <c:Avatar Name="SidebarAvatar" Width="38" Height="38" />

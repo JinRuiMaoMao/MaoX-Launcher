@@ -87,6 +87,9 @@ public class LauncherConfig
     /// <summary>用户选择"跳过"的版本，不再自动提示</summary>
     public string SkippedUpdate { get; set; } = "";
     public List<ServerEntry> Servers { get; set; } = [];
+    /// <summary>dark / light / system</summary>
+    public string Theme { get; set; } = "dark";
+    public string AccentColor { get; set; } = "#00D9FF";
 
     public static LauncherConfig Load()
     {

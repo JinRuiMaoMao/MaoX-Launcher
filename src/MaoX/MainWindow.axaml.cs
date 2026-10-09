@@ -68,6 +68,7 @@ public partial class MainWindow : Window
         Current = this;
         InitializeComponent();
         Cfg = LauncherConfig.Load();
+        ThemeManager.Apply(Cfg.Theme, Cfg.AccentColor);
         InitAccounts();
         VersionText.Text = "v" + Mc.LauncherVersion + "  ·  " + PlatformLabel();
         Brand.Margin = Platform.IsMac ? new Thickness(12, 58, 0, 34) : new Thickness(12, 52, 0, 34);
@@ -258,7 +259,7 @@ public partial class MainWindow : Window
         BackdropMask.Opacity = Math.Clamp(Cfg.BackgroundMask, 0, 90) / 100.0;
         Classes.Set("hasbg", on);
         SidebarPanel.Background = on
-            ? new SolidColorBrush(Color.Parse("#9910131A"))
+            ? (IBrush)this.FindResource("GlassSidebar")
             : (IBrush)this.FindResource("Sidebar");
         LaunchPage.SetHasBackground(on);
     }

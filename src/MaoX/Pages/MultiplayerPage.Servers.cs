@@ -373,7 +373,7 @@ public partial class MultiplayerPage
         return item;
     }
 
-    /// <summary>按 MOTD 的颜色和样式生成文字；太暗的颜色在深色背景上看不清，改用默认颜色。</summary>
+    /// <summary>按 MOTD 的颜色和样式生成文字；在当前背景上看不清的颜色改用默认颜色。</summary>
     private void FillMotd(TextBlock block, List<MotdSpan> spans)
     {
         var lines = string.Concat(spans.Select(s => s.Text)).Split('\n');
@@ -402,8 +402,7 @@ public partial class MultiplayerPage
                 if (parts[i].Length == 0)
                     continue;
                 var run = new Run(parts[i]);
-                if (span.Color != null && Color.TryParse(span.Color, out var color)
-                    && 0.299 * color.R + 0.587 * color.G + 0.114 * color.B > 70)
+                if (span.Color != null && Color.TryParse(span.Color, out var color) && ThemeManager.Readable(color))
                     run.Foreground = new SolidColorBrush(color);
                 if (span.Bold)
                     run.FontWeight = FontWeight.SemiBold;

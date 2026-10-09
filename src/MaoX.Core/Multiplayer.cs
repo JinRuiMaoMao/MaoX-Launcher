@@ -119,6 +119,9 @@ public class Terracotta : IDisposable
     public int? Port { get; private set; }
     public bool Supported => Classifier != null;
 
+    /// <summary>macOS 上用 sudo -n 代替弹出密码框安装 .pkg（CI 里没人能输密码，但 sudo 免密）。</summary>
+    public bool NonInteractiveInstall { get; set; }
+
     private bool _verified;
     private List<string> _nodes;
     private Process _process;
@@ -275,15 +278,23 @@ public class Terracotta : IDisposable
                          $"with prompt {Literal("陶瓦联机需要安装系统组件才能在 macOS 上使用，请输入密码以继续。")} " +
                          "with administrator privileges";
             Log("正在安装陶瓦联机的系统组件，请在弹出的窗口中输入密码...");
-            var psi = new ProcessStartInfo("osascript")
+            var psi = new ProcessStartInfo(NonInteractiveInstall ? "sudo" : "osascript")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            psi.ArgumentList.Add("-e");
-            psi.ArgumentList.Add(script);
+            if (NonInteractiveInstall)
+            {
+                foreach (var arg in new[] { "-n", "installer", "-pkg", moved, "-target", "/" })
+                    psi.ArgumentList.Add(arg);
+            }
+            else
+            {
+                psi.ArgumentList.Add("-e");
+                psi.ArgumentList.Add(script);
+            }
             using var process = Process.Start(psi) ?? throw new TerracottaException("无法启动系统安装程序");
             var stdout = process.StandardOutput.ReadToEndAsync(cancel);
             var stderr = process.StandardError.ReadToEndAsync(cancel);

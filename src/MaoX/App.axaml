@@ -18,6 +18,18 @@
                                ChromeLow="#10131A"
                                ChromeMedium="#1F2430"
                                ChromeHigh="#2C3242" />
+        <ColorPaletteResources x:Key="Light"
+                               Accent="#0099B8"
+                               RegionColor="#F2F4F8"
+                               AltHigh="#F2F4F8"
+                               BaseHigh="#1B2130"
+                               ErrorText="#D92D50"
+                               ListLow="#EDF0F5"
+                               ListMedium="#E2E7EE"
+                               ChromeMediumLow="#FFFFFF"
+                               ChromeLow="#E8ECF2"
+                               ChromeMedium="#F6F8FB"
+                               ChromeHigh="#CBD2DD" />
       </FluentTheme.Palettes>
     </FluentTheme>
     <StyleInclude Source="avares://MaoXLauncher/Styles/Theme.axaml" />

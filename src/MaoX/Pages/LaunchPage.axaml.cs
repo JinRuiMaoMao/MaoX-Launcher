@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -15,11 +16,13 @@ public partial class LaunchPage : UserControl, IPage
 {
     private const int MaxLogLines = 4000;
 
-    private static readonly IBrush NormalBrush = new SolidColorBrush(Color.Parse("#AEB6C6"));
-    private static readonly IBrush LauncherBrush = new SolidColorBrush(Color.Parse("#00D9FF"));
-    private static readonly IBrush SuccessBrush = new SolidColorBrush(Color.Parse("#3DDC97"));
-    private static readonly IBrush ErrorBrush = new SolidColorBrush(Color.Parse("#FF5C6C"));
-    private static readonly IBrush WarnBrush = new SolidColorBrush(Color.Parse("#FFB547"));
+    private static IBrush ThemeBrush(string key) => (IBrush)Application.Current!.FindResource(key)!;
+
+    private static readonly IBrush NormalBrush = ThemeBrush("LogText");
+    private static readonly IBrush LauncherBrush = ThemeBrush("Accent");
+    private static readonly IBrush SuccessBrush = ThemeBrush("Success");
+    private static readonly IBrush ErrorBrush = ThemeBrush("Error");
+    private static readonly IBrush WarnBrush = ThemeBrush("Warn");
 
     private readonly AvaloniaList<LogLine> _lines = [];
     private readonly ConcurrentQueue<LogLine> _pending = new();

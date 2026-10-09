@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Text;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.VisualTree;
 using Avalonia.Media.Imaging;
 using MaoX.Core;
 
@@ -74,13 +76,16 @@ internal static class SmokeTest
             Environment.Exit(1);
         });
 
-        async Task Check(string name, Func<Task<string>> check, bool required = true)
+        async Task Check(string name, Func<Task<string>> check, bool required = true, TimeSpan? timeout = null)
         {
             step = name;
             Console.WriteLine($"[....] {name}");
             try
             {
-                Line("PASS", name, await check());
+                var task = check();
+                if (timeout is { } limit && await Task.WhenAny(task, Task.Delay(limit)) != task)
+                    throw new TimeoutException($"timed out after {limit.TotalMinutes} minutes");
+                Line("PASS", name, await task);
             }
             catch (Exception e)
             {
@@ -108,6 +113,12 @@ internal static class SmokeTest
                 await Task.Delay(page == "resources" ? 5000 : 1500);
                 var path = Path.Combine(output, $"page-{page}.png");
                 Screenshot(window, path);
+                if (page == "settings" && window.SettingsPage.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll)
+                {
+                    scroll.ScrollToEnd();
+                    await Task.Delay(500);
+                    Screenshot(window, Path.Combine(output, "page-settings-bottom.png"));
+                }
                 return Path.GetFileName(path);
             });
         }
@@ -143,11 +154,18 @@ internal static class SmokeTest
 
         await Check("terracotta", async () =>
         {
-            var tc = new Terracotta(null, window.MakeLauncher().Dl, _ => { });
+            var tc = new Terracotta(null, window.MakeLauncher().Dl, _ => { })
+            {
+                NonInteractiveInstall = Environment.GetEnvironmentVariable("CI") == "true",
+            };
             if (!tc.Supported)
                 return "not supported on this platform";
             if (!await tc.InstalledAsync())
+            {
+                if (Platform.IsMac && !tc.NonInteractiveInstall)
+                    return "not installed (installing needs the admin password, skipped)";
                 await tc.InstallAsync((_, _) => { });
+            }
             try
             {
                 await tc.StartAsync();
@@ -158,7 +176,7 @@ internal static class SmokeTest
             {
                 await tc.ShutdownAsync();
             }
-        }, required: false);
+        }, required: false, timeout: TimeSpan.FromMinutes(3));
 
         if (version != null)
             await Check("launch " + version, () => Task.Run(() => LaunchGame(window, version, output)));

@@ -85,10 +85,10 @@ public class Logo : Control
     private static readonly Geometry Cross = Geometry.Parse("M0,0 H23 L100,100 H77 Z M77,0 H100 L23,100 H0 Z");
 
     public static readonly StyledProperty<IBrush> BarBrushProperty =
-        AvaloniaProperty.Register<Logo, IBrush>(nameof(BarBrush), new SolidColorBrush(Color.Parse("#E8ECF3")));
+        AvaloniaProperty.Register<Logo, IBrush>(nameof(BarBrush));
 
     public static readonly StyledProperty<IBrush> CrossBrushProperty =
-        AvaloniaProperty.Register<Logo, IBrush>(nameof(CrossBrush), new SolidColorBrush(Color.Parse("#00D9FF")));
+        AvaloniaProperty.Register<Logo, IBrush>(nameof(CrossBrush));
 
     static Logo()
     {

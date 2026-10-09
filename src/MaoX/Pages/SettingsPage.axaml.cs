@@ -1,5 +1,7 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using MaoX.Core;
 
 namespace MaoX.Pages;
@@ -60,6 +62,8 @@ public partial class SettingsPage : UserControl, IPage
         AboutPlatform.Text = $"{(Platform.IsWindows ? "Windows" : Platform.IsMac ? "macOS" : "Linux")} {Platform.Arch}"
                              + (Updater.CanSelfUpdate ? "" : "  ·  开发版本，不会自动更新");
         AutoUpdateSwitch.IsChecked = cfg.AutoCheckUpdate;
+        BuildSwatches();
+        UpdateThemeControls();
         FillJava([]);
         _loading = false;
 
@@ -97,6 +101,73 @@ public partial class SettingsPage : UserControl, IPage
 
     public void OnShow()
     {
+    }
+
+    // ------------------------------------------------------------------ 外观
+
+    private readonly List<(Button Button, string Color)> _swatches = [];
+
+    private void BuildSwatches()
+    {
+        var index = 0;
+        foreach (var (name, color) in ThemeManager.Presets)
+        {
+            var swatch = new Button
+            {
+                Classes = { "swatch" }, Background = new SolidColorBrush(Color.Parse(color)),
+            };
+            ToolTip.SetTip(swatch, name);
+            swatch.Click += (_, _) => SetAccent(color);
+            _swatches.Add((swatch, color));
+            AccentSwatches.Children.Insert(index++, swatch);
+        }
+    }
+
+    private void UpdateThemeControls()
+    {
+        ThemeDark.IsChecked = Cfg.Theme is not ("light" or "system");
+        ThemeLight.IsChecked = Cfg.Theme == "light";
+        ThemeSystem.IsChecked = Cfg.Theme == "system";
+        var accent = ThemeManager.ToHex(ThemeManager.Accent);
+        foreach (var (button, color) in _swatches)
+            button.Classes.Set("selected", color.Equals(accent, StringComparison.OrdinalIgnoreCase));
+        if (!AccentBox.IsFocused)
+            AccentBox.Text = accent;
+    }
+
+    private void OnThemeClick(object sender, RoutedEventArgs e)
+    {
+        Cfg.Theme = (string)((Control)sender).Tag!;
+        ApplyTheme();
+    }
+
+    private void SetAccent(string color)
+    {
+        Cfg.AccentColor = color;
+        ApplyTheme();
+    }
+
+    private void ApplyTheme()
+    {
+        ThemeManager.Apply(Cfg.Theme, Cfg.AccentColor);
+        UpdateThemeControls();
+        Main.SaveSettings();
+    }
+
+    private void OnAccentBoxLostFocus(object sender, RoutedEventArgs e) => CommitAccentBox();
+
+    private void OnAccentBoxKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+            CommitAccentBox();
+    }
+
+    private void CommitAccentBox()
+    {
+        if (ThemeManager.TryParse(AccentBox.Text, out var color))
+            SetAccent(ThemeManager.ToHex(color));
+        else
+            AccentBox.Text = ThemeManager.ToHex(ThemeManager.Accent);
     }
 
     /// <summary>检查无法即时写入配置的输入项。</summary>

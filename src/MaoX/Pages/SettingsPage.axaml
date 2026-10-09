@@ -128,6 +128,21 @@
           <StackPanel Spacing="18">
             <c:IconLabel Icon="palette" Text="个性化" Classes="cardhead" />
             <StackPanel Spacing="8">
+              <TextBlock Text="外观" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <ToggleButton Name="ThemeDark" Classes="chip" Content="深色" Tag="dark" Click="OnThemeClick" />
+                <ToggleButton Name="ThemeLight" Classes="chip" Content="浅色" Tag="light" Click="OnThemeClick" />
+                <ToggleButton Name="ThemeSystem" Classes="chip" Content="跟随系统" Tag="system" Click="OnThemeClick" />
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Spacing="8">
+              <TextBlock Text="主题色" />
+              <WrapPanel Name="AccentSwatches" ItemSpacing="8" LineSpacing="8">
+                <TextBox Name="AccentBox" Width="104" Watermark="#RRGGBB" MaxLength="7"
+                         LostFocus="OnAccentBoxLostFocus" KeyDown="OnAccentBoxKeyDown" />
+              </WrapPanel>
+            </StackPanel>
+            <StackPanel Spacing="8">
               <TextBlock Text="启动游戏后" />
               <ComboBox Name="AfterLaunchBox" HorizontalAlignment="Stretch" SelectionChanged="OnAfterLaunchChanged" />
             </StackPanel>
