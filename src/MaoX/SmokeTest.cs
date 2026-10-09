@@ -166,9 +166,12 @@ internal static class SmokeTest
                     await Task.Delay(150, TaskContext.Token);
                 }
             });
-            var b = window.RunTask("测试任务（取消下载）",
-                                   () => dl.DownloadManyAsync([new DownloadTask(clientUrl, file)],
-                                                              (d, t) => window.Progress(d, t, "下载")));
+            var b = window.RunTask("测试任务（取消下载）", async () =>
+            {
+                await dl.DownloadManyAsync([new DownloadTask(clientUrl, file)], (d, t) => window.Progress(d, t, "下载"));
+                // CI 网速很快时下载可能已经完成，继续等待取消信号
+                await Task.Delay(Timeout.Infinite, TaskContext.Token);
+            });
             await Task.Delay(400);
             var running = window.Tasks.Count(t => t.Running);
             window.Tasks.First(t => t.Name == "测试任务（取消下载）").Cancel.Cancel();
