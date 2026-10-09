@@ -275,7 +275,8 @@ public partial class MultiplayerPage : UserControl, IPage
         };
     }
 
-    private IBrush Res(string key) => (IBrush)this.FindResource(key)!;
+    // 页面不在界面上时（切到别的页面后房间状态仍在刷新）this.FindResource 找不到资源，所以从 Application 查找
+    private static IBrush Res(string key) => (IBrush)Application.Current!.FindResource(key)!;
 
     private static Button MakeButton(string text, string style, string icon, Action onClick) =>
         DialogView.MakeButton(text, style, icon, onClick);

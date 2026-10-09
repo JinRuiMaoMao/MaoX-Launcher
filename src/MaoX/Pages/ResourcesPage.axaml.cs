@@ -334,7 +334,7 @@ public partial class ResourcesPage : UserControl, IPage
             Margin = new Thickness(0, 30),
         };
         if (error)
-            block.Foreground = (IBrush)this.FindResource("Error")!;
+            block.Foreground = (IBrush)Application.Current!.FindResource("Error")!;
         BrowseList.Children.Add(block);
         return block;
     }
@@ -413,11 +413,11 @@ public partial class ResourcesPage : UserControl, IPage
 
     private Control Card(SearchHit hit, string source)
     {
-        var accent = (IBrush)this.FindResource("Accent")!;
+        var accent = (IBrush)Application.Current!.FindResource("Accent")!;
         var iconBox = new Border
         {
             Width = 52, Height = 52, CornerRadius = new CornerRadius(11), ClipToBounds = true,
-            Background = (IBrush)this.FindResource("AccentDim")!,
+            Background = (IBrush)Application.Current!.FindResource("AccentDim")!,
             VerticalAlignment = VerticalAlignment.Top,
             Child = new TextBlock
             {
@@ -446,7 +446,7 @@ public partial class ResourcesPage : UserControl, IPage
             titleRow.Children.Add(new TextBlock { Text = "by " + hit.Author, Classes = { "small", "dim" }, VerticalAlignment = VerticalAlignment.Center });
 
         var meta = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        var dim = (IBrush)this.FindResource("Dim")!;
+        var dim = (IBrush)Application.Current!.FindResource("Dim")!;
         meta.Children.Add(new Icon { Kind = "download", Size = 14, Foreground = dim });
         meta.Children.Add(new TextBlock { Text = FormatCount(hit.Downloads), Classes = { "small", "dim" }, Margin = new Thickness(0, 0, 10, 0) });
         var categories = hit.Categories.Take(4).ToList();
@@ -637,8 +637,8 @@ public partial class ResourcesPage : UserControl, IPage
             });
             return;
         }
-        var success = (IBrush)this.FindResource("Success")!;
-        var accent = (IBrush)this.FindResource("Accent")!;
+        var success = (IBrush)Application.Current!.FindResource("Success")!;
+        var accent = (IBrush)Application.Current!.FindResource("Accent")!;
         foreach (var item in _localItems)
         {
             var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
