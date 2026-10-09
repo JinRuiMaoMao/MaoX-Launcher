@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using MaoX.Core;
 using MaoX.Dialogs;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Pages;
 
@@ -13,7 +14,7 @@ public partial class DownloadPage : UserControl, IPage
 {
     public static readonly Dictionary<string, string> VersionTypes = new()
     {
-        ["release"] = "正式版", ["snapshot"] = "快照版", ["old_beta"] = "远古 Beta", ["old_alpha"] = "远古 Alpha",
+        ["release"] = T("正式版"), ["snapshot"] = T("快照版"), ["old_beta"] = T("远古 Beta"), ["old_alpha"] = T("远古 Alpha"),
     };
 
     private static MainWindow Main => MainWindow.Current;
@@ -27,7 +28,7 @@ public partial class DownloadPage : UserControl, IPage
 
     public void OnShow()
     {
-        if (Main.Manifest == null && !Main.IsTaskRunning("获取版本列表"))
+        if (Main.Manifest == null && !Main.IsTaskRunning(T("获取版本列表")))
             LoadManifest();
     }
 
@@ -37,16 +38,16 @@ public partial class DownloadPage : UserControl, IPage
     {
         var launcher = Main.MakeLauncher();
         launcher.Manifest = null;
-        HintText.Text = "正在获取版本列表…";
+        HintText.Text = T("正在获取版本列表…");
         HintText.IsVisible = Main.Manifest == null;
-        await Main.RunTask("获取版本列表", launcher.GetManifestAsync, manifest =>
+        await Main.RunTask(T("获取版本列表"), launcher.GetManifestAsync, manifest =>
         {
             Main.Manifest = manifest;
             FillList();
-            Main.SetStatus($"共 {manifest.Arr("versions")?.Count ?? 0} 个版本");
+            Main.SetStatus(F("共 {0} 个版本", manifest.Arr("versions")?.Count ?? 0));
         });
         if (Main.Manifest == null)
-            HintText.Text = "获取版本列表失败，请点击「刷新列表」重试";
+            HintText.Text = T("获取版本列表失败，请点击「刷新列表」重试");
     }
 
     private void OnFilterChanged(object sender, RoutedEventArgs e) => FillList();
@@ -81,7 +82,7 @@ public partial class DownloadPage : UserControl, IPage
         }
         VersionList.ItemsSource = rows;
         VersionList.SelectedItem = rows.FirstOrDefault(r => r.Id == selected);
-        HintText.Text = "没有符合条件的版本";
+        HintText.Text = T("没有符合条件的版本");
         HintText.IsVisible = rows.Count == 0;
         UpdateSelected();
     }
@@ -92,12 +93,12 @@ public partial class DownloadPage : UserControl, IPage
     {
         if (VersionList.SelectedItem is VersionRow row)
         {
-            SelectedText.Text = "已选择  " + row.Id;
+            SelectedText.Text = F("已选择  {0}", row.Id);
             SelectedText.Classes.Remove("muted");
         }
         else
         {
-            SelectedText.Text = "未选择版本";
+            SelectedText.Text = T("未选择版本");
             SelectedText.Classes.Add("muted");
         }
     }
@@ -114,7 +115,7 @@ public partial class DownloadPage : UserControl, IPage
     {
         if (VersionList.SelectedItem is not VersionRow row)
         {
-            Main.Toast("请先在列表中选择一个版本", "warn");
+            Main.Toast(T("请先在列表中选择一个版本"), "warn");
             return;
         }
         var version = row.Id;
@@ -128,7 +129,7 @@ public partial class DownloadPage : UserControl, IPage
             parts.Add("OptiFine");
         parts.Add(version);
         Main.Log(new string('─', 48));
-        await Main.RunTask("安装 " + string.Join(" + ", parts), async () =>
+        await Main.RunTask(F("安装 {0}", string.Join(" + ", parts)), async () =>
         {
             var installer = new LoaderInstaller(launcher);
             await launcher.PrepareAsync(version);
@@ -147,10 +148,10 @@ public partial class DownloadPage : UserControl, IPage
             return installed;
         }, installed =>
         {
-            Main.Log($"{installed} 安装完成", "success");
+            Main.Log(F("{0} 安装完成", installed), "success");
             Main.RefreshInstalled(installed);
             Main.ShowPage("launch");
-            Main.Toast($"{installed} 安装完成");
+            Main.Toast(F("{0} 安装完成", installed));
         });
     }
 }

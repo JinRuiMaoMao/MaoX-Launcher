@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using MaoX.Controls;
 using MaoX.Core;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Dialogs;
 
@@ -19,8 +20,8 @@ public class SkinDialog : DialogView
     private readonly Account _account;
     private readonly SkinPreview _preview = new() { Width = 128, Height = 256, Cursor = new Cursor(StandardCursorType.Hand) };
     private readonly TextBlock _status = new() { Classes = { "small", "wrap" }, Margin = new Thickness(0, 14, 0, 0) };
-    private readonly ToggleButton _classic = new() { Classes = { "chip" }, Content = "经典（Steve）" };
-    private readonly ToggleButton _slim = new() { Classes = { "chip" }, Content = "纤细（Alex）" };
+    private readonly ToggleButton _classic = new() { Classes = { "chip" }, Content = T("经典（Steve）") };
+    private readonly ToggleButton _slim = new() { Classes = { "chip" }, Content = T("纤细（Alex）") };
     private readonly WrapPanel _capes = new();
     private readonly List<Control> _inputs = [];
     private readonly Button _save;
@@ -48,12 +49,12 @@ public class SkinDialog : DialogView
         _account = account;
         DialogWidth = 600;
         var root = new StackPanel();
-        root.Children.Add(Title("皮肤 · " + account.Name));
+        root.Children.Add(Title(F("皮肤 · {0}", account.Name)));
         root.Children.Add(Paragraph(account.Type switch
         {
-            "offline" => "离线账号的皮肤由启动器在本机提供，自己和同样使用 MaoX 的局域网玩家能看到。",
-            "msa" => "修改会直接保存到你的微软正版账号，所有服务器都能看到。",
-            _ => "外置登录账号的皮肤需要到皮肤站修改，这里只能预览。",
+            "offline" => T("离线账号的皮肤由启动器在本机提供，自己和同样使用 MaoX 的局域网玩家能看到。"),
+            "msa" => T("修改会直接保存到你的微软正版账号，所有服务器都能看到。"),
+            _ => T("外置登录账号的皮肤需要到皮肤站修改，这里只能预览。"),
         }));
 
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("170,*"), Margin = new Thickness(0, 16, 0, 0) };
@@ -67,14 +68,14 @@ public class SkinDialog : DialogView
                 Children =
                 {
                     _preview,
-                    new TextBlock { Text = "点击查看背面", Classes = { "small", "muted" }, HorizontalAlignment = HorizontalAlignment.Center },
+                    new TextBlock { Text = T("点击查看背面"), Classes = { "small", "muted" }, HorizontalAlignment = HorizontalAlignment.Center },
                 },
             },
         };
         _preview.PointerPressed += (_, _) =>
         {
             _preview.Back = !_preview.Back;
-            ((TextBlock)((StackPanel)previewCard.Child).Children[1]).Text = _preview.Back ? "点击查看正面" : "点击查看背面";
+            ((TextBlock)((StackPanel)previewCard.Child).Children[1]).Text = _preview.Back ? T("点击查看正面") : T("点击查看背面");
         };
         grid.Children.Add(previewCard);
 
@@ -86,31 +87,31 @@ public class SkinDialog : DialogView
 
         if (account.Type == "authlib")
         {
-            options.Children.Add(FieldLabel("皮肤站"));
+            options.Children.Add(FieldLabel(T("皮肤站")));
             options.Children.Add(Text(account.ServerName ?? account.Api, "muted"));
-            options.Children.Add(Row(MakeButton("打开皮肤站", icon: "external", onClick: OpenSkinSite)));
-            _save = MakeButton("完成", "primary", onClick: () => Close());
+            options.Children.Add(Row(MakeButton(T("打开皮肤站"), icon: "external", onClick: OpenSkinSite)));
+            _save = MakeButton(T("完成"), "primary", onClick: () => Close());
             root.Children.Add(ButtonRow(_save));
         }
         else
         {
-            options.Children.Add(FieldLabel("皮肤"));
-            options.Children.Add(Row(Input(MakeButton("选择图片…", icon: "image", onClick: PickSkin)),
-                                     Input(MakeButton("从正版玩家获取…", icon: "user", onClick: FetchPlayer))));
-            var reset = Input(new Button { Classes = { "link" }, Content = "恢复默认皮肤" });
+            options.Children.Add(FieldLabel(T("皮肤")));
+            options.Children.Add(Row(Input(MakeButton(T("选择图片…"), icon: "image", onClick: PickSkin)),
+                                     Input(MakeButton(T("从正版玩家获取…"), icon: "user", onClick: FetchPlayer))));
+            var reset = Input(new Button { Classes = { "link" }, Content = T("恢复默认皮肤") });
             reset.Click += (_, _) => ResetSkin();
             options.Children.Add(reset);
 
-            options.Children.Add(WithTop(FieldLabel("模型"), 10));
+            options.Children.Add(WithTop(FieldLabel(T("模型")), 10));
             _classic.Click += (_, _) => SetModel(false);
             _slim.Click += (_, _) => SetModel(true);
             options.Children.Add(Row(Input(_classic), Input(_slim)));
 
-            options.Children.Add(WithTop(FieldLabel("披风"), 10));
+            options.Children.Add(WithTop(FieldLabel(T("披风")), 10));
             if (Offline)
             {
-                var pickCape = Input(MakeButton("选择图片…", icon: "image", onClick: PickCape));
-                var removeCape = Input(new Button { Classes = { "link" }, Content = "不使用披风", VerticalAlignment = VerticalAlignment.Center });
+                var pickCape = Input(MakeButton(T("选择图片…"), icon: "image", onClick: PickCape));
+                var removeCape = Input(new Button { Classes = { "link" }, Content = T("不使用披风"), VerticalAlignment = VerticalAlignment.Center });
                 removeCape.Click += (_, _) => SetCape(null);
                 options.Children.Add(Row(pickCape, removeCape));
             }
@@ -118,8 +119,8 @@ public class SkinDialog : DialogView
             {
                 options.Children.Add(_capes);
             }
-            _save = MakeButton("保存", "primary", onClick: Save);
-            root.Children.Add(ButtonRow(MakeButton("取消", onClick: () => Close()), _save));
+            _save = MakeButton(T("保存"), "primary", onClick: Save);
+            root.Children.Add(ButtonRow(MakeButton(T("取消"), onClick: () => Close()), _save));
         }
         Content = root;
     }
@@ -130,9 +131,9 @@ public class SkinDialog : DialogView
 
     // ------------------------------------------------------------------ 界面小工具
 
-    private static StackPanel Row(params Control[] children)
+    private static WrapPanel Row(params Control[] children)
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var row = new WrapPanel { ItemSpacing = 8, LineSpacing = 8 };
         foreach (var child in children)
             row.Children.Add(child);
         return row;
@@ -225,7 +226,7 @@ public class SkinDialog : DialogView
             SetStatus("", false);
             return;
         }
-        SetBusy(true, "正在读取皮肤…");
+        SetBusy(true, T("正在读取皮肤…"));
         try
         {
             if (Msa)
@@ -277,17 +278,17 @@ public class SkinDialog : DialogView
     private void BuildCapes()
     {
         _capes.Children.Clear();
-        var none = new ToggleButton { Classes = { "chip" }, Content = "不显示", IsChecked = _capeId == null };
+        var none = new ToggleButton { Classes = { "chip" }, Content = T("不显示"), IsChecked = _capeId == null };
         none.Click += (_, _) => ChooseCape(null);
         _capes.Children.Add(Input(none));
         foreach (var cape in _profile?.Capes ?? [])
         {
-            var chip = new ToggleButton { Classes = { "chip" }, Content = cape.Alias ?? "披风", IsChecked = cape.Id == _capeId, Tag = cape.Id };
+            var chip = new ToggleButton { Classes = { "chip" }, Content = cape.Alias ?? T("披风"), IsChecked = cape.Id == _capeId, Tag = cape.Id };
             chip.Click += (_, _) => ChooseCape(cape);
             _capes.Children.Add(Input(chip));
         }
         if (_profile?.Capes.Count is null or 0)
-            _capes.Children.Add(new TextBlock { Text = "这个账号还没有披风", Classes = { "small", "muted" }, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0) });
+            _capes.Children.Add(new TextBlock { Text = T("这个账号还没有披风"), Classes = { "small", "muted" }, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0) });
     }
 
     private async void ChooseCape(MsaTexture cape)
@@ -310,7 +311,7 @@ public class SkinDialog : DialogView
 
     private async void PickSkin()
     {
-        var path = await Main.PickFile("选择皮肤图片", "PNG 图片", "*.png");
+        var path = await Main.PickFile(T("选择皮肤图片"), T("PNG 图片"), "*.png");
         if (path == null)
             return;
         byte[] png;
@@ -320,7 +321,7 @@ public class SkinDialog : DialogView
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            SetStatus("读取图片失败：" + e.Message, true);
+            SetStatus(F("读取图片失败：{0}", e.Message), true);
             return;
         }
         UseSkin(png, null);
@@ -332,23 +333,23 @@ public class SkinDialog : DialogView
         var bitmap = error == null ? Decode(png) : null;
         if (bitmap == null)
         {
-            SetStatus(error ?? "无法读取这张图片", true);
+            SetStatus(error ?? T("无法读取这张图片"), true);
             return;
         }
         _skinDirty = true;
         _modelDirty = false;
         ShowSkin(png, slim ?? SkinPreview.LooksSlim(bitmap));
         _preview.Back = false;
-        SetStatus(_isSlim ? "已自动识别为纤细（Alex）模型，如果不对可以手动切换" : "", false);
+        SetStatus(_isSlim ? T("已自动识别为纤细（Alex）模型，如果不对可以手动切换") : "", false);
     }
 
     private async void FetchPlayer()
     {
-        var name = await Main.ShowDialogAsync(new InputDialog("从正版玩家获取", "输入正版玩家名，使用他当前的皮肤" + (Offline ? "和披风" : ""),
-                                                              "", n => n.Length == 0 ? "请填写玩家名" : null, "获取")) as string;
+        var name = await Main.ShowDialogAsync(new InputDialog(T("从正版玩家获取"), F("输入正版玩家名，使用他当前的皮肤{0}", Offline ? T("和披风") : ""),
+                                                              "", n => n.Length == 0 ? T("请填写玩家名") : null, T("获取"))) as string;
         if (string.IsNullOrEmpty(name) || _closed)
             return;
-        SetBusy(true, $"正在获取「{name}」的皮肤…");
+        SetBusy(true, F("正在获取「{0}」的皮肤…", name));
         try
         {
             var textures = await Task.Run(() => Skins.FetchPlayerAsync(name));
@@ -378,7 +379,7 @@ public class SkinDialog : DialogView
 
     private async void PickCape()
     {
-        var path = await Main.PickFile("选择披风图片", "PNG 图片", "*.png");
+        var path = await Main.PickFile(T("选择披风图片"), T("PNG 图片"), "*.png");
         if (path == null)
             return;
         try
@@ -387,7 +388,7 @@ public class SkinDialog : DialogView
             var error = Skins.ValidateCape(png);
             if (error != null || Decode(png) == null)
             {
-                SetStatus(error ?? "无法读取这张图片", true);
+                SetStatus(error ?? T("无法读取这张图片"), true);
                 return;
             }
             SetCape(png);
@@ -395,7 +396,7 @@ public class SkinDialog : DialogView
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            SetStatus("读取图片失败：" + e.Message, true);
+            SetStatus(F("读取图片失败：{0}", e.Message), true);
         }
     }
 
@@ -419,12 +420,12 @@ public class SkinDialog : DialogView
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                SetStatus("保存皮肤失败：" + e.Message, true);
+                SetStatus(F("保存皮肤失败：{0}", e.Message), true);
                 return;
             }
             Main.AccountsChanged();
             Main.SkinChanged(_account);
-            Main.Toast(_skinPng != null || _capePng != null ? "皮肤已保存，下次启动游戏时生效" : "已恢复默认皮肤");
+            Main.Toast(_skinPng != null || _capePng != null ? T("皮肤已保存，下次启动游戏时生效") : T("已恢复默认皮肤"));
             Close(true);
             return;
         }
@@ -434,7 +435,7 @@ public class SkinDialog : DialogView
             Close();
             return;
         }
-        SetBusy(true, "正在保存到正版账号…");
+        SetBusy(true, T("正在保存到正版账号…"));
         try
         {
             var (skin, slim, reset, capeDirty, capeId) = (_skinPng, _isSlim, _skinDirty && _skinPng == null, _capeDirty, _capeId);
@@ -453,7 +454,7 @@ public class SkinDialog : DialogView
             if (_closed)
                 return;
             Main.SkinChanged(_account);
-            Main.Toast("皮肤已更新，重新进入游戏后生效");
+            Main.Toast(T("皮肤已更新，重新进入游戏后生效"));
             Close(true);
         }
         catch (Exception e)

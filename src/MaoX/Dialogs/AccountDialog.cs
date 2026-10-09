@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using MaoX.Controls;
 using MaoX.Core;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Dialogs;
 
@@ -18,10 +19,10 @@ public class AccountDialog : DialogView
 
     public AccountDialog()
     {
-        DialogWidth = 560;
+        DialogWidth = 600;
         var root = new StackPanel();
-        root.Children.Add(Title("账号管理"));
-        root.Children.Add(Paragraph("离线账号可以随意改名；点「皮肤」可以更换皮肤和披风（离线账号也可以）"));
+        root.Children.Add(Title(T("账号管理")));
+        root.Children.Add(Paragraph(T("离线账号可以随意改名；点「皮肤」可以更换皮肤和披风（离线账号也可以）")));
         root.Children.Add(new ScrollViewer
         {
             Content = _list,
@@ -30,13 +31,13 @@ public class AccountDialog : DialogView
             Padding = new Thickness(0, 0, 8, 0),
         });
 
-        root.Children.Add(new TextBlock { Text = "添加账号", Classes = { "label" }, Margin = new Thickness(0, 20, 0, 8) });
+        root.Children.Add(new TextBlock { Text = T("添加账号"), Classes = { "label" }, Margin = new Thickness(0, 20, 0, 8) });
         var add = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        add.Children.Add(MakeButton("离线账号", icon: "user", onClick: AddOffline));
-        add.Children.Add(MakeButton("外置登录", icon: "link", onClick: AddAuthlib));
-        add.Children.Add(MakeButton("微软正版", icon: "game", onClick: AddMsa));
+        add.Children.Add(MakeButton(T("离线账号"), icon: "user", onClick: AddOffline));
+        add.Children.Add(MakeButton(T("外置登录"), icon: "link", onClick: AddAuthlib));
+        add.Children.Add(MakeButton(T("微软正版"), icon: "game", onClick: AddMsa));
         root.Children.Add(add);
-        root.Children.Add(ButtonRow(MakeButton("完成", "primary", onClick: () => Close())));
+        root.Children.Add(ButtonRow(MakeButton(T("完成"), "primary", onClick: () => Close())));
         Content = root;
 
         Main.AccountChanged += Render;
@@ -53,7 +54,7 @@ public class AccountDialog : DialogView
         {
             _list.Children.Add(new TextBlock
             {
-                Text = "还没有账号，先添加一个吧",
+                Text = T("还没有账号，先添加一个吧"),
                 Classes = { "muted" },
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 30),
@@ -76,23 +77,23 @@ public class AccountDialog : DialogView
             grid.Children.Add(names);
             if (selected)
             {
-                var badge = new Border { Classes = { "badge" }, Child = new TextBlock { Text = "使用中" }, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+                var badge = new Border { Classes = { "badge" }, Child = new TextBlock { Text = T("使用中") }, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
                 Grid.SetColumn(badge, 2);
                 grid.Children.Add(badge);
             }
-            var skin = MakeButton("皮肤", "ghost", onClick: () => _ = Main.ShowDialogAsync(new SkinDialog(account)));
+            var skin = MakeButton(T("皮肤"), "ghost", onClick: () => _ = Main.ShowDialogAsync(new SkinDialog(account)));
             skin.MinWidth = 0;
             Grid.SetColumn(skin, 3);
             grid.Children.Add(skin);
             if (account.Type == "offline")
             {
-                var rename = MakeButton("改名", "ghost", onClick: () => Rename(index));
+                var rename = MakeButton(T("改名"), "ghost", onClick: () => Rename(index));
                 rename.MinWidth = 0;
                 Grid.SetColumn(rename, 4);
                 grid.Children.Add(rename);
             }
             var delete = new Button { Classes = { "ghost", "danger-text" }, Content = new Icon { Kind = "delete", Size = 17 }, Padding = new Thickness(8, 0) };
-            ToolTip.SetTip(delete, "删除账号");
+            ToolTip.SetTip(delete, T("删除账号"));
             delete.Click += (_, _) => Remove(index);
             Grid.SetColumn(delete, 5);
             grid.Children.Add(delete);
@@ -118,25 +119,25 @@ public class AccountDialog : DialogView
     public static string ValidateOffline(string name)
     {
         if (string.IsNullOrEmpty(name))
-            return "名称不能为空";
+            return T("名称不能为空");
         if (name.Any(char.IsWhiteSpace))
-            return "名称不能包含空格";
+            return T("名称不能包含空格");
         if (name.Length > 16)
-            return "名称不能超过 16 个字符";
+            return T("名称不能超过 16 个字符");
         return null;
     }
 
     private async void Remove(int index)
     {
         var account = Main.AccountList[index];
-        if (await Main.Confirm("删除账号", $"确定要删除账号「{account.Name}」吗？", "删除", "warn", "danger"))
+        if (await Main.Confirm(T("删除账号"), F("确定要删除账号「{0}」吗？", account.Name), T("删除"), "warn", "danger"))
             Main.RemoveAccount(index);
     }
 
     private async void Rename(int index)
     {
         var account = Main.AccountList[index];
-        var name = await Main.ShowDialogAsync(new InputDialog("修改名称", "离线账号的玩家名称（不超过 16 个字符，不能有空格）",
+        var name = await Main.ShowDialogAsync(new InputDialog(T("修改名称"), T("离线账号的玩家名称（不超过 16 个字符，不能有空格）"),
                                                               account.Name, ValidateOffline)) as string;
         if (string.IsNullOrEmpty(name) || name == account.Name)
             return;
@@ -147,8 +148,8 @@ public class AccountDialog : DialogView
 
     private async void AddOffline()
     {
-        var name = await Main.ShowDialogAsync(new InputDialog("添加离线账号", "输入玩家名称（不超过 16 个字符，不能有空格）",
-                                                              "", ValidateOffline, "添加")) as string;
+        var name = await Main.ShowDialogAsync(new InputDialog(T("添加离线账号"), T("输入玩家名称（不超过 16 个字符，不能有空格）"),
+                                                              "", ValidateOffline, T("添加"))) as string;
         if (!string.IsNullOrEmpty(name))
             Main.AddAccount(Accounts.OfflineAccount(name));
     }
@@ -165,12 +166,12 @@ public class AccountDialog : DialogView
         if (clientId.Length == 0)
         {
             var choice = await Main.Dialog(
-                "需要先设置 Client ID",
-                "微软登录需要一个在 Azure 注册的应用 Client ID。\n\n" +
-                "1. 在 Azure 门户注册应用，账户类型选「个人 Microsoft 帐户」，并开启「允许公共客户端流」\n" +
-                "2. 向微软提交 Minecraft 接口权限申请（aka.ms/mce-reviewappid），审核通过后即可使用\n" +
-                "3. 把 Client ID 填到「设置 → 账号」中",
-                "info", ("查看注册教程", "guide", ""), ("前往设置", "settings", "primary"));
+                T("需要先设置 Client ID"),
+                T("微软登录需要一个在 Azure 注册的应用 Client ID。\n\n" +
+                  "1. 在 Azure 门户注册应用，账户类型选「个人 Microsoft 帐户」，并开启「允许公共客户端流」\n" +
+                  "2. 向微软提交 Minecraft 接口权限申请（aka.ms/mce-reviewappid），审核通过后即可使用\n" +
+                  "3. 把 Client ID 填到「设置 → 账号」中"),
+                "info", (T("查看注册教程"), "guide", ""), (T("前往设置"), "settings", "primary"));
             if (choice is "guide")
             {
                 Platform.OpenUrl(Accounts.MsaAppGuide);
@@ -203,10 +204,10 @@ public class AuthlibLoginDialog : DialogView
     {
         DialogWidth = 480;
         var root = new StackPanel();
-        root.Children.Add(Title("外置登录"));
-        root.Children.Add(Paragraph("使用 LittleSkin 等皮肤站账号登录（authlib-injector），联机时能显示皮肤"));
+        root.Children.Add(Title(T("外置登录")));
+        root.Children.Add(Paragraph(T("使用 LittleSkin 等皮肤站账号登录（authlib-injector），联机时能显示皮肤")));
         var fields = new StackPanel { Spacing = 7, Margin = new Thickness(0, 16, 0, 0) };
-        foreach (var (label, box) in new[] { ("认证服务器", _server), ("邮箱或用户名", _user), ("密码", _password) })
+        foreach (var (label, box) in new[] { (T("认证服务器"), _server), (T("邮箱或用户名"), _user), (T("密码"), _password) })
         {
             fields.Children.Add(FieldLabel(label));
             box.Margin = new Thickness(0, 0, 0, 8);
@@ -219,8 +220,8 @@ public class AuthlibLoginDialog : DialogView
         };
         root.Children.Add(fields);
         root.Children.Add(_status);
-        _login = MakeButton("登录", "primary", onClick: Login);
-        root.Children.Add(ButtonRow(MakeButton("取消", onClick: () => Close()), _login));
+        _login = MakeButton(T("登录"), "primary", onClick: Login);
+        root.Children.Add(ButtonRow(MakeButton(T("取消"), onClick: () => Close()), _login));
         Content = root;
     }
 
@@ -241,11 +242,11 @@ public class AuthlibLoginDialog : DialogView
         var password = _password.Text ?? "";
         if (user.Length == 0 || password.Length == 0)
         {
-            SetStatus("请填写账号和密码", true);
+            SetStatus(T("请填写账号和密码"), true);
             return;
         }
         _login.IsEnabled = false;
-        SetStatus("正在登录…", false);
+        SetStatus(T("正在登录…"), false);
         try
         {
             var (resolved, tokens) = await Task.Run(async () =>
@@ -259,7 +260,7 @@ public class AuthlibLoginDialog : DialogView
             if (profile == null)
             {
                 var buttons = tokens.AvailableProfiles.Take(4).Select(p => (p.Name, (object)p, "")).ToArray();
-                profile = await Main.Dialog("选择角色", "这个账号下有多个角色，请选择要使用的一个。", "info", buttons) as YggdrasilProfile;
+                profile = await Main.Dialog(T("选择角色"), T("这个账号下有多个角色，请选择要使用的一个。"), "info", buttons) as YggdrasilProfile;
                 if (profile == null || _closed)
                 {
                     _login.IsEnabled = true;
@@ -287,7 +288,7 @@ public class MsaLoginDialog : DialogView
 {
     private readonly string _clientId;
     private readonly CancellationTokenSource _cancel = new();
-    private readonly TextBlock _hint = new() { Text = "正在获取登录代码…", Classes = { "muted", "wrap" }, LineHeight = 22 };
+    private readonly TextBlock _hint = new() { Text = T("正在获取登录代码…"), Classes = { "muted", "wrap" }, LineHeight = 22 };
     private readonly SelectableTextBlock _code = new() { FontSize = 30, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 14, 0, 0) };
     private readonly TextBlock _status = new() { Classes = { "small", "wrap" }, Margin = new Thickness(0, 10, 0, 0) };
     private readonly Button _open;
@@ -299,13 +300,13 @@ public class MsaLoginDialog : DialogView
         DialogWidth = 500;
         _code.Foreground = (IBrush)Application.Current!.FindResource("Accent");
         var root = new StackPanel();
-        root.Children.Add(Title("微软正版登录"));
+        root.Children.Add(Title(T("微软正版登录")));
         root.Children.Add(_hint);
         root.Children.Add(_code);
         root.Children.Add(_status);
-        _open = MakeButton("复制代码并打开登录页", "primary", "link", OpenPage);
+        _open = MakeButton(T("复制代码并打开登录页"), "primary", "link", OpenPage);
         _open.IsEnabled = false;
-        root.Children.Add(ButtonRow(MakeButton("取消", onClick: () => Close()), _open));
+        root.Children.Add(ButtonRow(MakeButton(T("取消"), onClick: () => Close()), _open));
         Content = root;
     }
 
@@ -326,12 +327,12 @@ public class MsaLoginDialog : DialogView
             _device = await Task.Run(() => Accounts.MsaDeviceCodeAsync(_clientId));
             if (_cancel.IsCancellationRequested)
                 return;
-            _hint.Text = $"点击下方按钮打开微软登录页面（{_device.VerificationUri}），输入下面的代码并登录你的微软账号：";
+            _hint.Text = F("点击下方按钮打开微软登录页面（{0}），输入下面的代码并登录你的微软账号：", _device.VerificationUri);
             _code.Text = _device.UserCode;
-            SetStatus("等待你在浏览器中完成登录…", false);
+            SetStatus(T("等待你在浏览器中完成登录…"), false);
             _open.IsEnabled = true;
             var tokens = await Task.Run(() => Accounts.MsaWaitAsync(_clientId, _device, _cancel.Token));
-            SetStatus("已授权，正在登录 Minecraft…", false);
+            SetStatus(T("已授权，正在登录 Minecraft…"), false);
             var account = await Task.Run(() => Accounts.MsaAccountAsync(tokens));
             if (!_cancel.IsCancellationRequested)
                 Close(account);

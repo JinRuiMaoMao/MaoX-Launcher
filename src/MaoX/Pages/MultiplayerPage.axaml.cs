@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using MaoX.Controls;
 using MaoX.Core;
 using MaoX.Dialogs;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Pages;
 
@@ -19,7 +20,7 @@ public partial class MultiplayerPage : UserControl, IPage
 
     private static readonly Dictionary<string, string> KindNames = new()
     {
-        ["HOST"] = "房主", ["LOCAL"] = "你", ["GUEST"] = "玩家",
+        ["HOST"] = T("房主"), ["LOCAL"] = T("你"), ["GUEST"] = T("玩家"),
     };
 
     private readonly Terracotta _tc;
@@ -112,11 +113,11 @@ public partial class MultiplayerPage : UserControl, IPage
     private async void Install()
     {
         SetPhase("installing");
-        await Main.RunTask("下载陶瓦联机", () => _tc.InstallAsync((d, t) => Main.Progress(d, t, "下载陶瓦联机")));
+        await Main.RunTask(T("下载陶瓦联机"), () => _tc.InstallAsync((d, t) => Main.Progress(d, t, T("下载陶瓦联机"))));
         if (await _tc.InstalledAsync())
             Start();
         else
-            SetPhase("fatal", "下载陶瓦联机失败，请检查网络后重试。");
+            SetPhase("fatal", T("下载陶瓦联机失败，请检查网络后重试。"));
     }
 
     private async void Start()
@@ -164,9 +165,9 @@ public partial class MultiplayerPage : UserControl, IPage
             var current = state.Str("state");
             var profiles = state.Arr("profiles")?.Count ?? 0;
             if (previous == "host-ok" && current == "host-ok" && profiles > _prevProfiles)
-                Main.Toast("有新玩家加入了房间");
+                Main.Toast(T("有新玩家加入了房间"));
             if (current == "guest-ok" && previous != "guest-ok")
-                Main.Toast("已成功加入房间");
+                Main.Toast(T("已成功加入房间"));
             _prevProfiles = profiles;
             _state = state;
             _polling = false;
@@ -179,7 +180,7 @@ public partial class MultiplayerPage : UserControl, IPage
             if (!await _tc.AliveAsync())
             {
                 _state = null;
-                SetPhase("fatal", "陶瓦联机已停止运行");
+                SetPhase("fatal", T("陶瓦联机已停止运行"));
             }
             else
             {
@@ -206,7 +207,7 @@ public partial class MultiplayerPage : UserControl, IPage
     private void CreateRoom()
     {
         var player = PlayerName;
-        Action(() => _tc.HostAsync(player), "创建房间失败");
+        Action(() => _tc.HostAsync(player), T("创建房间失败"));
     }
 
     private void JoinRoom()
@@ -214,14 +215,14 @@ public partial class MultiplayerPage : UserControl, IPage
         var code = (_code.Text ?? "").Trim();
         if (code.Length == 0)
         {
-            Main.Toast("请先输入邀请码", "warn");
+            Main.Toast(T("请先输入邀请码"), "warn");
             return;
         }
         var player = PlayerName;
-        Action(() => _tc.JoinAsync(code, player), "加入房间失败");
+        Action(() => _tc.JoinAsync(code, player), T("加入房间失败"));
     }
 
-    private void LeaveRoom() => Action(_tc.LeaveAsync, "操作失败");
+    private void LeaveRoom() => Action(_tc.LeaveAsync, T("操作失败"));
 
     private async void Copy(string text, string what)
     {
@@ -229,7 +230,7 @@ public partial class MultiplayerPage : UserControl, IPage
         if (clipboard == null)
             return;
         await clipboard.SetTextAsync(text);
-        Main.Toast("已复制" + what);
+        Main.Toast(F("已复制{0}", what));
     }
 
     // ------------------------------------------------------------------ 渲染
@@ -246,31 +247,31 @@ public partial class MultiplayerPage : UserControl, IPage
         _signature = signature;
         Body.Content = (state != null ? state.Str("state", "unknown") : _phase) switch
         {
-            "unsupported" => CenterCard("error", "当前系统暂不支持联机",
-                                        "陶瓦联机需要 Windows 10 及以上、macOS 或 Linux（x64 / ARM64）。", "Warn"),
+            "unsupported" => CenterCard("error", T("当前系统暂不支持联机"),
+                                        T("陶瓦联机需要 Windows 10 及以上、macOS 或 Linux（x64 / ARM64）。"), "Warn"),
             "missing" => MissingView(),
-            "fatal" => CenterCard("error", "联机服务出现问题", _error, "Error", MakeButton("重试", "primary", "refresh", Retry)),
+            "fatal" => CenterCard("error", T("联机服务出现问题"), _error, "Error", MakeButton(T("重试"), "primary", "refresh", Retry)),
             "waiting" => WaitingView(),
-            "host-scanning" => CenterCard("game", "正在寻找对局域网开放的世界…",
-                                          "请在游戏中按 Esc，选择「对局域网开放」并点击「创建局域网世界」。\n检测到之后会自动创建房间。",
-                                          "Accent", MakeButton("取消", null, null, LeaveRoom), true),
-            "host-starting" => CenterCard("people", "正在创建房间…", "正在连接公共节点，通常只需要几秒钟。", "Accent",
-                                          MakeButton("取消", null, null, LeaveRoom), true),
-            "guest-connecting" => CenterCard("link", "正在加入房间…", "正在连接公共节点并寻找房主。", "Accent",
-                                             MakeButton("取消", null, null, LeaveRoom), true),
-            "guest-starting" => CenterCard("link", "已找到房主，正在建立连接…",
+            "host-scanning" => CenterCard("game", T("正在寻找对局域网开放的世界…"),
+                                          T("请在游戏中按 Esc，选择「对局域网开放」并点击「创建局域网世界」。\n检测到之后会自动创建房间。"),
+                                          "Accent", MakeButton(T("取消"), null, null, LeaveRoom), true),
+            "host-starting" => CenterCard("people", T("正在创建房间…"), T("正在连接公共节点，通常只需要几秒钟。"), "Accent",
+                                          MakeButton(T("取消"), null, null, LeaveRoom), true),
+            "guest-connecting" => CenterCard("link", T("正在加入房间…"), T("正在连接公共节点并寻找房主。"), "Accent",
+                                             MakeButton(T("取消"), null, null, LeaveRoom), true),
+            "guest-starting" => CenterCard("link", T("已找到房主，正在建立连接…"),
                                            Terracotta.Difficulties.GetValueOrDefault(state!.Str("difficulty") ?? "UNKNOWN",
                                                                                      Terracotta.Difficulties["UNKNOWN"]),
-                                           "Accent", MakeButton("取消", null, null, LeaveRoom), true),
+                                           "Accent", MakeButton(T("取消"), null, null, LeaveRoom), true),
             "host-ok" => HostOkView(),
             "guest-ok" => GuestOkView(),
             "exception" => ExceptionView(),
             _ => CenterCard("people", _phase switch
             {
-                "installing" => "正在下载陶瓦联机…",
-                "starting" => "正在启动联机服务…",
-                _ => "正在准备…",
-            }, Platform.IsWindows ? "首次启动时 Windows 可能会询问是否允许网络访问，请选择允许。" : "", "Accent", null, true),
+                "installing" => T("正在下载陶瓦联机…"),
+                "starting" => T("正在启动联机服务…"),
+                _ => T("正在准备…"),
+            }, Platform.IsWindows ? T("首次启动时 Windows 可能会询问是否允许网络访问，请选择允许。") : "", "Accent", null, true),
         };
     }
 
@@ -311,12 +312,12 @@ public partial class MultiplayerPage : UserControl, IPage
 
     private Control MissingView()
     {
-        var text = "首次使用需要下载陶瓦联机组件（约 8 MB），下载后会自动启动。\n" +
-                   "它基于 EasyTier 建立点对点连接，不需要公网 IP，也不需要管理员权限。";
+        var text = T("首次使用需要下载陶瓦联机组件（约 8 MB），下载后会自动启动。\n" +
+                     "它基于 EasyTier 建立点对点连接，不需要公网 IP，也不需要管理员权限。");
         if (Platform.IsMac)
-            text = "首次使用需要下载陶瓦联机组件，macOS 上会弹出系统密码框把它安装到「应用程序」。\n" +
-                   "它基于 EasyTier 建立点对点连接，不需要公网 IP。";
-        return CenterCard("people", "启用多人联机", text, "Accent", MakeButton("下载并启用", "primary", "download", Install));
+            text = T("首次使用需要下载陶瓦联机组件，macOS 上会弹出系统密码框把它安装到「应用程序」。\n" +
+                     "它基于 EasyTier 建立点对点连接，不需要公网 IP。");
+        return CenterCard("people", T("启用多人联机"), text, "Accent", MakeButton(T("下载并启用"), "primary", "download", Install));
     }
 
     private Control Steps(params string[] steps)
@@ -362,24 +363,24 @@ public partial class MultiplayerPage : UserControl, IPage
     private Control WaitingView()
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,20,*") };
-        var host = Column("game", "创建房间", "我是房主，邀请好友来我的世界",
-                          Steps("启动游戏，进入一个单人世界",
-                                "按 Esc 打开菜单，选择「对局域网开放」，再点「创建局域网世界」",
-                                "回到这里点击「创建房间」，把邀请码发给好友"),
-                          MakeButton("创建房间", "primary", "people", CreateRoom));
+        var host = Column("game", T("创建房间"), T("我是房主，邀请好友来我的世界"),
+                          Steps(T("启动游戏，进入一个单人世界"),
+                                T("按 Esc 打开菜单，选择「对局域网开放」，再点「创建局域网世界」"),
+                                T("回到这里点击「创建房间」，把邀请码发给好友")),
+                          MakeButton(T("创建房间"), "primary", "people", CreateRoom));
         grid.Children.Add(host);
         var guestBody = new StackPanel { Spacing = 7 };
-        guestBody.Children.Add(DialogView.FieldLabel("邀请码"));
+        guestBody.Children.Add(DialogView.FieldLabel(T("邀请码")));
         if (_code.Parent is Panel old)
             old.Children.Remove(_code);
         guestBody.Children.Add(_code);
         guestBody.Children.Add(new TextBlock
         {
-            Text = "形如 U/XXXX-XXXX-XXXX-XXXX，也可以使用 HMCL、PCL 社区版生成的邀请码",
+            Text = T("形如 U/XXXX-XXXX-XXXX-XXXX，也可以使用 HMCL、PCL 社区版生成的邀请码"),
             Classes = { "small", "dim", "wrap" }, Margin = new Thickness(0, 2, 0, 0),
         });
-        var guest = Column("link", "加入房间", "好友已经创建了房间，输入邀请码加入", guestBody,
-                           MakeButton("加入房间", "primary", "link", JoinRoom));
+        var guest = Column("link", T("加入房间"), T("好友已经创建了房间，输入邀请码加入"), guestBody,
+                           MakeButton(T("加入房间"), "primary", "link", JoinRoom));
         Grid.SetColumn(guest, 2);
         grid.Children.Add(guest);
         return grid;
@@ -399,7 +400,7 @@ public partial class MultiplayerPage : UserControl, IPage
         var profiles = _state.Items("profiles").ToList();
         var list = new StackPanel { Spacing = 10, Margin = new Thickness(22, 16, 22, 18) };
         var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 4) };
-        head.Children.Add(new TextBlock { Text = "房间成员", FontWeight = FontWeight.SemiBold });
+        head.Children.Add(new TextBlock { Text = T("房间成员"), FontWeight = FontWeight.SemiBold });
         head.Children.Add(new TextBlock { Text = profiles.Count.ToString(), Classes = { "accent", "bold" } });
         list.Children.Add(head);
         foreach (var profile in profiles)
@@ -439,9 +440,9 @@ public partial class MultiplayerPage : UserControl, IPage
         var root = new StackPanel();
         var code = _state.Str("room", "");
         var inner = Hero(root, "ROOM CODE", code);
-        inner.Children.Add(new TextBlock { Text = "房间已创建，把邀请码发给好友即可加入。请保持游戏和启动器运行。", Classes = { "muted", "wrap" } });
-        inner.Children.Add(Actions(MakeButton("复制邀请码", "primary", "copy", () => Copy(code, "邀请码")),
-                                   MakeButton("关闭房间", null, "close", LeaveRoom)));
+        inner.Children.Add(new TextBlock { Text = T("房间已创建，把邀请码发给好友即可加入。请保持游戏和启动器运行。"), Classes = { "muted", "wrap" } });
+        inner.Children.Add(Actions(MakeButton(T("复制邀请码"), "primary", "copy", () => Copy(code, T("邀请码"))),
+                                   MakeButton(T("关闭房间"), null, "close", LeaveRoom)));
         Members(root);
         return root;
     }
@@ -453,12 +454,12 @@ public partial class MultiplayerPage : UserControl, IPage
         var inner = Hero(root, "CONNECTED", url);
         inner.Children.Add(new TextBlock
         {
-            Text = "已加入房间。在游戏「多人游戏」列表中会出现「陶瓦联机大厅」，也可以直接连接上面的地址。",
+            Text = T("已加入房间。在游戏「多人游戏」列表中会出现「陶瓦联机大厅」，也可以直接连接上面的地址。"),
             Classes = { "muted", "wrap" },
         });
-        inner.Children.Add(Actions(MakeButton("启动游戏并进入", "primary", "play", () => Main.Launch(url)),
-                                   MakeButton("复制地址", null, "copy", () => Copy(url, "服务器地址")),
-                                   MakeButton("退出房间", null, "close", LeaveRoom)));
+        inner.Children.Add(Actions(MakeButton(T("启动游戏并进入"), "primary", "play", () => Main.Launch(url)),
+                                   MakeButton(T("复制地址"), null, "copy", () => Copy(url, T("服务器地址"))),
+                                   MakeButton(T("退出房间"), null, "close", LeaveRoom)));
         Members(root);
         return root;
     }
@@ -466,7 +467,7 @@ public partial class MultiplayerPage : UserControl, IPage
     private Control ExceptionView()
     {
         var kind = _state.Int("type", -1);
-        var message = kind >= 0 && kind < Terracotta.Exceptions.Count ? Terracotta.Exceptions[kind] : "联机出现未知错误";
-        return CenterCard("warn", "联机已中断", message, "Warn", MakeButton("返回", "primary", null, LeaveRoom));
+        var message = kind >= 0 && kind < Terracotta.Exceptions.Count ? Terracotta.Exceptions[kind] : T("联机出现未知错误");
+        return CenterCard("warn", T("联机已中断"), message, "Warn", MakeButton(T("返回"), "primary", null, LeaveRoom));
     }
 }

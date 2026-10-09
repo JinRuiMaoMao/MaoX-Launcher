@@ -19,29 +19,29 @@
 
           <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Bottom" Margin="0,28,0,0">
             <StackPanel Spacing="7" VerticalAlignment="Bottom">
-              <TextBlock Text="账号" Classes="label" />
+              <TextBlock Text="{c:Tr 账号}" Classes="label" />
               <Button Name="AccountPicker" Width="214" Height="38" Padding="8,0,12,0" Background="{StaticResource Input}"
                       BorderBrush="{StaticResource InputBorder}" HorizontalContentAlignment="Stretch"
                       Click="OnAccountClick">
                 <Grid ColumnDefinitions="Auto,*,Auto">
                   <c:Avatar Name="HeroAvatar" Width="24" Height="24" />
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" Margin="9,0,6,0"
-                              VerticalAlignment="Center">
-                    <TextBlock Name="HeroAccountName" FontWeight="SemiBold" />
-                    <TextBlock Name="HeroAccountType" Classes="small dim" FontWeight="Normal" VerticalAlignment="Center" />
-                  </StackPanel>
-                  <TextBlock Grid.Column="2" Text="切换" Classes="small accent" FontWeight="Normal"
+                  <Grid Grid.Column="1" ColumnDefinitions="Auto,*" Margin="9,0,6,0" VerticalAlignment="Center">
+                    <TextBlock Name="HeroAccountName" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="110" />
+                    <TextBlock Name="HeroAccountType" Grid.Column="1" Classes="small dim" FontWeight="Normal"
+                               VerticalAlignment="Center" Margin="7,0,0,0" TextTrimming="CharacterEllipsis" />
+                  </Grid>
+                  <TextBlock Grid.Column="2" Text="{c:Tr 切换}" Classes="small accent" FontWeight="Normal"
                              VerticalAlignment="Center" />
                 </Grid>
               </Button>
             </StackPanel>
 
             <StackPanel Spacing="7" VerticalAlignment="Bottom">
-              <TextBlock Text="游戏版本" Classes="label" />
+              <TextBlock Text="{c:Tr 游戏版本}" Classes="label" />
               <StackPanel Orientation="Horizontal" Spacing="6">
-                <ComboBox Name="VersionBox" Width="250" Height="38" PlaceholderText="未安装任何版本"
+                <ComboBox Name="VersionBox" Width="250" Height="38" PlaceholderText="{c:Tr 未安装任何版本}"
                           SelectionChanged="OnVersionChanged" />
-                <Button Classes="icon" Width="38" Height="38" ToolTip.Tip="版本设置" Click="OnVersionSettings">
+                <Button Classes="icon" Width="38" Height="38" ToolTip.Tip="{c:Tr 版本设置}" Click="OnVersionSettings">
                   <c:Icon Kind="settings" Size="18" />
                 </Button>
               </StackPanel>
@@ -49,10 +49,10 @@
 
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom" Margin="4,0,0,0">
               <Button Name="LaunchButton" Classes="primary big" MinWidth="184" Height="46" Click="OnLaunchClick">
-                <c:IconLabel Name="LaunchLabel" Icon="play" Text="启动游戏" IconSize="20" Spacing="10" />
+                <c:IconLabel Name="LaunchLabel" Icon="play" Text="{c:Tr 启动游戏}" IconSize="20" Spacing="10" />
               </Button>
               <Button Name="StopButton" Classes="icon danger" Width="46" Height="46" IsVisible="False"
-                      ToolTip.Tip="结束游戏进程" Click="OnStopClick">
+                      ToolTip.Tip="{c:Tr 结束游戏进程}" Click="OnStopClick">
                 <c:Icon Kind="stop" Size="18" />
               </Button>
             </StackPanel>
@@ -67,17 +67,17 @@
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="20,10,10,8">
           <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
             <c:Icon Kind="file" Size="16" Foreground="{StaticResource Muted}" />
-            <TextBlock Text="游戏日志" FontWeight="SemiBold" />
+            <TextBlock Text="{c:Tr 游戏日志}" FontWeight="SemiBold" />
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
             <Button Classes="ghost small" Click="OnCopyLog">
-              <c:IconLabel Icon="copy" Text="复制" IconSize="15" />
+              <c:IconLabel Icon="copy" Text="{c:Tr 复制}" IconSize="15" />
             </Button>
             <Button Classes="ghost small" Click="OnOpenGameDir">
-              <c:IconLabel Icon="folder" Text="打开游戏目录" IconSize="15" />
+              <c:IconLabel Icon="folder" Text="{c:Tr 打开游戏目录}" IconSize="15" />
             </Button>
             <Button Classes="ghost small" Click="OnClearLog">
-              <c:IconLabel Icon="delete" Text="清空" IconSize="15" />
+              <c:IconLabel Icon="delete" Text="{c:Tr 清空}" IconSize="15" />
             </Button>
           </StackPanel>
         </Grid>

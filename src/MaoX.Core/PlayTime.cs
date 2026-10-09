@@ -1,4 +1,5 @@
 using System.Globalization;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -39,20 +40,20 @@ public static class PlayTime
             return "";
         var parts = new List<string>();
         if (total > TimeSpan.Zero)
-            parts.Add("已玩 " + FormatDuration(total));
+            parts.Add(F("已玩 {0}", FormatDuration(total)));
         if (last != null)
-            parts.Add("上次游玩 " + FormatAgo(last.Value));
+            parts.Add(F("上次游玩 {0}", FormatAgo(last.Value)));
         return string.Join("  ·  ", parts);
     }
 
     public static string FormatDuration(TimeSpan span)
     {
         if (span.TotalMinutes < 1)
-            return "不到 1 分钟";
+            return T("不到 1 分钟");
         var hours = (int)span.TotalHours;
-        return hours == 0 ? $"{span.Minutes} 分钟"
-            : span.Minutes == 0 ? $"{hours} 小时"
-            : $"{hours} 小时 {span.Minutes} 分钟";
+        return hours == 0 ? F("{0} 分钟", span.Minutes)
+            : span.Minutes == 0 ? F("{0} 小时", hours)
+            : F("{0} 小时 {1} 分钟", hours, span.Minutes);
     }
 
     public static string FormatAgo(DateTime time)
@@ -60,11 +61,11 @@ public static class PlayTime
         var days = (DateTime.Today - time.Date).Days;
         return days switch
         {
-            <= 0 when (DateTime.Now - time).TotalMinutes < 5 => "刚刚",
-            <= 0 => "今天 " + time.ToString("HH:mm"),
-            1 => "昨天",
-            < 7 => $"{days} 天前",
-            _ => time.Year == DateTime.Today.Year ? time.ToString("M 月 d 日") : time.ToString("yyyy 年 M 月 d 日"),
+            <= 0 when (DateTime.Now - time).TotalMinutes < 5 => T("刚刚"),
+            <= 0 => F("今天 {0}", time.ToString("HH:mm")),
+            1 => T("昨天"),
+            < 7 => F("{0} 天前", days),
+            _ => time.Year == DateTime.Today.Year ? time.ToString(T("M 月 d 日")) : time.ToString(T("yyyy 年 M 月 d 日")),
         };
     }
 }

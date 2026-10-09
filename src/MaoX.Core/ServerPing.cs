@@ -5,6 +5,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json.Nodes;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -70,7 +71,7 @@ public static class ServerPing
     {
         var (host, port, explicitPort) = ParseAddress(address);
         if (string.IsNullOrEmpty(host))
-            throw new ArgumentException("服务器地址为空");
+            throw new ArgumentException(T("服务器地址为空"));
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancel);
         cts.CancelAfter(timeoutMs);
         var target = (Host: host, Port: port);
@@ -89,7 +90,7 @@ public static class ServerPing
         }
         catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
         {
-            throw new TimeoutException("连接超时");
+            throw new TimeoutException(T("连接超时"));
         }
     }
 
@@ -114,7 +115,7 @@ public static class ServerPing
         var response = await ReadPacketAsync(stream, cancel);
         var offset = 0;
         if (ReadVarInt(response, ref offset) != 0x00)
-            throw new InvalidDataException("服务器返回了意外的数据");
+            throw new InvalidDataException(T("服务器返回了意外的数据"));
         var length = ReadVarInt(response, ref offset);
         var json = JsonNode.Parse(Encoding.UTF8.GetString(response, offset, length));
 
@@ -169,7 +170,7 @@ public static class ServerPing
         for (var shift = 0; ; shift += 7)
         {
             if (shift >= 35)
-                throw new InvalidDataException("数据包长度无效");
+                throw new InvalidDataException(T("数据包长度无效"));
             var one = new byte[1];
             await stream.ReadExactlyAsync(one, cancel);
             length |= (one[0] & 0x7F) << shift;
@@ -177,7 +178,7 @@ public static class ServerPing
                 break;
         }
         if (length is <= 0 or > 4 * 1024 * 1024)
-            throw new InvalidDataException("数据包长度无效");
+            throw new InvalidDataException(T("数据包长度无效"));
         var data = new byte[length];
         await stream.ReadExactlyAsync(data, cancel);
         return data;
@@ -202,13 +203,13 @@ public static class ServerPing
         for (var shift = 0; shift < 35; shift += 7)
         {
             if (offset >= data.Length)
-                throw new InvalidDataException("数据不完整");
+                throw new InvalidDataException(T("数据不完整"));
             var b = data[offset++];
             value |= (b & 0x7F) << shift;
             if ((b & 0x80) == 0)
                 return value;
         }
-        throw new InvalidDataException("VarInt 过长");
+        throw new InvalidDataException(T("VarInt 过长"));
     }
 
     private static void WriteString(List<byte> buffer, string text)
@@ -231,7 +232,7 @@ public static class ServerPing
         await stream.ReadExactlyAsync(head, cancel);
         var latency = (int)watch.ElapsedMilliseconds;
         if (head[0] != 0xFF)
-            throw new InvalidDataException("服务器没有响应 Minecraft 协议");
+            throw new InvalidDataException(T("服务器没有响应 Minecraft 协议"));
         var chars = BinaryPrimitives.ReadUInt16BigEndian(head.AsSpan(1));
         var body = new byte[chars * 2];
         await stream.ReadExactlyAsync(body, cancel);

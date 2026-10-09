@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -343,7 +344,7 @@ public class Downloader
                     }
                 }
                 if (task.Sha1 != null && Convert.ToHexStringLower(sha1.GetHashAndReset()) != task.Sha1)
-                    throw new DownloadException("SHA1 校验失败");
+                    throw new DownloadException(T("SHA1 校验失败"));
                 File.Move(tmp, task.Path, true);
                 return true;
             }
@@ -394,7 +395,7 @@ public class Downloader
         {
             var (task, error) = failures[0];
             throw new DownloadException(
-                $"{failures.Count} 个文件下载失败，例如 {System.IO.Path.GetFileName(task.Path)}：{error.Message}", error);
+                F("{0} 个文件下载失败，例如 {1}：{2}", failures.Count, System.IO.Path.GetFileName(task.Path), error.Message), error);
         }
         return total;
     }

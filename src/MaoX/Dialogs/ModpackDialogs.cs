@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using MaoX.Controls;
 using MaoX.Core;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Dialogs;
 
@@ -32,7 +33,7 @@ public class FormDialog : DialogView
         body.Margin = new Thickness(0, 16, 0, 0);
         root.Children.Add(body);
         root.Children.Add(_error);
-        root.Children.Add(ButtonRow(MakeButton("取消", onClick: () => Close()),
+        root.Children.Add(ButtonRow(MakeButton(T("取消"), onClick: () => Close()),
                                     MakeButton(confirm, "primary", confirmIcon, Submit)));
         Content = root;
     }
@@ -80,8 +81,8 @@ public static partial class ModpackActions
     {
         var loader = !string.IsNullOrEmpty(info.Loader)
             ? $"{Mc.LoaderNames.GetValueOrDefault(info.Loader, info.Loader)} {info.LoaderVersion}"
-            : "原版";
-        return $"Minecraft {info.Mc}  ·  {loader}  ·  {info.FileCount} 个文件";
+            : T("原版");
+        return F("Minecraft {0}  ·  {1}  ·  {2} 个文件", info.Mc, loader, info.FileCount);
     }
 
     private static string CheckName(GameLauncher gl, string name)
@@ -91,16 +92,16 @@ public static partial class ModpackActions
 
     private static void OnInstalled(string version)
     {
-        Main.Log($"整合包 {version} 安装完成", "success");
+        Main.Log(F("整合包 {0} 安装完成", version), "success");
         Main.RefreshInstalled(version);
         Main.ShowPage("launch");
-        Main.Toast($"整合包 {version} 安装完成");
+        Main.Toast(F("整合包 {0} 安装完成", version));
     }
 
     /// <summary>从本地 .mrpack / .zip 导入整合包。</summary>
     public static async Task ImportFile(string path = null)
     {
-        path ??= await Main.PickFile("选择整合包", "整合包", "*.mrpack", "*.zip");
+        path ??= await Main.PickFile(T("选择整合包"), T("整合包"), "*.mrpack", "*.zip");
         if (path == null)
             return;
         ModpackManifest info;
@@ -110,24 +111,24 @@ public static partial class ModpackActions
         }
         catch (Exception e)
         {
-            await Main.Dialog("无法导入", e.Message, "error");
+            await Main.Dialog(T("无法导入"), e.Message, "error");
             return;
         }
         var gl = Main.MakeLauncher();
         var nameBox = new TextBox { Text = UniqueName(gl, info.Name) };
         var title = $"{info.Name} {info.Version}".Trim();
-        var form = new FormDialog("导入整合包", title + "\n" + Describe(info), FormDialog.Field("版本名称", nameBox),
-                                  () => CheckName(gl, nameBox.Text), "安装");
+        var form = new FormDialog(T("导入整合包"), title + "\n" + Describe(info), FormDialog.Field(T("版本名称"), nameBox),
+                                  () => CheckName(gl, nameBox.Text), T("安装"));
         if (await Main.ShowDialogAsync(form) is not string name)
             return;
         Main.Log(new string('─', 48));
-        await Main.RunTask("安装整合包", () => Modpack.InstallAsync(gl, path, name, Main.Log, Main.Progress), OnInstalled);
+        await Main.RunTask(T("安装整合包"), () => Modpack.InstallAsync(gl, path, name, Main.Log, Main.Progress), OnInstalled);
     }
 
     /// <summary>从搜索结果安装整合包：先选择版本与名称，再下载并安装。</summary>
     public static async Task InstallFromHit(IModClient client, SearchHit hit)
     {
-        Main.SetStatus($"正在获取 {hit.Title} 的版本列表…");
+        Main.SetStatus(F("正在获取 {0} 的版本列表…", hit.Title));
         List<ModpackVersion> versions;
         try
         {
@@ -135,14 +136,14 @@ public static partial class ModpackActions
         }
         catch (Exception e)
         {
-            Main.SetStatus("就绪");
-            await Main.Dialog("获取版本列表失败", MainWindow.ErrorText(e), "error");
+            Main.SetStatus(T("就绪"));
+            await Main.Dialog(T("获取版本列表失败"), MainWindow.ErrorText(e), "error");
             return;
         }
-        Main.SetStatus("就绪");
+        Main.SetStatus(T("就绪"));
         if (versions.Count == 0)
         {
-            await Main.Dialog("无法安装", $"{hit.Title} 没有可下载的整合包文件。", "error");
+            await Main.Dialog(T("无法安装"), F("{0} 没有可下载的整合包文件。", hit.Title), "error");
             return;
         }
         var gl = Main.MakeLauncher();
@@ -156,20 +157,20 @@ public static partial class ModpackActions
         versionBox.SelectionChanged += (_, _) => detail.Text = versions[Math.Max(versionBox.SelectedIndex, 0)].Detail;
         var nameBox = new TextBox { Text = UniqueName(gl, hit.Title) };
         var body = new StackPanel();
-        body.Children.Add(FormDialog.Field("整合包版本", versionBox));
+        body.Children.Add(FormDialog.Field(T("整合包版本"), versionBox));
         body.Children.Add(detail);
-        body.Children.Add(FormDialog.Field("版本名称", nameBox));
-        var form = new FormDialog("安装整合包", hit.Title, body,
-                                  () => (versions[Math.Max(versionBox.SelectedIndex, 0)], CheckName(gl, nameBox.Text)), "安装");
+        body.Children.Add(FormDialog.Field(T("版本名称"), nameBox));
+        var form = new FormDialog(T("安装整合包"), hit.Title, body,
+                                  () => (versions[Math.Max(versionBox.SelectedIndex, 0)], CheckName(gl, nameBox.Text)), T("安装"));
         if (await Main.ShowDialogAsync(form) is not ValueTuple<ModpackVersion, string> result)
             return;
         var (item, name) = result;
         var path = gl.PathOf("cache", "modpacks", InvalidChars().Replace(item.Filename ?? "modpack.zip", "_"));
         Main.Log(new string('─', 48));
-        await Main.RunTask("安装整合包 " + hit.Title, async () =>
+        await Main.RunTask(F("安装整合包 {0}", hit.Title), async () =>
         {
             await gl.Dl.DownloadManyAsync([new DownloadTask(item.Url, path, item.Sha1, item.Size)],
-                                          (d, t) => Main.Progress(d, t, "下载整合包"));
+                                          (d, t) => Main.Progress(d, t, T("下载整合包")));
             try
             {
                 return await Modpack.InstallAsync(gl, path, name, Main.Log, Main.Progress);
@@ -188,11 +189,11 @@ public class ModpackExportDialog : DialogView
 {
     private static readonly (string Key, string Text, string Desc, bool Default)[] Options =
     [
-        ("config", "配置文件", "config、defaultconfigs、kubejs 等", true),
-        ("options", "游戏设置", "options.txt（按键、视频设置）", false),
-        ("resourcepacks", "资源包", "resourcepacks 文件夹", true),
-        ("shaderpacks", "光影包", "shaderpacks 文件夹", true),
-        ("saves", "存档", "saves 文件夹，体积可能很大", false),
+        ("config", T("配置文件"), T("config、defaultconfigs、kubejs 等"), true),
+        ("options", T("游戏设置"), T("options.txt（按键、视频设置）"), false),
+        ("resourcepacks", T("资源包"), T("resourcepacks 文件夹"), true),
+        ("shaderpacks", T("光影包"), T("shaderpacks 文件夹"), true),
+        ("saves", T("存档"), T("saves 文件夹，体积可能很大"), false),
     ];
 
     private readonly string _version;
@@ -216,18 +217,18 @@ public class ModpackExportDialog : DialogView
         _error.Foreground = (IBrush)Application.Current!.FindResource("Error");
 
         var root = new StackPanel();
-        root.Children.Add(Title("导出整合包"));
-        root.Children.Add(Paragraph("导出为 Modrinth 整合包（.mrpack），可以在 MaoX、HMCL、PCL、Prism 等启动器中导入。" +
-                                    "能在 Modrinth 上找到的模组只记录下载地址，体积更小。"));
+        root.Children.Add(Title(T("导出整合包")));
+        root.Children.Add(Paragraph(T("导出为 Modrinth 整合包（.mrpack），可以在 MaoX、HMCL、PCL、Prism 等启动器中导入。" +
+                                      "能在 Modrinth 上找到的模组只记录下载地址，体积更小。")));
         var fields = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,12,*") };
-        row.Children.Add(FormDialog.Field("整合包名称", _name));
-        var versionField = FormDialog.Field("整合包版本", _packVersion);
+        row.Children.Add(FormDialog.Field(T("整合包名称"), _name));
+        var versionField = FormDialog.Field(T("整合包版本"), _packVersion);
         Grid.SetColumn(versionField, 2);
         row.Children.Add(versionField);
         fields.Children.Add(row);
-        fields.Children.Add(FormDialog.Field("简介（可选）", _summary));
-        fields.Children.Add(new TextBlock { Text = "包含内容（模组总是包含）", Classes = { "label" }, Margin = new Thickness(0, 4, 0, 10) });
+        fields.Children.Add(FormDialog.Field(T("简介（可选）"), _summary));
+        fields.Children.Add(new TextBlock { Text = T("包含内容（模组总是包含）"), Classes = { "label" }, Margin = new Thickness(0, 4, 0, 10) });
         foreach (var (key, text, desc, def) in Options)
         {
             var toggle = new ToggleSwitch { IsChecked = def };
@@ -240,7 +241,7 @@ public class ModpackExportDialog : DialogView
         }
         root.Children.Add(fields);
         root.Children.Add(_error);
-        root.Children.Add(ButtonRow(MakeButton("取消", onClick: () => Close()), MakeButton("导出", "primary", "upload", Export)));
+        root.Children.Add(ButtonRow(MakeButton(T("取消"), onClick: () => Close()), MakeButton(T("导出"), "primary", "upload", Export)));
         Content = root;
     }
 
@@ -249,7 +250,7 @@ public class ModpackExportDialog : DialogView
         if (_gl.DetectLoader(_version).Loader == "optifine")
         {
             Close();
-            _ = Main.Dialog("无法导出", "OptiFine 独立版本无法导出为整合包，请改用 Forge + OptiFine。", "warn");
+            _ = Main.Dialog(T("无法导出"), T("OptiFine 独立版本无法导出为整合包，请改用 Forge + OptiFine。"), "warn");
         }
     }
 
@@ -258,19 +259,19 @@ public class ModpackExportDialog : DialogView
         var name = (_name.Text ?? "").Trim();
         if (name.Length == 0)
         {
-            _error.Text = "请填写整合包名称";
+            _error.Text = T("请填写整合包名称");
             return;
         }
         var packVersion = (_packVersion.Text ?? "").Trim();
         var summary = (_summary.Text ?? "").Trim();
         var include = _switches.Where(p => p.Value.IsChecked == true).Select(p => p.Key).ToList();
         var safe = Regex.Replace($"{name}-{packVersion}", @"[\\/:*?""<>|]", "_");
-        var dest = await Main.SaveFile("保存整合包", safe + ".mrpack", "Modrinth 整合包", "*.mrpack");
+        var dest = await Main.SaveFile(T("保存整合包"), safe + ".mrpack", T("Modrinth 整合包"), "*.mrpack");
         if (dest == null)
             return;
         Close();
-        await Main.RunTask("导出整合包",
+        await Main.RunTask(T("导出整合包"),
                            () => Modpack.ExportMrpackAsync(_gl, _version, dest, name, packVersion, summary, include, Main.Log, Main.Progress),
-                           r => Main.Toast($"整合包已导出（{r.Online} 个在线文件，{r.Packed} 个打包文件）"));
+                           r => Main.Toast(F("整合包已导出（{0} 个在线文件，{1} 个打包文件）", r.Online, r.Packed)));
     }
 }

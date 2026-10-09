@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Nodes;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -73,18 +74,18 @@ public static class Accounts
 
     public static readonly IReadOnlyDictionary<long, string> XstsErrors = new Dictionary<long, string>
     {
-        [2148916233] = "这个微软账号还没有创建 Xbox 档案，请先登录 xbox.com 完成创建",
-        [2148916235] = "Xbox Live 在你所在的国家或地区不可用",
-        [2148916236] = "该账号需要完成成人验证（韩国）",
-        [2148916237] = "该账号需要完成成人验证（韩国）",
-        [2148916238] = "未成年账号需要由家长添加到微软家庭组后才能登录",
+        [2148916233] = T("这个微软账号还没有创建 Xbox 档案，请先登录 xbox.com 完成创建"),
+        [2148916235] = T("Xbox Live 在你所在的国家或地区不可用"),
+        [2148916236] = T("该账号需要完成成人验证（韩国）"),
+        [2148916237] = T("该账号需要完成成人验证（韩国）"),
+        [2148916238] = T("未成年账号需要由家长添加到微软家庭组后才能登录"),
     };
 
     public static readonly IReadOnlyDictionary<string, string> TypeNames = new Dictionary<string, string>
     {
-        ["offline"] = "离线账号",
-        ["authlib"] = "外置登录",
-        ["msa"] = "微软账号",
+        ["offline"] = T("离线账号"),
+        ["authlib"] = T("外置登录"),
+        ["msa"] = T("微软账号"),
     };
 
     private static double Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
@@ -104,11 +105,11 @@ public static class Accounts
         catch (Exception e) when (e is HttpRequestException or IOException or InvalidOperationException
                                       or UriFormatException)
         {
-            throw new AccountException("网络连接失败：" + (e.InnerException?.Message ?? e.Message), e);
+            throw new AccountException(F("网络连接失败：{0}", e.InnerException?.Message ?? e.Message), e);
         }
         catch (TaskCanceledException e)
         {
-            throw new AccountException("网络连接失败：连接超时", e);
+            throw new AccountException(T("网络连接失败：连接超时"), e);
         }
     }
 
@@ -130,7 +131,7 @@ public static class Accounts
     public static string Describe(Account account)
     {
         if (account.Type == "authlib")
-            return Or(account.ServerName) ?? "外置登录";
+            return T(Or(account.ServerName) ?? "外置登录");
         return TypeNames.GetValueOrDefault(account.Type ?? "", "");
     }
 
@@ -141,11 +142,11 @@ public static class Accounts
     {
         url = (url ?? "").Trim();
         if (url.Length == 0)
-            throw new AccountException("请填写认证服务器地址");
+            throw new AccountException(T("请填写认证服务器地址"));
         if (!url.Contains("://"))
             url = "https://" + url;
         if (!Uri.TryCreate(url, UriKind.Absolute, out var baseUri) || (baseUri.Scheme != "https" && baseUri.Scheme != "http"))
-            throw new AccountException("这不是有效的外置登录（Yggdrasil）服务器地址");
+            throw new AccountException(T("这不是有效的外置登录（Yggdrasil）服务器地址"));
         var result = await RequestAsync(url);
         var location = result.Header("X-Authlib-Injector-API-Location");
         if (!string.IsNullOrEmpty(location) && Uri.TryCreate(baseUri, location, out var apiUri))
@@ -159,7 +160,7 @@ public static class Accounts
         }
         var meta = result.Json();
         if (result.Status != 200 || meta is not JsonObject obj || !obj.ContainsKey("signaturePublickey"))
-            throw new AccountException("这不是有效的外置登录（Yggdrasil）服务器地址");
+            throw new AccountException(T("这不是有效的外置登录（Yggdrasil）服务器地址"));
         return new YggdrasilServer(url.TrimEnd('/'), meta);
     }
 
@@ -170,9 +171,9 @@ public static class Accounts
         {
             var lower = message.ToLowerInvariant();
             if (lower.Contains("credentials") || lower.Contains("password"))
-                return new AccountException("邮箱或密码错误");
+                return new AccountException(T("邮箱或密码错误"));
             if (lower.Contains("token"))
-                return new AccountException("登录已失效，请重新登录");
+                return new AccountException(T("登录已失效，请重新登录"));
         }
         return new AccountException(message);
     }
@@ -205,7 +206,7 @@ public static class Accounts
             throw YggdrasilError(status, data);
         var tokens = ParseTokens(data, clientToken);
         if (tokens.AvailableProfiles.Count == 0)
-            throw new AccountException("这个账号下还没有角色，请先在皮肤站创建一个角色");
+            throw new AccountException(T("这个账号下还没有角色，请先在皮肤站创建一个角色"));
         return tokens;
     }
 
@@ -255,7 +256,7 @@ public static class Accounts
             ["requestUser"] = true,
         });
         if (status != 200)
-            throw new AccountException($"{account.Name} 的登录已过期，请删除账号后重新登录");
+            throw new AccountException(F("{0} 的登录已过期，请删除账号后重新登录", account.Name));
         account.AccessToken = data.Str("accessToken");
         var name = data.Obj("selectedProfile")?.Str("name");
         if (!string.IsNullOrEmpty(name))
@@ -280,13 +281,13 @@ public static class Accounts
             try
             {
                 var meta = await dl.FetchJsonAsync(url, mirror: false);
-                var download = meta.Str("download_url") ?? throw new DownloadException("缺少 download_url");
+                var download = meta.Str("download_url") ?? throw new DownloadException(T("缺少 download_url"));
                 if (url.Contains("bmclapi") && !download.Contains("bmclapi"))
                 {
                     var root = url[..url.LastIndexOf("/artifact/", StringComparison.Ordinal)];
                     download = $"{root}/artifact/{meta.Str("build_number")}/authlib-injector-{meta.Str("version")}.jar";
                 }
-                log($"正在下载 authlib-injector {meta.Str("version") ?? ""}...");
+                log(F("正在下载 authlib-injector {0}...", meta.Str("version") ?? ""));
                 var tmp = dest + ".download";
                 if (File.Exists(tmp))
                     File.Delete(tmp);
@@ -296,7 +297,7 @@ public static class Accounts
                 if (!string.IsNullOrEmpty(expected) && digest != expected.ToLowerInvariant())
                 {
                     File.Delete(tmp);
-                    throw new AccountException("authlib-injector 校验失败");
+                    throw new AccountException(T("authlib-injector 校验失败"));
                 }
                 File.Move(tmp, dest, true);
                 return dest;
@@ -306,7 +307,7 @@ public static class Accounts
                 last = e;
             }
         }
-        throw new AccountException($"下载 authlib-injector 失败：{last?.Message}", last);
+        throw new AccountException(F("下载 authlib-injector 失败：{0}", last?.Message), last);
     }
 
     // ------------------------------------------------------------------ 微软登录
@@ -319,8 +320,8 @@ public static class Accounts
             ["scope"] = MsScope,
         });
         if (status != 200)
-            throw new AccountException("无法发起微软登录：" +
-                                       (Or(data.Str("error_description"), data.Str("error")) ?? $"HTTP {status}"));
+            throw new AccountException(F("无法发起微软登录：{0}",
+                                         Or(data.Str("error_description"), data.Str("error")) ?? $"HTTP {status}"));
         return new MsaDeviceCode
         {
             UserCode = data.Str("user_code"),
@@ -355,10 +356,10 @@ public static class Accounts
         if (error is "authorization_pending" or "slow_down")
             return null;
         if (error == "authorization_declined")
-            throw new AccountException("你拒绝了登录授权");
+            throw new AccountException(T("你拒绝了登录授权"));
         if (error == "expired_token")
-            throw new AccountException("登录代码已过期，请重新开始");
-        throw new AccountException("微软登录失败：" + (Or(data.Str("error_description"), error) ?? status.ToString()));
+            throw new AccountException(T("登录代码已过期，请重新开始"));
+        throw new AccountException(F("微软登录失败：{0}", Or(data.Str("error_description"), error) ?? status.ToString()));
     }
 
     /// <summary>按 Interval 轮询直到用户完成登录；超过有效期时抛出「登录代码已过期」。可通过 cancel 取消。</summary>
@@ -374,7 +375,7 @@ public static class Accounts
             if (tokens != null)
                 return tokens;
         }
-        throw new AccountException("登录代码已过期，请重新开始");
+        throw new AccountException(T("登录代码已过期，请重新开始"));
     }
 
     private static async Task<MsaTokens> MsaRefreshTokenAsync(string clientId, string refreshToken)
@@ -387,7 +388,7 @@ public static class Accounts
             ["scope"] = MsScope,
         });
         if (status != 200)
-            throw new AccountException("微软账号登录已过期，请删除账号后重新登录");
+            throw new AccountException(T("微软账号登录已过期，请删除账号后重新登录"));
         return ParseMsaTokens(data);
     }
 
@@ -406,7 +407,7 @@ public static class Accounts
             ["TokenType"] = "JWT",
         });
         if (status != 200)
-            throw new AccountException($"Xbox Live 登录失败（HTTP {status}）");
+            throw new AccountException(F("Xbox Live 登录失败（HTTP {0}）", status));
         (status, var xsts) = await JsonRequestAsync(XstsAuthUrl, new JsonObject
         {
             ["Properties"] = new JsonObject
@@ -422,7 +423,7 @@ public static class Accounts
             var xerr = xsts.Long("XErr");
             throw new AccountException(XstsErrors.TryGetValue(xerr, out var known)
                                            ? known
-                                           : $"Xbox 授权失败（{(xerr != 0 ? xerr : status)}）");
+                                           : F("Xbox 授权失败（{0}）", xerr != 0 ? xerr : status));
         }
         var claim = xsts.Obj("DisplayClaims")?.Items("xui").FirstOrDefault();
         var uhs = Or(claim?.Str("uhs"), xbl.Obj("DisplayClaims")?.Items("xui").FirstOrDefault()?.Str("uhs"));
@@ -431,19 +432,19 @@ public static class Accounts
             ["identityToken"] = $"XBL3.0 x={uhs};{xsts.Str("Token")}",
         });
         if (status == 403)
-            throw new AccountException("这个 Client ID 还没有获得 Minecraft 接口权限。新注册的应用需要先向微软提交申请" +
-                                       "（https://aka.ms/mce-reviewappid），审核通过后才能登录");
+            throw new AccountException(T("这个 Client ID 还没有获得 Minecraft 接口权限。新注册的应用需要先向微软提交申请" +
+                                         "（https://aka.ms/mce-reviewappid），审核通过后才能登录"));
         if (status != 200)
-            throw new AccountException($"Minecraft 登录失败（HTTP {status}）");
+            throw new AccountException(F("Minecraft 登录失败（HTTP {0}）", status));
         var accessToken = mc.Str("access_token");
         (status, var profile) = await JsonRequestAsync(McProfileUrl, headers: new Dictionary<string, string>
         {
             ["Authorization"] = "Bearer " + accessToken,
         });
         if (status == 404)
-            throw new AccountException("这个微软账号还没有购买 Minecraft: Java 版");
+            throw new AccountException(T("这个微软账号还没有购买 Minecraft: Java 版"));
         if (status != 200)
-            throw new AccountException($"获取 Minecraft 档案失败（HTTP {status}）");
+            throw new AccountException(F("获取 Minecraft 档案失败（HTTP {0}）", status));
         return new Account
         {
             Type = "msa",
@@ -468,7 +469,7 @@ public static class Accounts
         if (account.ExpiresAt - 600 > Now)
             return false;
         if (string.IsNullOrEmpty(clientId))
-            throw new AccountException("微软账号登录已过期，需要在设置中填写 Client ID 才能自动续期");
+            throw new AccountException(T("微软账号登录已过期，需要在设置中填写 Client ID 才能自动续期"));
         var tokens = await MsaRefreshTokenAsync(clientId, account.RefreshToken);
         var fresh = await MinecraftLoginAsync(tokens.AccessToken);
         account.Type = fresh.Type;
@@ -536,7 +537,7 @@ public static class Accounts
                 }, changed);
             }
             default:
-                throw new AccountException("未知的账号类型");
+                throw new AccountException(T("未知的账号类型"));
         }
     }
 

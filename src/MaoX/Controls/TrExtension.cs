@@ -13,5 +13,9 @@ public class TrExtension : MarkupExtension
 
     public string Text { get; set; }
 
-    public override object ProvideValue(IServiceProvider serviceProvider) => I18n.T(Text);
+    /// <summary>同一句中文需要不同译法时的区分，例如 {c:Tr 账号, Context=settings}。</summary>
+    public string Context { get; set; }
+
+    public override object ProvideValue(IServiceProvider serviceProvider) =>
+        Context == null ? I18n.T(Text) : I18n.T(Text, Context);
 }

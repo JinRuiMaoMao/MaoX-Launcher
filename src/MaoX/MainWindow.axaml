@@ -43,19 +43,19 @@
 
           <StackPanel Name="Nav" Spacing="4">
             <RadioButton Classes="nav" GroupName="nav" Tag="launch" Click="OnNavClick">
-              <c:IconLabel Icon="play" Text="启动" Spacing="14" HorizontalAlignment="Left" />
+              <c:IconLabel Icon="play" Text="{c:Tr 启动}" Spacing="14" HorizontalAlignment="Left" />
             </RadioButton>
             <RadioButton Classes="nav" GroupName="nav" Tag="download" Click="OnNavClick">
-              <c:IconLabel Icon="download" Text="下载" Spacing="14" HorizontalAlignment="Left" />
+              <c:IconLabel Icon="download" Text="{c:Tr 下载}" Spacing="14" HorizontalAlignment="Left" />
             </RadioButton>
             <RadioButton Classes="nav" GroupName="nav" Tag="resources" Click="OnNavClick">
-              <c:IconLabel Icon="box" Text="资源" Spacing="14" HorizontalAlignment="Left" />
+              <c:IconLabel Icon="box" Text="{c:Tr 资源}" Spacing="14" HorizontalAlignment="Left" />
             </RadioButton>
             <RadioButton Classes="nav" GroupName="nav" Tag="multiplayer" Click="OnNavClick">
-              <c:IconLabel Icon="people" Text="联机" Spacing="14" HorizontalAlignment="Left" />
+              <c:IconLabel Icon="people" Text="{c:Tr 联机}" Spacing="14" HorizontalAlignment="Left" />
             </RadioButton>
             <RadioButton Classes="nav" GroupName="nav" Tag="settings" Click="OnNavClick">
-              <c:IconLabel Icon="settings" Text="设置" Spacing="14" HorizontalAlignment="Left" />
+              <c:IconLabel Icon="settings" Text="{c:Tr 设置}" Spacing="14" HorizontalAlignment="Left" />
             </RadioButton>
           </StackPanel>
         </DockPanel>
@@ -76,11 +76,11 @@
         <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
           <c:ProgressLine Name="ProgressBar" Height="2" />
           <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="36,4,30,8">
-            <TextBlock Name="StatusText" Classes="small muted" Text="就绪" VerticalAlignment="Center" />
+            <TextBlock Name="StatusText" Classes="small muted" Text="{c:Tr 就绪}" VerticalAlignment="Center" />
             <TextBlock Name="ProgressText" Grid.Column="1" Classes="small muted" VerticalAlignment="Center" />
             <Button Name="TasksButton" Grid.Column="2" Classes="ghost small" Margin="10,0,0,0" MinHeight="26"
                     IsVisible="False" Click="OnTasksButtonClick">
-              <c:IconLabel Name="TasksLabel" Icon="layers" IconSize="14" Spacing="6" Text="任务" />
+              <c:IconLabel Name="TasksLabel" Icon="layers" IconSize="14" Spacing="6" Text="{c:Tr 任务}" />
             </Button>
           </Grid>
         </Grid>

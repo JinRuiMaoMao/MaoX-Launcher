@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -58,7 +59,7 @@ public static class Modpack
         rel = (rel ?? "").Replace('\\', '/');
         var parts = rel.Split('/').Where(p => p is not ("" or ".")).ToArray();
         if (parts.Length == 0 || parts.Contains("..") || parts[0].Contains(':'))
-            throw new ModpackException($"整合包中包含不安全的路径：{rel}");
+            throw new ModpackException(F("整合包中包含不安全的路径：{0}", rel));
         return Path.Combine([root, .. parts]);
     }
 
@@ -107,7 +108,7 @@ public static class Modpack
             {
                 var manifest = ReadEntryJson(zip, "manifest.json");
                 if (manifest.Str("manifestType") != "minecraftModpack")
-                    throw new ModpackException("不支持的 CurseForge 整合包类型");
+                    throw new ModpackException(T("不支持的 CurseForge 整合包类型"));
                 var minecraft = manifest.Get("minecraft");
                 var loaders = minecraft.Items("modLoaders").ToList();
                 var primary = loaders.FirstOrDefault(l => l.Bool("primary")) ?? loaders.FirstOrDefault();
@@ -137,9 +138,9 @@ public static class Modpack
         catch (Exception e) when (e is InvalidDataException or JsonException or KeyNotFoundException
                                       or InvalidOperationException)
         {
-            throw new ModpackException($"整合包文件已损坏：{e.Message}", e);
+            throw new ModpackException(F("整合包文件已损坏：{0}", e.Message), e);
         }
-        throw new ModpackException("不是支持的整合包（支持 Modrinth .mrpack 与 CurseForge 整合包 .zip）");
+        throw new ModpackException(T("不是支持的整合包（支持 Modrinth .mrpack 与 CurseForge 整合包 .zip）"));
     }
 
     private static async Task<LoaderItem> LoaderItemAsync(LoaderInstaller installer, string loader, string mc,
@@ -163,9 +164,9 @@ public static class Modpack
         var mc = info.Mc;
         var loader = info.Loader;
         if (string.IsNullOrEmpty(mc))
-            throw new ModpackException("整合包没有指定 Minecraft 版本");
+            throw new ModpackException(T("整合包没有指定 Minecraft 版本"));
         if (!string.IsNullOrEmpty(loader) && !Loaders.All.Contains(loader))
-            throw new ModpackException($"不支持的模组加载器：{loader}");
+            throw new ModpackException(F("不支持的模组加载器：{0}", loader));
         await gl.EnsureVersionJsonAsync(mc);
         var @base = mc;
         var created = false;
@@ -231,7 +232,7 @@ public static class Modpack
         }
         var missing = ids.ToHashSet().Except(files.Select(f => f.Long("id"))).Count();
         if (missing > 0)
-            log($"[警告] 有 {missing} 个文件在 CurseForge 上已不存在，已跳过");
+            log(F("[警告] 有 {0} 个文件在 CurseForge 上已不存在，已跳过", missing));
         var tasks = new List<DownloadTask>();
         foreach (var f in files)
         {
@@ -267,8 +268,8 @@ public static class Modpack
         log ??= _ => { };
         var info = await Task.Run(() => ReadManifest(path));
         name = Instance.CheckName(gl, name);
-        var loaderText = !string.IsNullOrEmpty(info.Loader) ? $"，{info.Loader} {info.LoaderVersion}" : "";
-        log($"正在安装整合包 {info.Name}（Minecraft {info.Mc}{loaderText}）");
+        var loaderText = !string.IsNullOrEmpty(info.Loader) ? F("，{0} {1}", info.Loader, info.LoaderVersion) : "";
+        log(F("正在安装整合包 {0}（Minecraft {1}{2}）", info.Name, info.Mc, loaderText));
         try
         {
             await CreateVersionAsync(gl, info, name);
@@ -286,10 +287,10 @@ public static class Modpack
                 var overrides = info.Raw.Str("overrides");
                 prefixes = [string.IsNullOrEmpty(overrides) ? "overrides" : overrides];
             }
-            log($"正在下载整合包中的 {tasks.Count} 个文件...");
-            await gl.Dl.DownloadManyAsync(tasks, (d, t) => progress?.Invoke(d, t, "下载整合包文件"));
+            log(F("正在下载整合包中的 {0} 个文件...", tasks.Count));
+            await gl.Dl.DownloadManyAsync(tasks, (d, t) => progress?.Invoke(d, t, T("下载整合包文件")));
             var extracted = await Task.Run(() => ExtractOverrides(path, prefixes, gameDir));
-            log($"已解压 {extracted} 个配置文件");
+            log(F("已解压 {0} 个配置文件", extracted));
             await gl.PrepareAsync(name);
         }
         catch
@@ -319,7 +320,7 @@ public static class Modpack
         log ??= _ => { };
         var (loader, loaderVersion, mc) = gl.DetectLoader(versionId);
         if (loader == "optifine")
-            throw new ModpackException("OptiFine 独立版本无法导出为整合包，请改用 Forge + OptiFine");
+            throw new ModpackException(T("OptiFine 独立版本无法导出为整合包，请改用 Forge + OptiFine"));
         var deps = new JsonObject { ["minecraft"] = mc };
         if (!string.IsNullOrEmpty(loader))
         {
@@ -343,7 +344,7 @@ public static class Modpack
                     candidates.Add((folder + "/" + f, Path.Combine(root, f)));
             }
         }
-        log($"正在识别 {candidates.Count} 个文件...");
+        log(F("正在识别 {0} 个文件...", candidates.Count));
         var hashes = await Task.Run(() => candidates.ToDictionary(c => c.Rel, c => Http.FileSha1(c.Path)));
         JsonObject found;
         try
@@ -352,7 +353,7 @@ public static class Modpack
         }
         catch (Exception e)
         {
-            log($"[警告] 无法连接 Modrinth，所有文件将直接打包：{e.Message}");
+            log(F("[警告] 无法连接 Modrinth，所有文件将直接打包：{0}", e.Message));
             found = new JsonObject();
         }
 
@@ -439,7 +440,7 @@ public static class Modpack
                         var (rel, path) = overrides[i - 1];
                         zip.CreateEntryFromFile(path, "overrides/" + rel, CompressionLevel.Optimal);
                         if (progress != null && (i % 20 == 0 || i == overrides.Count))
-                            progress(i, overrides.Count, "打包文件");
+                            progress(i, overrides.Count, T("打包文件"));
                     }
                 }
                 File.Move(tmp, dest, true);
@@ -450,7 +451,7 @@ public static class Modpack
                     File.Delete(tmp);
             }
         });
-        log($"整合包已导出：{dest}（{files.Count} 个在线文件，{overrides.Count} 个打包文件）");
+        log(F("整合包已导出：{0}（{1} 个在线文件，{2} 个打包文件）", dest, files.Count, overrides.Count));
         return (files.Count, overrides.Count);
     }
 }

@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using MaoX.Controls;
 using MaoX.Core;
 using MaoX.Dialogs;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Pages;
 
@@ -35,8 +36,8 @@ public partial class MultiplayerPage
         RoomView.IsVisible = Credit.IsVisible = room;
         ServerTools.IsVisible = !room;
         Subtitle.Text = room
-            ? "基于陶瓦联机，无需公网 IP 就能和好友一起玩，邀请码与 HMCL、PCL 社区版互通"
-            : "收藏常玩的服务器，查看在线人数和延迟，一键启动游戏并进入";
+            ? T("基于陶瓦联机，无需公网 IP 就能和好友一起玩，邀请码与 HMCL、PCL 社区版互通")
+            : T("收藏常玩的服务器，查看在线人数和延迟，一键启动游戏并进入");
         if (room)
         {
             ServerView.IsVisible = ServerEmpty.IsVisible = false;
@@ -74,7 +75,7 @@ public partial class MultiplayerPage
         }
         catch (Exception e)
         {
-            Main.Toast("保存服务器列表失败：" + e.Message, "error");
+            Main.Toast(F("保存服务器列表失败：{0}", e.Message), "error");
         }
     }
 
@@ -106,7 +107,7 @@ public partial class MultiplayerPage
 
     private async void Remove(ServerEntry server)
     {
-        if (!await Main.Confirm("删除服务器", $"确定要从列表中删除「{server.Name}」吗？", "删除", "warn", "danger"))
+        if (!await Main.Confirm(T("删除服务器"), F("确定要从列表中删除「{0}」吗？", server.Name), T("删除"), "warn", "danger"))
             return;
         Servers.Remove(server);
         SaveServers();
@@ -146,12 +147,12 @@ public partial class MultiplayerPage
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
             {
-                Main.Log($"读取 {Path.Combine(dir, "servers.dat")} 失败：{ex.Message}");
+                Main.Log(F("读取 {0} 失败：{1}", Path.Combine(dir, "servers.dat"), ex.Message));
             }
         }
         if (added.Count == 0)
         {
-            Main.Toast("游戏的多人游戏列表里没有新的服务器", "info");
+            Main.Toast(T("游戏的多人游戏列表里没有新的服务器"), "info");
             return;
         }
         Servers.AddRange(added);
@@ -159,7 +160,7 @@ public partial class MultiplayerPage
         RenderServers();
         foreach (var server in added)
             Ping(server.Address);
-        Main.Toast($"已导入 {added.Count} 个服务器");
+        Main.Toast(F("已导入 {0} 个服务器", added.Count));
     }
 
     private void Join(ServerEntry server)
@@ -168,7 +169,7 @@ public partial class MultiplayerPage
         {
             if (!Main.Installed.Contains(server.Version))
             {
-                Main.Toast($"这个服务器设置的版本 {server.Version} 不存在，请编辑服务器重新选择", "warn");
+                Main.Toast(F("这个服务器设置的版本 {0} 不存在，请编辑服务器重新选择", server.Version), "warn");
                 return;
             }
             Main.SelectVersion(server.Version);
@@ -182,7 +183,7 @@ public partial class MultiplayerPage
         if (clipboard == null)
             return;
         await clipboard.SetTextAsync(server.Address);
-        Main.Toast("已复制服务器地址");
+        Main.Toast(T("已复制服务器地址"));
     }
 
     // ------------------------------------------------------------------ Ping
@@ -230,12 +231,12 @@ public partial class MultiplayerPage
 
     private static string PingError(Exception e) => e switch
     {
-        SocketException { SocketErrorCode: SocketError.HostNotFound or SocketError.NoData } => "找不到这个地址，请检查是否拼写正确",
-        SocketException { SocketErrorCode: SocketError.ConnectionRefused } => "服务器拒绝连接，可能没有开服或端口不对",
-        SocketException { SocketErrorCode: SocketError.TimedOut } or TimeoutException => "连接超时，服务器可能已关闭",
-        SocketException s => "无法连接：" + s.Message,
-        InvalidDataException or EndOfStreamException or IOException => "服务器没有返回 Minecraft 信息",
-        _ => "无法连接：" + e.Message,
+        SocketException { SocketErrorCode: SocketError.HostNotFound or SocketError.NoData } => T("找不到这个地址，请检查是否拼写正确"),
+        SocketException { SocketErrorCode: SocketError.ConnectionRefused } => T("服务器拒绝连接，可能没有开服或端口不对"),
+        SocketException { SocketErrorCode: SocketError.TimedOut } or TimeoutException => T("连接超时，服务器可能已关闭"),
+        SocketException s => F("无法连接：{0}", s.Message),
+        InvalidDataException or EndOfStreamException or IOException => T("服务器没有返回 Minecraft 信息"),
+        _ => F("无法连接：{0}", e.Message),
     };
 
     // ------------------------------------------------------------------ 渲染
@@ -291,7 +292,7 @@ public partial class MultiplayerPage
         }
         else
         {
-            motd.Text = "正在连接…";
+            motd.Text = T("正在连接…");
         }
 
         var text = new StackPanel { Spacing = 4, Margin = new Thickness(16, 0, 16, 0), VerticalAlignment = VerticalAlignment.Center };
@@ -308,7 +309,7 @@ public partial class MultiplayerPage
             info.Children.Add(ping);
             var players = new TextBlock
             {
-                Text = $"{status.Online:N0} / {status.Max:N0} 人在线", Classes = { "small" }, HorizontalAlignment = HorizontalAlignment.Right,
+                Text = F("{0:N0} / {1:N0} 人在线", status.Online, status.Max), Classes = { "small" }, HorizontalAlignment = HorizontalAlignment.Right,
             };
             if (status.Players.Count > 0)
                 ToolTip.SetTip(players, string.Join("\n", status.Players.Take(20)));
@@ -322,19 +323,19 @@ public partial class MultiplayerPage
         }
         else if (state?.Loading != false)
         {
-            info.Children.Add(new TextBlock { Text = "连接中…", Classes = { "small", "dim" }, HorizontalAlignment = HorizontalAlignment.Right });
+            info.Children.Add(new TextBlock { Text = T("连接中…"), Classes = { "small", "dim" }, HorizontalAlignment = HorizontalAlignment.Right });
         }
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
-        var join = new Button { Classes = { "primary" }, Content = new IconLabel { Icon = "play", Text = "进入" }, MinWidth = 88 };
+        var join = new Button { Classes = { "primary" }, Content = new IconLabel { Icon = "play", Text = T("进入") }, MinWidth = 88 };
         join.Click += (_, _) => Join(server);
         buttons.Children.Add(join);
         var edit = new Button { Classes = { "icon" }, Content = new Icon { Kind = "edit", Size = 17 } };
-        ToolTip.SetTip(edit, "编辑");
+        ToolTip.SetTip(edit, T("编辑"));
         edit.Click += (_, _) => Edit(server);
         buttons.Children.Add(edit);
         var delete = new Button { Classes = { "icon" }, Content = new Icon { Kind = "delete", Size = 17 } };
-        ToolTip.SetTip(delete, "删除");
+        ToolTip.SetTip(delete, T("删除"));
         delete.Click += (_, _) => Remove(server);
         buttons.Children.Add(delete);
 
@@ -348,14 +349,14 @@ public partial class MultiplayerPage
         grid.Children.Add(buttons);
 
         var menu = new ContextMenu();
-        menu.Items.Add(MenuEntry("进入服务器", () => Join(server)));
-        menu.Items.Add(MenuEntry("复制地址", () => CopyAddress(server)));
-        menu.Items.Add(MenuEntry("编辑", () => Edit(server)));
+        menu.Items.Add(MenuEntry(T("进入服务器"), () => Join(server)));
+        menu.Items.Add(MenuEntry(T("复制地址"), () => CopyAddress(server)));
+        menu.Items.Add(MenuEntry(T("编辑"), () => Edit(server)));
         if (index > 0)
-            menu.Items.Add(MenuEntry("上移", () => Move(server, -1)));
+            menu.Items.Add(MenuEntry(T("上移"), () => Move(server, -1)));
         if (index < Servers.Count - 1)
-            menu.Items.Add(MenuEntry("下移", () => Move(server, 1)));
-        menu.Items.Add(MenuEntry("删除", () => Remove(server)));
+            menu.Items.Add(MenuEntry(T("下移"), () => Move(server, 1)));
+        menu.Items.Add(MenuEntry(T("删除"), () => Remove(server)));
 
         var row = new Border { Classes = { "row" }, Padding = new Thickness(14, 12), Child = grid, ContextMenu = menu };
         row.DoubleTapped += (_, e) =>
@@ -414,7 +415,7 @@ public partial class MultiplayerPage
             }
         }
         if (inlines.Count == 0)
-            block.Text = "（没有简介）";
+            block.Text = T("（没有简介）");
         else
             block.Inlines = inlines;
     }

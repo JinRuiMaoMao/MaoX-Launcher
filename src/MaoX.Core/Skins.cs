@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -52,17 +53,17 @@ public static class Skins
     public static string ValidateSkin(byte[] data)
     {
         if (!IsPng(data))
-            return "皮肤必须是 PNG 图片";
-        return PngSize(data) is (64, 64) or (64, 32) ? null : "皮肤图片的尺寸必须是 64×64 或 64×32";
+            return T("皮肤必须是 PNG 图片");
+        return PngSize(data) is (64, 64) or (64, 32) ? null : T("皮肤图片的尺寸必须是 64×64 或 64×32");
     }
 
     /// <summary>披风宽高比 2:1，宽度为 64 的倍数（64×32、128×64…）。</summary>
     public static string ValidateCape(byte[] data)
     {
         if (!IsPng(data))
-            return "披风必须是 PNG 图片";
+            return T("披风必须是 PNG 图片");
         var (w, h) = PngSize(data);
-        return w >= 64 && w % 64 == 0 && w == h * 2 ? null : "披风图片的尺寸必须是 64×32（或 128×64 等同比例）";
+        return w >= 64 && w % 64 == 0 && w == h * 2 ? null : T("披风图片的尺寸必须是 64×32（或 128×64 等同比例）");
     }
 
     /// <summary>按内容哈希保存到 skins 目录，返回哈希。</summary>
@@ -91,7 +92,7 @@ public static class Skins
         {
             if (TaskContext.Token.IsCancellationRequested)
                 throw;
-            throw new AccountException("网络连接失败：" + (e is TaskCanceledException ? "连接超时" : e.InnerException?.Message ?? e.Message), e);
+            throw new AccountException(F("网络连接失败：{0}", e is TaskCanceledException ? T("连接超时") : e.InnerException?.Message ?? e.Message), e);
         }
     }
 
@@ -129,18 +130,18 @@ public static class Skins
     {
         name = (name ?? "").Trim();
         if (name.Length == 0)
-            throw new AccountException("请填写正版玩家名");
+            throw new AccountException(T("请填写正版玩家名"));
         var lookup = await SendAsync(MojangProfileByName + Uri.EscapeDataString(name));
         var id = lookup.Status == 200 ? lookup.Json().Str("id") : null;
         if (string.IsNullOrEmpty(id))
             throw new AccountException(lookup.Status is 200 or 204 or 404
-                                           ? $"找不到正版玩家「{name}」"
-                                           : $"查询正版玩家失败（HTTP {lookup.Status}）");
+                                           ? F("找不到正版玩家「{0}」", name)
+                                           : F("查询正版玩家失败（HTTP {0}）", lookup.Status));
         var profile = await SendAsync(MojangSessionProfile + id);
         if (profile.Status != 200)
-            throw new AccountException($"获取玩家皮肤失败（HTTP {profile.Status}）");
+            throw new AccountException(F("获取玩家皮肤失败（HTTP {0}）", profile.Status));
         var (skinUrl, slim, capeUrl) = ParseTextures(profile.Json());
-        var skin = await FetchPngAsync(skinUrl) ?? throw new AccountException($"「{name}」使用的是默认皮肤");
+        var skin = await FetchPngAsync(skinUrl) ?? throw new AccountException(F("「{0}」使用的是默认皮肤", name));
         return new PlayerTextures(skin, slim, await FetchPngAsync(capeUrl));
     }
 
@@ -154,10 +155,10 @@ public static class Skins
     private static AccountException MsaError(HttpResult result, string action)
     {
         if (result.Status == 401)
-            return new AccountException("微软账号登录已过期，请删除账号后重新登录");
+            return new AccountException(T("微软账号登录已过期，请删除账号后重新登录"));
         var data = result.Json();
         var detail = data.Str("errorMessage") ?? data.Str("error") ?? $"HTTP {result.Status}";
-        return new AccountException($"{action}失败：{detail}");
+        return new AccountException(F("{0}失败：{1}", action, detail));
     }
 
     private static MsaProfile ParseProfile(JsonNode data) =>
@@ -166,7 +167,7 @@ public static class Skins
     public static async Task<MsaProfile> MsaProfileAsync(Account account)
     {
         var result = await SendAsync(Accounts.McProfileUrl, headers: Bearer(account));
-        return result.Status == 200 ? ParseProfile(result.Json()) : throw MsaError(result, "获取皮肤信息");
+        return result.Status == 200 ? ParseProfile(result.Json()) : throw MsaError(result, T("获取皮肤信息"));
     }
 
     public static async Task<MsaProfile> MsaUploadSkinAsync(Account account, byte[] png, bool slim)
@@ -179,14 +180,14 @@ public static class Skins
             { file, "file", "skin.png" },
         };
         var result = await SendAsync(McSkinsUrl, HttpMethod.Post, form, Bearer(account));
-        return result.Ok ? ParseProfile(result.Json()) : throw MsaError(result, "上传皮肤");
+        return result.Ok ? ParseProfile(result.Json()) : throw MsaError(result, T("上传皮肤"));
     }
 
     public static async Task MsaResetSkinAsync(Account account)
     {
         var result = await SendAsync(McSkinsUrl + "/active", HttpMethod.Delete, headers: Bearer(account));
         if (!result.Ok)
-            throw MsaError(result, "恢复默认皮肤");
+            throw MsaError(result, T("恢复默认皮肤"));
     }
 
     /// <summary>切换披风，capeId 为 null 时不显示披风。</summary>
@@ -196,7 +197,7 @@ public static class Skins
             ? await SendAsync(McCapeUrl, HttpMethod.Delete, headers: Bearer(account))
             : await SendAsync(McCapeUrl, HttpMethod.Put, Http.JsonContent(new JsonObject { ["capeId"] = capeId }), Bearer(account));
         if (!result.Ok)
-            throw MsaError(result, "切换披风");
+            throw MsaError(result, T("切换披风"));
     }
 
     public static Task<byte[]> DownloadAsync(string url) => FetchPngAsync(url);

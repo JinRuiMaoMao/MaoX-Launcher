@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -88,22 +89,22 @@ public class Terracotta : IDisposable
     /// <summary>state == "exception" 时，按 type 字段取对应的说明。</summary>
     public static readonly IReadOnlyList<string> Exceptions =
     [
-        "无法连接到房主，房间可能已经关闭",
-        "与房主的连接已断开",
-        "联机组件意外退出，请重新加入",
-        "联机组件意外退出，请重新创建房间",
-        "房主的游戏世界已关闭",
-        "房主使用的联机协议不兼容，请双方更新启动器后重试",
+        T("无法连接到房主，房间可能已经关闭"),
+        T("与房主的连接已断开"),
+        T("联机组件意外退出，请重新加入"),
+        T("联机组件意外退出，请重新创建房间"),
+        T("房主的游戏世界已关闭"),
+        T("房主使用的联机协议不兼容，请双方更新启动器后重试"),
     ];
 
     /// <summary>guest-starting 状态下 difficulty 字段的说明。</summary>
     public static readonly IReadOnlyDictionary<string, string> Difficulties = new Dictionary<string, string>
     {
-        ["EASIEST"] = "网络条件极佳，即将连接",
-        ["SIMPLE"] = "网络条件良好，即将连接",
-        ["MEDIUM"] = "网络条件一般，正在尝试打洞或中继",
-        ["TOUGH"] = "网络条件较差，连接可能不稳定",
-        ["UNKNOWN"] = "正在检测网络状况",
+        ["EASIEST"] = T("网络条件极佳，即将连接"),
+        ["SIMPLE"] = T("网络条件良好，即将连接"),
+        ["MEDIUM"] = T("网络条件一般，正在尝试打洞或中继"),
+        ["TOUGH"] = T("网络条件较差，连接可能不稳定"),
+        ["UNKNOWN"] = T("正在检测网络状况"),
     };
 
     private static readonly HttpClient Local = new(new SocketsHttpHandler { UseProxy = false })
@@ -198,12 +199,12 @@ public class Terracotta : IDisposable
     public async Task InstallAsync(Action<int, int> progress = null, CancellationToken cancel = default)
     {
         if (!Supported)
-            throw new TerracottaException("当前系统暂不支持陶瓦联机");
+            throw new TerracottaException(T("当前系统暂不支持陶瓦联机"));
         if (!await Task.Run(FilesVerified, cancel))
             await DownloadAndExtractAsync(progress, cancel);
         if (IsMacPackage && !Directory.Exists(MacAppPath))
             await InstallMacPackageAsync(cancel);
-        Log("陶瓦联机安装完成");
+        Log(T("陶瓦联机安装完成"));
     }
 
     private async Task DownloadAndExtractAsync(Action<int, int> progress, CancellationToken cancel)
@@ -216,12 +217,12 @@ public class Terracotta : IDisposable
         {
             if (File.Exists(archive))
                 File.Delete(archive);
-            Log($"正在下载陶瓦联机 {Version}...");
+            Log(F("正在下载陶瓦联机 {0}...", Version));
             await Dl.DownloadManyAsync([new DownloadTask(urls[0], archive, alternates: urls.Skip(1))], progress, cancel);
             if (await Task.Run(() => Http.FileSha512(archive), cancel) != packageHash)
             {
                 File.Delete(archive);
-                throw new TerracottaException("陶瓦联机安装包校验失败，请重试");
+                throw new TerracottaException(T("陶瓦联机安装包校验失败，请重试"));
             }
         }
         await Task.Run(() => Extract(archive), cancel);
@@ -253,9 +254,9 @@ public class Terracotta : IDisposable
         foreach (var (filename, sha) in Files)
         {
             if (!members.TryGetValue(filename, out var data))
-                throw new TerracottaException($"安装包中缺少 {filename}");
+                throw new TerracottaException(F("安装包中缺少 {0}", filename));
             if (Convert.ToHexStringLower(SHA512.HashData(data)) != sha)
-                throw new TerracottaException($"{filename} 校验失败");
+                throw new TerracottaException(F("{0} 校验失败", filename));
             var dest = Path.Combine(Dir, filename);
             File.WriteAllBytes(dest, data);
             if (!filename.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
@@ -275,9 +276,9 @@ public class Terracotta : IDisposable
             File.Copy(pkg, moved, true);
             static string Literal(string s) => "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
             var script = $"do shell script \"installer -pkg \" & quoted form of {Literal(moved)} & \" -target /\" " +
-                         $"with prompt {Literal("陶瓦联机需要安装系统组件才能在 macOS 上使用，请输入密码以继续。")} " +
+                         $"with prompt {Literal(T("陶瓦联机需要安装系统组件才能在 macOS 上使用，请输入密码以继续。"))} " +
                          "with administrator privileges";
-            Log("正在安装陶瓦联机的系统组件，请在弹出的窗口中输入密码...");
+            Log(T("正在安装陶瓦联机的系统组件，请在弹出的窗口中输入密码..."));
             var psi = new ProcessStartInfo(NonInteractiveInstall ? "sudo" : "osascript")
             {
                 UseShellExecute = false,
@@ -295,7 +296,7 @@ public class Terracotta : IDisposable
                 psi.ArgumentList.Add("-e");
                 psi.ArgumentList.Add(script);
             }
-            using var process = Process.Start(psi) ?? throw new TerracottaException("无法启动系统安装程序");
+            using var process = Process.Start(psi) ?? throw new TerracottaException(T("无法启动系统安装程序"));
             var stdout = process.StandardOutput.ReadToEndAsync(cancel);
             var stderr = process.StandardError.ReadToEndAsync(cancel);
             await process.WaitForExitAsync(cancel);
@@ -304,15 +305,15 @@ public class Terracotta : IDisposable
             if (process.ExitCode != 0)
             {
                 if (error.Contains("-128"))
-                    throw new TerracottaException("已取消安装陶瓦联机的系统组件");
-                throw new TerracottaException($"安装陶瓦联机的系统组件失败（退出码 {process.ExitCode}）：{error.Trim()}");
+                    throw new TerracottaException(T("已取消安装陶瓦联机的系统组件"));
+                throw new TerracottaException(F("安装陶瓦联机的系统组件失败（退出码 {0}）：{1}", process.ExitCode, error.Trim()));
             }
             if (!Directory.Exists(MacAppPath))
-                throw new TerracottaException("安装陶瓦联机的系统组件失败");
+                throw new TerracottaException(T("安装陶瓦联机的系统组件失败"));
         }
         catch (System.ComponentModel.Win32Exception e)
         {
-            throw new TerracottaException("找不到系统程序 osascript，无法安装陶瓦联机", e);
+            throw new TerracottaException(T("找不到系统程序 osascript，无法安装陶瓦联机"), e);
         }
         finally
         {
@@ -332,7 +333,7 @@ public class Terracotta : IDisposable
                                                                IEnumerable<(string Key, string Value)> query = null,
                                                                int timeout = 5)
     {
-        var port = Port ?? throw new TerracottaException("联机服务未启动");
+        var port = Port ?? throw new TerracottaException(T("联机服务未启动"));
         var url = $"http://127.0.0.1:{port}{path}";
         if (query != null)
         {
@@ -349,8 +350,8 @@ public class Terracotta : IDisposable
         }
         catch (Exception e) when (e is HttpRequestException or IOException or TaskCanceledException)
         {
-            var reason = e is TaskCanceledException ? "连接超时" : e.InnerException?.Message ?? e.Message;
-            throw new TerracottaException("无法连接联机服务：" + reason, e);
+            var reason = e is TaskCanceledException ? T("连接超时") : e.InnerException?.Message ?? e.Message;
+            throw new TerracottaException(F("无法连接联机服务：{0}", reason), e);
         }
     }
 
@@ -389,11 +390,11 @@ public class Terracotta : IDisposable
             Process process;
             try
             {
-                process = Process.Start(psi) ?? throw new TerracottaException("陶瓦联机启动失败");
+                process = Process.Start(psi) ?? throw new TerracottaException(T("陶瓦联机启动失败"));
             }
             catch (System.ComponentModel.Win32Exception e)
             {
-                throw new TerracottaException("陶瓦联机启动失败：" + e.Message, e);
+                throw new TerracottaException(F("陶瓦联机启动失败：{0}", e.Message), e);
             }
             process.StandardInput.Close();
             process.OutputDataReceived += (_, _) => { };
@@ -412,7 +413,7 @@ public class Terracotta : IDisposable
                 {
                     var code = process.ExitCode;
                     process.Dispose();
-                    throw new TerracottaException($"陶瓦联机启动失败（退出码 {code}）");
+                    throw new TerracottaException(F("陶瓦联机启动失败（退出码 {0}）", code));
                 }
                 await Task.Delay(200);
             }
@@ -420,7 +421,7 @@ public class Terracotta : IDisposable
             {
                 Kill(process);
                 process.Dispose();
-                throw new TerracottaException("陶瓦联机启动超时");
+                throw new TerracottaException(T("陶瓦联机启动超时"));
             }
             _process?.Dispose();
             _process = process;
@@ -436,7 +437,7 @@ public class Terracotta : IDisposable
             {
             }
         }
-        Log($"陶瓦联机已启动（本地端口 {Port}）");
+        Log(F("陶瓦联机已启动（本地端口 {0}）", Port));
     }
 
     private static int? ReadPortFile(string path)
@@ -465,14 +466,14 @@ public class Terracotta : IDisposable
     {
         var (status, body) = await RequestAsync("/state");
         if (status != 200)
-            throw new TerracottaException($"获取联机状态失败（HTTP {status}）");
+            throw new TerracottaException(F("获取联机状态失败（HTTP {0}）", status));
         try
         {
             return Json.Parse(body);
         }
         catch (System.Text.Json.JsonException e)
         {
-            throw new TerracottaException("获取联机状态失败：" + e.Message, e);
+            throw new TerracottaException(F("获取联机状态失败：{0}", e.Message), e);
         }
     }
 
@@ -523,9 +524,9 @@ public class Terracotta : IDisposable
         var (status, _) = await RequestAsync("/state/guesting",
                                              new[] { ("room", room), ("player", player) }.Concat(Nodes(nodes)));
         if (status == 400)
-            throw new TerracottaException("邀请码无效，请检查后重试");
+            throw new TerracottaException(T("邀请码无效，请检查后重试"));
         if (status != 200)
-            throw new TerracottaException($"加入房间失败（HTTP {status}）");
+            throw new TerracottaException(F("加入房间失败（HTTP {0}）", status));
     }
 
     /// <summary>退出房间 / 关闭房间 / 取消，回到等待状态。</summary>

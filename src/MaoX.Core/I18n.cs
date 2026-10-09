@@ -58,6 +58,10 @@ public static class I18n
     /// <summary>翻译一段固定文字。</summary>
     public static string T(string text) => text != null && _table.TryGetValue(text, out var translated) ? translated : text;
 
+    /// <summary>同一句中文在不同地方需要不同译法时，先查「context|原文」。</summary>
+    public static string T(string text, string context) =>
+        _table.TryGetValue(context + "|" + text, out var translated) ? translated : T(text);
+
     /// <summary>翻译带 {0} {1} 占位符的文字后再格式化。</summary>
     public static string F(string format, params object[] args) =>
         string.Format(CultureInfo.CurrentCulture, T(format), args);

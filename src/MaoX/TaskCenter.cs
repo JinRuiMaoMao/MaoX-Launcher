@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using MaoX.Controls;
+using static MaoX.Core.I18n;
 
 namespace MaoX;
 
@@ -65,15 +66,15 @@ public class TaskItem
 public class TaskCenterView : UserControl
 {
     private readonly StackPanel _list = new() { Spacing = 6 };
-    private readonly TextBlock _empty = new() { Text = "没有正在进行的任务", Classes = { "muted" }, Margin = new Thickness(4, 6) };
+    private readonly TextBlock _empty = new() { Text = T("没有正在进行的任务"), Classes = { "muted" }, Margin = new Thickness(4, 6) };
     private readonly Dictionary<TaskItem, (ProgressLine Line, TextBlock Detail, Button Cancel, string State)> _rows = new();
 
     public TaskCenterView()
     {
         Width = 400;
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(4, 0, 0, 10) };
-        head.Children.Add(new TextBlock { Text = "任务", FontWeight = FontWeight.SemiBold, FontSize = 15, VerticalAlignment = VerticalAlignment.Center });
-        var clear = new Button { Classes = { "link" }, Content = "清除已结束" };
+        head.Children.Add(new TextBlock { Text = T("任务"), FontWeight = FontWeight.SemiBold, FontSize = 15, VerticalAlignment = VerticalAlignment.Center });
+        var clear = new Button { Classes = { "link" }, Content = T("清除已结束") };
         clear.Click += (_, _) =>
         {
             MainWindow.Current.ClearFinishedTasks();
@@ -117,7 +118,7 @@ public class TaskCenterView : UserControl
 
         var cancel = new Button { Classes = { "icon", "small" }, Width = 30, Height = 30, IsVisible = task.Running, VerticalAlignment = VerticalAlignment.Top };
         cancel.Content = new Icon { Kind = "close", Size = 15 };
-        ToolTip.SetTip(cancel, "取消");
+        ToolTip.SetTip(cancel, T("取消"));
         cancel.Click += (_, _) =>
         {
             task.Cancel.Cancel();
@@ -150,10 +151,10 @@ public class TaskCenterView : UserControl
             return;
         row.Detail.Text = task.State switch
         {
-            "done" => "已完成",
-            "cancelled" => "已取消",
-            "failed" => "失败：" + task.Error,
-            _ => task.Cancel.IsCancellationRequested ? "正在取消…" : string.IsNullOrEmpty(task.Detail) ? "进行中…" : task.Detail,
+            "done" => T("已完成"),
+            "cancelled" => T("已取消"),
+            "failed" => F("失败：{0}", task.Error),
+            _ => task.Cancel.IsCancellationRequested ? T("正在取消…") : string.IsNullOrEmpty(task.Detail) ? T("进行中…") : task.Detail,
         };
         if (!task.Running)
             return;

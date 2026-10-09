@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -132,11 +133,11 @@ public static class CrashAnalyzer
         {
             var (modId, requester, wanted, actual) = (m.Groups[1].Value, m.Groups[2].Value, m.Groups[3].Value, m.Groups[4].Value);
             if (modId == "minecraft")
-                reasons.Add($"模组「{requester}」不适用于当前游戏版本（需要 Minecraft {wanted}）");
+                reasons.Add(F("模组「{0}」不适用于当前游戏版本（需要 Minecraft {1}）", requester, wanted));
             else if (actual.ToUpperInvariant().Contains("MISSING"))
-                reasons.Add($"模组「{requester}」缺少前置模组「{modId}」（需要版本 {wanted}）");
+                reasons.Add(F("模组「{0}」缺少前置模组「{1}」（需要版本 {2}）", requester, modId, wanted));
             else
-                reasons.Add($"模组「{requester}」需要「{modId}」的版本 {wanted}，当前为 {actual}");
+                reasons.Add(F("模组「{0}」需要「{1}」的版本 {2}，当前为 {3}", requester, modId, wanted, actual));
         }
         // 1.12.2 及更早的 Forge
         foreach (var regex in new[] { LegacyRequires, LegacyRequiresMods })
@@ -144,7 +145,7 @@ public static class CrashAnalyzer
             foreach (Match m in regex.Matches(text))
             {
                 foreach (var dep in m.Groups[2].Value.Split(','))
-                    reasons.Add($"模组「{m.Groups[1].Value}」缺少前置模组「{dep.Split('@')[0].Trim()}」");
+                    reasons.Add(F("模组「{0}」缺少前置模组「{1}」", m.Groups[1].Value, dep.Split('@')[0].Trim()));
             }
         }
         // Fabric / Quilt
@@ -157,7 +158,7 @@ public static class CrashAnalyzer
                 if (mod.Success && dep.Success)
                 {
                     var target = dep.Groups[2].Success ? dep.Groups[2].Value : dep.Groups[1].Value;
-                    reasons.Add($"模组「{mod.Groups[1].Value}」缺少前置模组「{target}」");
+                    reasons.Add(F("模组「{0}」缺少前置模组「{1}」", mod.Groups[1].Value, target));
                 }
             }
             else if (line.Contains("but only the wrong version is present"))
@@ -169,15 +170,15 @@ public static class CrashAnalyzer
                     var target = dep.Groups[3].Success ? dep.Groups[3].Value : dep.Groups[2].Value;
                     var wanted = VersionPrefix.Replace(dep.Groups[1].Value, "");
                     reasons.Add(target == "minecraft"
-                                    ? $"模组「{mod.Groups[1].Value}」不适用于当前游戏版本（需要 Minecraft {wanted}）"
-                                    : $"模组「{mod.Groups[1].Value}」需要「{target}」的 {wanted} 版本");
+                                    ? F("模组「{0}」不适用于当前游戏版本（需要 Minecraft {1}）", mod.Groups[1].Value, wanted)
+                                    : F("模组「{0}」需要「{1}」的 {2} 版本", mod.Groups[1].Value, target, wanted));
                 }
             }
             else if (line.Contains("is incompatible with") && line.Contains("Mod '"))
             {
                 var mods = Quoted.Matches(line);
                 if (mods.Count >= 2)
-                    reasons.Add($"模组「{mods[0].Groups[1].Value}」与「{mods[1].Groups[1].Value}」不兼容，请删除其中一个");
+                    reasons.Add(F("模组「{0}」与「{1}」不兼容，请删除其中一个", mods[0].Groups[1].Value, mods[1].Groups[1].Value));
             }
         }
         return reasons;
@@ -230,28 +231,29 @@ public static class CrashAnalyzer
         // ---------------------------------------------------------------- Java 版本
         Match m;
         if ((m = ClassVersion.Match(text)).Success)
-            Add(Other, $"游戏或模组需要 Java {JavaFromClassVersion(m.Groups[1].Value)} 及以上，" +
-                       $"当前使用的是 Java {JavaFromClassVersion(m.Groups[2].Value)}。请在设置或版本设置中更换 Java");
+            Add(Other, F("游戏或模组需要 Java {0} 及以上，" +
+                         "当前使用的是 Java {1}。请在设置或版本设置中更换 Java",
+                         JavaFromClassVersion(m.Groups[1].Value), JavaFromClassVersion(m.Groups[2].Value)));
         else if ((m = MajorMinor.Match(text)).Success)
-            Add(Other, $"游戏或模组需要 Java {JavaFromClassVersion(m.Groups[1].Value)} 及以上，当前 Java 版本过低");
+            Add(Other, F("游戏或模组需要 Java {0} 及以上，当前 Java 版本过低", JavaFromClassVersion(m.Groups[1].Value)));
         if (UrlClassLoaderCast.IsMatch(text))
-            Add(Other, "这个版本需要 Java 8，当前 Java 版本过高。请在版本设置中指定 Java 8");
+            Add(Other, T("这个版本需要 Java 8，当前 Java 版本过高。请在版本设置中指定 Java 8"));
         else if (Inaccessible.IsMatch(text) && ForgeLike.IsMatch(text))
-            Add(Other, "当前 Java 版本过高，与这个版本的 Forge 或模组不兼容。请在版本设置中指定较低版本的 Java");
+            Add(Other, T("当前 Java 版本过高，与这个版本的 Forge 或模组不兼容。请在版本设置中指定较低版本的 Java"));
 
         // ---------------------------------------------------------------- 内存
         if (HeapReserve.IsMatch(text))
-            Add(Other, "无法分配设置的内存：可能使用了 32 位 Java，或最大内存设置过大");
+            Add(Other, T("无法分配设置的内存：可能使用了 32 位 Java，或最大内存设置过大"));
         else if (NativeMemory.IsMatch(text))
-            Add(Other, "系统可用内存不足：请关闭其他程序，或适当调低最大内存");
+            Add(Other, T("系统可用内存不足：请关闭其他程序，或适当调低最大内存"));
         else if (text.Contains("java.lang.OutOfMemoryError") || text.Contains("Out of Memory Error"))
-            Add(Other, "游戏内存不足：请在设置中调高最大内存（大型整合包建议 6 GB 以上）");
+            Add(Other, T("游戏内存不足：请在设置中调高最大内存（大型整合包建议 6 GB 以上）"));
 
         // ---------------------------------------------------------------- 显卡
         if (OpenGl.IsMatch(text))
-            Add(Other, "显卡驱动不支持 OpenGL 或驱动有问题：请更新显卡驱动；双显卡电脑请让 Java 使用独立显卡");
+            Add(Other, T("显卡驱动不支持 OpenGL 或驱动有问题：请更新显卡驱动；双显卡电脑请让 Java 使用独立显卡"));
         else if (hsErr.Length > 0 && DriverDll.IsMatch(hsErr))
-            Add(Other, "显卡驱动崩溃：请更新显卡驱动；如果安装了光影，可以先关闭光影再试");
+            Add(Other, T("显卡驱动崩溃：请更新显卡驱动；如果安装了光影，可以先关闭光影再试"));
 
         // ---------------------------------------------------------------- 模组
         foreach (var reason in Unique(ModDependencyReasons(text)))
@@ -260,44 +262,45 @@ public static class CrashAnalyzer
         if (m.Success && !reasons.Any(r => r.Kind == Mod))
         {
             foreach (var line in SplitLines(m.Groups[1].Value.Trim()).Take(6))
-                Add(Mod, "Fabric 建议：" + line.Trim(' ', '\t', '-'));
+                Add(Mod, F("Fabric 建议：{0}", line.Trim(' ', '\t', '-')));
         }
         if (Duplicate.IsMatch(text))
         {
             var names = Unique(DuplicateModId.Matches(text).Select(x => x.Groups[1].Value)
                                    .Concat(DuplicateNamed.Matches(text).Select(x => x.Groups[1].Value)));
-            Add(Mod, $"有重复安装的模组{(names.Count > 0 ? "：" + string.Join("、", names.Take(5)) : "")}，" +
-                     "请在 mods 文件夹中只保留一个版本");
+            Add(Mod, F("有重复安装的模组{0}，" +
+                       "请在 mods 文件夹中只保留一个版本",
+                       names.Count > 0 ? F("：{0}", string.Join(T("、"), names.Take(5))) : ""));
         }
         foreach (var mod in Unique(MixinApply.Matches(text).Select(x => x.Groups[1].Value)
                                        .Concat(MixinInjection.Matches(text).Select(x => x.Groups[1].Value))).Take(5))
-            Add(Mod, $"模组「{mod}」注入失败，可能与当前游戏版本或其他模组不兼容");
+            Add(Mod, F("模组「{0}」注入失败，可能与当前游戏版本或其他模组不兼容", mod));
         if (OptiFine.IsMatch(text) && NoSuchMember.IsMatch(text))
-            Add(Mod, "OptiFine 与当前 Forge 或其他模组不兼容：请更换 OptiFine / Forge 版本，或移除 OptiFine");
+            Add(Mod, T("OptiFine 与当前 Forge 或其他模组不兼容：请更换 OptiFine / Forge 版本，或移除 OptiFine"));
         foreach (var mod in SuspectedModNames(report).Take(5))
-            Add(Mod, $"崩溃报告指出可能与模组「{mod}」有关，可以尝试更新或移除它");
+            Add(Mod, F("崩溃报告指出可能与模组「{0}」有关，可以尝试更新或移除它", mod));
 
         // ---------------------------------------------------------------- 其他
         if (Corrupt.IsMatch(text))
-            Add(Other, "有文件已损坏：请重新下载出问题的模组，或在启动时让启动器补全游戏文件");
+            Add(Other, T("有文件已损坏：请重新下载出问题的模组，或在启动时让启动器补全游戏文件"));
         if (NativeLink.IsMatch(text))
-            Add(Other, "游戏本地库加载失败：可能是游戏路径包含特殊字符，或 Java 与系统架构不匹配（32 / 64 位）");
+            Add(Other, T("游戏本地库加载失败：可能是游戏路径包含特殊字符，或 Java 与系统架构不匹配（32 / 64 位）"));
         if (text.Contains("Manually triggered debug crash"))
-            Add(Other, "这是按住 F3 + C 手动触发的崩溃，不是错误");
+            Add(Other, T("这是按住 F3 + C 手动触发的崩溃，不是错误"));
         if (text.Contains("java.lang.StackOverflowError") && reasons.Count == 0)
-            Add(Other, "游戏发生了栈溢出，通常由模组之间的冲突引起；也可以在额外 JVM 参数中加入 -Xss4m 再试");
+            Add(Other, T("游戏发生了栈溢出，通常由模组之间的冲突引起；也可以在额外 JVM 参数中加入 -Xss4m 再试"));
         if (reasons.Count == 0)
         {
             foreach (var cls in Unique(MissingClass.Matches(text).Select(x => x.Groups[1].Value)).Take(3))
                 Add(cls.Contains("minecraft") ? Other : Mod,
-                    $"找不到类 {cls.Replace('/', '.')}：可能缺少前置模组，或模组与当前版本不匹配");
+                    F("找不到类 {0}：可能缺少前置模组，或模组与当前版本不匹配", cls.Replace('/', '.')));
         }
         if ((exitCode is -1073741819 or 3221225477) && reasons.Count == 0)
-            Add(Other, "游戏进程发生内存访问冲突，通常是显卡驱动或光影导致：请更新显卡驱动并关闭光影");
+            Add(Other, T("游戏进程发生内存访问冲突，通常是显卡驱动或光影导致：请更新显卡驱动并关闭光影"));
 
         var detail = "";
         if (report.Length > 0 && (m = Description.Match(report)).Success)
-            detail = $"{m.Groups[1].Value.Trim()}：{m.Groups[2].Value.Trim()}";
+            detail = F("{0}：{1}", m.Groups[1].Value.Trim(), m.Groups[2].Value.Trim());
         if (detail.Length == 0 && (m = ExceptionLine.Match(output)).Success)
             detail = m.Groups[1].Value.Trim();
         if (detail.Length > 300)

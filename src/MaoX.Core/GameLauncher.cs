@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -367,7 +368,7 @@ public class GameLauncher
     {
         if (Manifest == null)
         {
-            Log("正在获取版本列表...");
+            Log(T("正在获取版本列表..."));
             Manifest = await Dl.FetchJsonAsync(Mc.VersionManifestUrl);
         }
         return Manifest;
@@ -393,8 +394,8 @@ public class GameLauncher
         {
             var manifest = await GetManifestAsync();
             var entry = manifest.Items("versions").FirstOrDefault(v => v.Str("id") == versionId)
-                        ?? throw new InvalidOperationException($"找不到版本 {versionId}");
-            Log($"正在下载版本信息 {versionId}...");
+                        ?? throw new InvalidOperationException(F("找不到版本 {0}", versionId));
+            Log(F("正在下载版本信息 {0}...", versionId));
             await Dl.DownloadManyAsync([new DownloadTask(entry.Str("url"), jsonPath, entry.Str("sha1"))]);
         }
         var parent = Json.ReadFile(jsonPath).Str("inheritsFrom");
@@ -455,13 +456,13 @@ public class GameLauncher
         var type = Json.TryReadFile(VersionJsonPath(versionId))?.Str("type");
         var kind = type switch
         {
-            "release" => "正式版",
-            "snapshot" => "快照版",
+            "release" => T("正式版"),
+            "snapshot" => T("快照版"),
             "old_beta" => "Beta",
             "old_alpha" => "Alpha",
             _ => type ?? "",
         };
-        return info.Game != versionId ? $"原版 {info.Game}" : $"原版  ·  {kind}";
+        return info.Game != versionId ? F("原版 {0}", info.Game) : F("原版  ·  {0}", kind);
     }
 
     // ------------------------------------------------------------------ 版本单独设置
@@ -630,7 +631,7 @@ public class GameLauncher
             target = PathOf("assets", "virtual", indexId);
         else
             return assetsRoot;
-        Log("正在整理旧版资源文件...");
+        Log(T("正在整理旧版资源文件..."));
         foreach (var (name, obj) in data.Obj("objects"))
         {
             var hash = obj.Str("hash");
@@ -658,7 +659,7 @@ public class GameLauncher
         Directory.CreateDirectory(McDir);
         await EnsureVersionJsonAsync(versionId);
         var vjson = LoadVersion(versionId);
-        Log($"正在检查 {versionId} 的游戏文件...");
+        Log(F("正在检查 {0} 的游戏文件...", versionId));
 
         var tasks = new List<DownloadTask>();
         var jarId = vjson.Str("_jar");
@@ -667,7 +668,7 @@ public class GameLauncher
         if (client != null)
             tasks.Add(new DownloadTask(client.Str("url"), clientJar, client.Str("sha1"), client.Long("size")));
         else if (!File.Exists(clientJar))
-            throw new InvalidOperationException($"缺少游戏本体文件 {clientJar}");
+            throw new InvalidOperationException(F("缺少游戏本体文件 {0}", clientJar));
 
         var (classpath, natives, libTasks) = CollectLibraries(vjson);
         tasks.AddRange(libTasks);
@@ -689,10 +690,10 @@ public class GameLauncher
         if (!await Task.Run(() => tasks.AsParallel().All(t => t.IsValid())))
         {
             var source = await Dl.ResolvedSourceAsync();
-            Log("下载源：" + (source == "bmclapi" ? "BMCLAPI 镜像" : "Mojang 官方"));
+            Log(F("下载源：{0}", source == "bmclapi" ? T("BMCLAPI 镜像") : T("Mojang 官方")));
         }
-        var count = await Dl.DownloadManyAsync(tasks, (d, t) => Progress(d, t, "下载游戏文件"));
-        Log(count > 0 ? $"已下载 {count} 个文件" : "游戏文件完整，无需下载");
+        var count = await Dl.DownloadManyAsync(tasks, (d, t) => Progress(d, t, T("下载游戏文件")));
+        Log(count > 0 ? F("已下载 {0} 个文件", count) : T("游戏文件完整，无需下载"));
 
         // 和官方启动器一样把本体复制成 <版本名>.jar，新版 Forge 按这个文件名把本体排除出类路径
         if (!string.Equals(Path.GetFullPath(versionJar), Path.GetFullPath(clientJar),
@@ -737,7 +738,7 @@ public class GameLauncher
         if (custom.Length > 0)
         {
             if (!File.Exists(custom))
-                throw new InvalidOperationException($"设置中的 Java 路径不存在：{custom}");
+                throw new InvalidOperationException(F("设置中的 Java 路径不存在：{0}", custom));
             return custom;
         }
 
@@ -754,25 +755,25 @@ public class GameLauncher
         if (exact != null)
             return exact;
 
-        Log($"本机没有 Java {required}，正在下载官方 Java 运行时 ({component})...");
+        Log(F("本机没有 Java {0}，正在下载官方 Java 运行时 ({1})...", required, component));
         try
         {
             return await JavaManager.InstallRuntimeAsync(component, runtimeRoot, Dl,
-                                                         (d, t) => Progress(d, t, "下载 Java"),
+                                                         (d, t) => Progress(d, t, T("下载 Java")),
                                                          intel ? "mac-os" : null);
         }
         catch (Exception e)
         {
-            Log($"[警告] Java 运行时下载失败：{e.Message}");
+            Log(F("[警告] Java 运行时下载失败：{0}", e.Message));
         }
 
         var fallback = JavaManager.PickCompatible(javas, required);
         if (fallback != null)
         {
-            Log($"[警告] 将使用更高版本的 Java 代替 Java {required}，可能存在兼容问题");
+            Log(F("[警告] 将使用更高版本的 Java 代替 Java {0}，可能存在兼容问题", required));
             return fallback;
         }
-        throw new InvalidOperationException($"找不到可用的 Java {required}，请安装后在设置中指定");
+        throw new InvalidOperationException(F("找不到可用的 Java {0}，请安装后在设置中指定", required));
     }
 
     /// <summary>server 为「主机:端口」时，游戏启动后直接进入该服务器；auth 为空时使用配置中的离线用户名。</summary>
@@ -905,7 +906,7 @@ public class GameLauncher
         Cfg = EffectiveConfig(versionId);
         var info = await PrepareAsync(versionId);
         var java = await SelectJavaAsync(info.VJson);
-        Log($"使用 Java：{java}");
+        Log(F("使用 Java：{0}", java));
         return (BuildCommand(info.VJson, java, info, server, auth), info.GameDir);
     }
 
@@ -913,7 +914,7 @@ public class GameLauncher
     public async Task<Process> LaunchAsync(string versionId, string server = null, LaunchAuth auth = null)
     {
         var (cmd, gameDir) = await PrepareCommandAsync(versionId, server, auth);
-        Log($"正在启动 {versionId}（玩家 {auth?.Name ?? Cfg.Username}，最大内存 {Cfg.MaxMemory} MB）...");
+        Log(F("正在启动 {0}（玩家 {1}，最大内存 {2} MB）...", versionId, auth?.Name ?? Cfg.Username, Cfg.MaxMemory));
         var psi = new ProcessStartInfo(cmd[0])
         {
             WorkingDirectory = gameDir,
@@ -925,7 +926,7 @@ public class GameLauncher
         };
         foreach (var arg in cmd.Skip(1))
             psi.ArgumentList.Add(arg);
-        var process = Process.Start(psi) ?? throw new InvalidOperationException("无法启动 Java 进程");
+        var process = Process.Start(psi) ?? throw new InvalidOperationException(T("无法启动 Java 进程"));
         process.StandardInput.Close();
         return process;
     }

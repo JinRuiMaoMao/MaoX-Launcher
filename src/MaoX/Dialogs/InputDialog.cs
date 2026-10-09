@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using MaoX.Controls;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Dialogs;
 
@@ -37,7 +38,7 @@ public class InputDialog : DialogView
             root.Children.Add(Paragraph(message));
         root.Children.Add(_box);
         root.Children.Add(_error);
-        root.Children.Add(ButtonRow(MakeButton("取消", onClick: () => Close()), MakeButton(okText, "primary", onClick: Submit)));
+        root.Children.Add(ButtonRow(MakeButton(T("取消"), onClick: () => Close()), MakeButton(T(okText), "primary", onClick: Submit)));
         Content = root;
     }
 

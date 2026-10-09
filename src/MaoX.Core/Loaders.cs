@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -136,21 +137,21 @@ public static partial class Loaders
         using (var zip = ZipFile.OpenRead(jar))
         {
             var entry = zip.GetEntry("META-INF/MANIFEST.MF")
-                        ?? throw new LoaderException($"{Path.GetFileName(jar)} 中没有 Main-Class");
+                        ?? throw new LoaderException(F("{0} 中没有 Main-Class", Path.GetFileName(jar)));
             using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
             text = reader.ReadToEnd();
         }
         text = text.Replace("\r\n ", "").Replace("\n ", "");
         var m = MainClassPattern().Match(text);
         if (!m.Success)
-            throw new LoaderException($"{Path.GetFileName(jar)} 中没有 Main-Class");
+            throw new LoaderException(F("{0} 中没有 Main-Class", Path.GetFileName(jar)));
         return m.Groups[1].Value;
     }
 
     /// <summary>解压 zip 中的单个文件；目标已存在且大小一致时跳过。</summary>
     internal static void Extract(ZipArchive zip, string member, string dest)
     {
-        var entry = zip.GetEntry(member) ?? throw new LoaderException($"安装器中缺少文件 {member}");
+        var entry = zip.GetEntry(member) ?? throw new LoaderException(F("安装器中缺少文件 {0}", member));
         var info = new FileInfo(dest);
         if (info.Exists && info.Length == entry.Length)
             return;
@@ -201,7 +202,7 @@ public static partial class Loaders
             psi.WorkingDirectory = workDir;
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
-        using var process = Process.Start(psi) ?? throw new LoaderException("无法启动 Java 进程");
+        using var process = Process.Start(psi) ?? throw new LoaderException(T("无法启动 Java 进程"));
         process.StandardInput.Close();
         var lines = new List<string>();
 
@@ -256,7 +257,7 @@ public partial class LoaderInstaller
                 "forge" => await ListForgeAsync(mc),
                 "neoforge" => await ListNeoForgeAsync(mc),
                 "optifine" => await ListOptiFineAsync(mc),
-                _ => throw new LoaderException($"不支持的模组加载器：{loader}"),
+                _ => throw new LoaderException(F("不支持的模组加载器：{0}", loader)),
             };
         }
         catch (DownloadException e) when (e.Status == 404)
@@ -360,8 +361,8 @@ public partial class LoaderInstaller
         if (loader == "optifine")
             return await InstallOptiFineAsync(mc, item);
         if (!Mc.LoaderNames.TryGetValue(loader ?? "", out var name))
-            throw new LoaderException($"不支持的模组加载器：{loader}");
-        Log($"正在安装 {name} {item.Display}（Minecraft {mc}）");
+            throw new LoaderException(F("不支持的模组加载器：{0}", loader));
+        Log(F("正在安装 {0} {1}（Minecraft {2}）", name, item.Display, mc));
         if (loader is "fabric" or "quilt")
         {
             var meta = loader == "fabric" ? Loaders.FabricMeta : Loaders.QuiltMeta;
@@ -393,12 +394,12 @@ public partial class LoaderInstaller
     {
         var url = $"{Loaders.OptiFineApi}{Web.Quote(mc)}/{Web.Quote(item.Type)}/{Web.Quote(item.Patch)}";
         var installer = _gl.PathOf("cache", "installers", item.Filename);
-        Log($"正在下载 OptiFine {item.Display}...");
+        Log(F("正在下载 OptiFine {0}...", item.Display));
         await Dl.DownloadManyAsync([new DownloadTask(url, installer)]);
         if (!Loaders.IsZip(installer))
         {
             File.Delete(installer);
-            throw new LoaderException("OptiFine 文件已损坏，请重试");
+            throw new LoaderException(T("OptiFine 文件已损坏，请重试"));
         }
 
         if (!string.IsNullOrEmpty(forgeVersion))
@@ -406,7 +407,7 @@ public partial class LoaderInstaller
             var mods = Path.Combine(_gl.GameDirFor(forgeVersion), "mods");
             Directory.CreateDirectory(mods);
             File.Copy(installer, Path.Combine(mods, item.Filename), true);
-            Log($"已将 OptiFine 放入 {forgeVersion} 的 mods 文件夹");
+            Log(F("已将 OptiFine 放入 {0} 的 mods 文件夹", forgeVersion));
             return forgeVersion;
         }
 
@@ -440,12 +441,12 @@ public partial class LoaderInstaller
         Directory.CreateDirectory(Path.GetDirectoryName(library)!);
         if (names.Contains("optifine/Patcher.class"))
         {
-            Log("正在生成 OptiFine 补丁...");
+            Log(T("正在生成 OptiFine 补丁..."));
             var java = await _gl.SelectJavaAsync(_gl.LoadVersion(mc));
             var (code, output) = await Loaders.RunJavaAsync(java,
                 ["-cp", installer, "optifine.Patcher", _gl.PathOf("versions", mc, mc + ".jar"), installer, library]);
             if (code != 0 || !File.Exists(library))
-                throw new LoaderException($"OptiFine 补丁生成失败（退出码 {code}）：\n{Loaders.Tail(output)}");
+                throw new LoaderException(F("OptiFine 补丁生成失败（退出码 {0}）：\n{1}", code, Loaders.Tail(output)));
         }
         else
         {
@@ -496,13 +497,13 @@ public partial class LoaderInstaller
     {
         await _gl.PrepareAsync(mc);
         var installer = _gl.PathOf("cache", "installers", url[(url.LastIndexOf('/') + 1)..]);
-        Log($"正在下载 {name} 安装器...");
+        Log(F("正在下载 {0} 安装器...", name));
         await Dl.DownloadManyAsync([new DownloadTask(url, installer)]);
         try
         {
             using var zip = ZipFile.OpenRead(installer);
             var entry = zip.GetEntry("install_profile.json")
-                        ?? throw new LoaderException($"{name} 安装器中没有 install_profile.json");
+                        ?? throw new LoaderException(F("{0} 安装器中没有 install_profile.json", name));
             var profile = ReadEntryJson(entry);
             if (profile.Get("versionInfo") != null)
                 return InstallLegacy(zip, profile, mc);
@@ -511,7 +512,7 @@ public partial class LoaderInstaller
         catch (InvalidDataException)
         {
             File.Delete(installer);
-            throw new LoaderException($"{name} 安装器文件已损坏，请重试");
+            throw new LoaderException(F("{0} 安装器文件已损坏，请重试", name));
         }
     }
 
@@ -545,7 +546,7 @@ public partial class LoaderInstaller
     {
         var members = zip.Entries.Select(e => e.FullName).ToHashSet();
         var versionEntry = zip.GetEntry((profile.Str("json") ?? "").TrimStart('/'))
-                           ?? throw new LoaderException($"{name} 安装器中缺少版本信息");
+                           ?? throw new LoaderException(F("{0} 安装器中缺少版本信息", name));
         var version = (JsonObject)ReadEntryJson(versionEntry);
         var libDir = _gl.PathOf("libraries");
 
@@ -562,8 +563,8 @@ public partial class LoaderInstaller
             else if (!string.IsNullOrEmpty(artifact.Str("url")))
                 tasks.Add(new DownloadTask(artifact.Str("url"), dest, artifact.Str("sha1"), artifact.Long("size")));
         }
-        Log($"正在下载 {name} 依赖库...");
-        await Dl.DownloadManyAsync(tasks, (d, t) => _gl.Progress(d, t, $"下载 {name} 依赖库"));
+        Log(F("正在下载 {0} 依赖库...", name));
+        await Dl.DownloadManyAsync(tasks, (d, t) => _gl.Progress(d, t, F("下载 {0} 依赖库", name)));
 
         var processors = profile.Items("processors").Where(p =>
         {
@@ -642,19 +643,19 @@ public partial class LoaderInstaller
                 var args = proc.Items("args").Select(a => Fill(a.AsStr())).ToList();
                 var taskIndex = args.IndexOf("--task");
                 var task = taskIndex >= 0 && taskIndex < args.Count - 1 ? args[taskIndex + 1] : jarCoord.Split(':')[1];
-                Log($"运行安装处理器 {index}/{total}：{task}");
-                _gl.Progress(index - 1, total, "安装 " + name);
+                Log(F("运行安装处理器 {0}/{1}：{2}", index, total, task));
+                _gl.Progress(index - 1, total, F("安装 {0}", name));
                 var (code, output) = await Loaders.RunJavaAsync(
                     java, new[] { "-cp", classpath, Loaders.MainClass(jar) }.Concat(args), work);
                 if (code != 0)
-                    throw new LoaderException($"安装处理器 {task} 失败（退出码 {code}）：\n{Loaders.Tail(output)}");
+                    throw new LoaderException(F("安装处理器 {0} 失败（退出码 {1}）：\n{2}", task, code, Loaders.Tail(output)));
                 foreach (var (path, sha) in outputs)
                 {
                     if (!File.Exists(path) || Http.FileSha1(path) != sha)
-                        throw new LoaderException($"安装处理器 {task} 的输出校验失败：{Path.GetFileName(path)}");
+                        throw new LoaderException(F("安装处理器 {0} 的输出校验失败：{1}", task, Path.GetFileName(path)));
                 }
             }
-            _gl.Progress(total, total, "安装 " + name);
+            _gl.Progress(total, total, F("安装 {0}", name));
         }
         finally
         {

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using static MaoX.Core.I18n;
 
 namespace MaoX;
 
@@ -33,8 +34,8 @@ public class App : Application
         _reporting = true;
         try
         {
-            main.Log($"启动器内部错误：{e.Exception}", "error");
-            _ = main.Dialog("出错了", $"启动器遇到了一个意外错误，已记录到 launcher_crash.log。\n\n{e.Exception.Message}", "error");
+            main.Log(F("启动器内部错误：{0}", e.Exception), "error");
+            _ = main.Dialog(T("出错了"), F("启动器遇到了一个意外错误，已记录到 launcher_crash.log。\n\n{0}", e.Exception.Message), "error");
         }
         catch (Exception)
         {

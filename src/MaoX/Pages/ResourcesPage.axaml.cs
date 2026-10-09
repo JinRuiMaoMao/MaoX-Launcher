@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using MaoX.Controls;
 using MaoX.Core;
 using MaoX.Dialogs;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Pages;
 
@@ -46,12 +47,12 @@ public partial class ResourcesPage : UserControl, IPage
         InitializeComponent();
         foreach (var kind in Mods.Kinds)
         {
-            var chip = new ToggleButton { Classes = { "chip" }, Content = kind.Name, IsChecked = kind.Key == _kind };
+            var chip = new ToggleButton { Classes = { "chip" }, Content = T(kind.Name), IsChecked = kind.Key == _kind };
             chip.Click += (_, _) => SetKind(kind.Key);
             _kindChips[kind.Key] = chip;
             KindChips.Children.Add(chip);
         }
-        SortBox.ItemsSource = Mods.Sorts.Select(s => s.Name).ToList();
+        SortBox.ItemsSource = Mods.Sorts.Select(s => T(s.Name)).ToList();
         SortBox.SelectedIndex = 0;
         _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
         _debounce.Tick += (_, _) =>
@@ -168,7 +169,7 @@ public partial class ResourcesPage : UserControl, IPage
         _localItems = [];
         _updates = [];
         UpdateAllButton.IsVisible = false;
-        LocalTab.Content = "已安装";
+        LocalTab.Content = T("已安装");
         if (_kind == "modpack" && _tab == "local")
             _tab = _source;
         UpdateInfo();
@@ -218,7 +219,7 @@ public partial class ResourcesPage : UserControl, IPage
         InfoRest.Text = "";
         if (_kind == "modpack")
         {
-            InfoRest.Text = "安装整合包会创建一个新的游戏版本";
+            InfoRest.Text = T("安装整合包会创建一个新的游戏版本");
         }
         else if (_ctx?.Version != null && Available())
         {
@@ -245,26 +246,26 @@ public partial class ResourcesPage : UserControl, IPage
         EmptyButton.IsVisible = true;
         if (version == null)
         {
-            EmptyTitle.Text = "还没有安装任何版本";
-            EmptyText.Text = "先在「下载」页安装一个游戏版本。";
+            EmptyTitle.Text = T("还没有安装任何版本");
+            EmptyText.Text = T("先在「下载」页安装一个游戏版本。");
         }
         else if (_kind == "datapack")
         {
-            EmptyTitle.Text = $"{version} 还没有存档";
-            EmptyText.Text = "数据包需要安装到存档中，先进入游戏创建一个世界。";
+            EmptyTitle.Text = F("{0} 还没有存档", version);
+            EmptyText.Text = T("数据包需要安装到存档中，先进入游戏创建一个世界。");
             EmptyButton.IsVisible = false;
         }
         else
         {
-            const string hint = "在「下载」页安装版本时选择 Forge、NeoForge、Fabric 或 Quilt，\n再回到这里为它下载模组。";
+            var hint = T("在「下载」页安装版本时选择 Forge、NeoForge、Fabric 或 Quilt，\n再回到这里为它下载模组。");
             if (_ctx.Loader == "optifine")
             {
-                EmptyTitle.Text = $"{version} 是 OptiFine 独立版本，无法加载模组";
-                EmptyText.Text = hint + "\n想同时使用 OptiFine 和模组，可以安装 Forge 并勾选 OptiFine。";
+                EmptyTitle.Text = F("{0} 是 OptiFine 独立版本，无法加载模组", version);
+                EmptyText.Text = hint + T("\n想同时使用 OptiFine 和模组，可以安装 Forge 并勾选 OptiFine。");
             }
             else
             {
-                EmptyTitle.Text = $"{version} 是原版，无法加载模组";
+                EmptyTitle.Text = F("{0} 是原版，无法加载模组", version);
                 EmptyText.Text = hint;
             }
         }
@@ -353,7 +354,7 @@ public partial class ResourcesPage : UserControl, IPage
         var source = _source;
         var kind = _kind;
         var client = _clients[source];
-        var loading = Status($"正在搜索 {client.Name}…");
+        var loading = Status(F("正在搜索 {0}…", client.Name));
         var query = (SearchBox.Text ?? "").Trim();
         var index = Mods.Sorts[Math.Max(SortBox.SelectedIndex, 0)].Key;
         var offset = _offset;
@@ -369,7 +370,7 @@ public partial class ResourcesPage : UserControl, IPage
             if (gen != _searchGen)
                 return;
             BrowseList.Children.Remove(loading);
-            Status("搜索失败：" + MainWindow.ErrorText(e), true);
+            Status(F("搜索失败：{0}", MainWindow.ErrorText(e)), true);
             return;
         }
         if (gen != _searchGen)
@@ -377,8 +378,8 @@ public partial class ResourcesPage : UserControl, IPage
         BrowseList.Children.Remove(loading);
         if (result.Hits.Count == 0 && offset == 0)
         {
-            var name = Mods.KindNames[kind];
-            Status(game != null ? $"没有找到适用于 {game} 的{name}" : $"没有找到{name}");
+            var name = T(Mods.KindNames[kind]);
+            Status(game != null ? F("没有找到适用于 {0} 的{1}", game, name) : F("没有找到{0}", name));
             return;
         }
         foreach (var hit in result.Hits)
@@ -388,7 +389,7 @@ public partial class ResourcesPage : UserControl, IPage
         {
             var more = new Button
             {
-                Content = $"加载更多（{_offset} / {result.Total}）",
+                Content = F("加载更多（{0} / {1}）", _offset, result.Total),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 6, 0, 12),
             };
@@ -403,6 +404,8 @@ public partial class ResourcesPage : UserControl, IPage
 
     public static string FormatCount(long n) => n switch
     {
+        >= 1_000_000 when English => $"{n / 1_000_000.0:0.0}M",
+        >= 10_000 when English => $"{n / 1_000.0:0.0}K",
         >= 100_000_000 => $"{n / 100_000_000.0:0.0} 亿",
         >= 10_000 => $"{n / 10_000.0:0.0} 万",
         _ => n.ToString(),
@@ -463,11 +466,11 @@ public partial class ResourcesPage : UserControl, IPage
         var button = new Button
         {
             Classes = { "primary" }, Width = 104, VerticalAlignment = VerticalAlignment.Center,
-            Content = new IconLabel { Icon = installed ? "check" : "download", Text = installed ? "已安装" : "安装" },
+            Content = new IconLabel { Icon = installed ? "check" : "download", Text = installed ? T("已安装") : T("安装") },
             IsEnabled = !installed && !_installing.Contains(hit.Id),
         };
         if (_installing.Contains(hit.Id))
-            button.Content = new IconLabel { Text = "安装中…" };
+            button.Content = new IconLabel { Text = T("安装中…") };
         button.Click += (_, _) => Install(hit, source, button);
         _cardButtons[hit.Id] = button;
 
@@ -529,8 +532,8 @@ public partial class ResourcesPage : UserControl, IPage
         var target = TargetDir();
         _installing.Add(hit.Id);
         button.IsEnabled = false;
-        button.Content = new IconLabel { Text = "安装中…" };
-        Main.SetStatus($"正在安装 {hit.Title}…");
+        button.Content = new IconLabel { Text = T("安装中…") };
+        Main.SetStatus(F("正在安装 {0}…", hit.Title));
         List<string> files;
         try
         {
@@ -539,18 +542,18 @@ public partial class ResourcesPage : UserControl, IPage
         catch (Exception e)
         {
             _installing.Remove(hit.Id);
-            Main.SetStatus("就绪");
-            button.Content = new IconLabel { Icon = "download", Text = "安装" };
+            Main.SetStatus(T("就绪"));
+            button.Content = new IconLabel { Icon = "download", Text = T("安装") };
             button.IsEnabled = true;
-            await Main.Dialog($"安装 {hit.Title} 失败", MainWindow.ErrorText(e), "error");
+            await Main.Dialog(F("安装 {0} 失败", hit.Title), MainWindow.ErrorText(e), "error");
             return;
         }
         _installing.Remove(hit.Id);
-        Main.SetStatus("就绪");
+        Main.SetStatus(T("就绪"));
         var extra = files.Count - 1;
-        var message = $"已安装 {hit.Title}" + (extra > 0 ? $"（含 {extra} 个前置）" : "");
+        var message = F("已安装 {0}", hit.Title) + (extra > 0 ? F("（含 {0} 个前置）", extra) : "");
         if (kind == "shader" && ctx.Loader != "optifine")
-            message += "，需要 OptiFine 或 Iris 才能使用";
+            message += T("，需要 OptiFine 或 Iris 才能使用");
         Main.Toast(message);
         projects.Add(hit.Id);
         MarkInstalled();
@@ -564,7 +567,7 @@ public partial class ResourcesPage : UserControl, IPage
         {
             if (projects.Contains(pid) && !_installing.Contains(pid))
             {
-                button.Content = new IconLabel { Icon = "check", Text = "已安装" };
+                button.Content = new IconLabel { Icon = "check", Text = T("已安装") };
                 button.IsEnabled = false;
             }
         }
@@ -594,7 +597,7 @@ public partial class ResourcesPage : UserControl, IPage
         if (ctx != _ctx || kind != _kind)
             return;
         _localItems = items;
-        LocalTab.Content = $"已安装 · {items.Count}";
+        LocalTab.Content = F("已安装 · {0}", items.Count);
         RenderLocal();
         if (!identify)
             return;
@@ -629,7 +632,7 @@ public partial class ResourcesPage : UserControl, IPage
         {
             LocalList.Children.Add(new TextBlock
             {
-                Text = $"还没有安装{Mods.KindNames[_kind]}，去 Modrinth 或 CurseForge 装一些吧",
+                Text = F("还没有安装{0}，去 Modrinth 或 CurseForge 装一些吧", T(Mods.KindNames[_kind])),
                 Classes = { "muted" }, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 30),
             });
             return;
@@ -658,7 +661,7 @@ public partial class ResourcesPage : UserControl, IPage
                 line.Children.Add(new TextBlock { Text = item.Version, Classes = { "small", "muted" }, VerticalAlignment = VerticalAlignment.Center });
             _updates.TryGetValue(item.Path, out var update);
             if (update != null)
-                line.Children.Add(new TextBlock { Text = $"可更新 → {update.Version}", Classes = { "small", "bold" }, Foreground = success, VerticalAlignment = VerticalAlignment.Center });
+                line.Children.Add(new TextBlock { Text = F("可更新 → {0}", update.Version), Classes = { "small", "bold" }, Foreground = success, VerticalAlignment = VerticalAlignment.Center });
             var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
             text.Children.Add(line);
             text.Children.Add(new TextBlock { Text = item.Filename, Classes = { "small", "dim" } });
@@ -666,13 +669,13 @@ public partial class ResourcesPage : UserControl, IPage
             grid.Children.Add(text);
             if (update != null)
             {
-                var updateButton = new Button { Content = new IconLabel { Icon = "download", Text = "更新" }, Margin = new Thickness(0, 0, 6, 0) };
+                var updateButton = new Button { Content = new IconLabel { Icon = "download", Text = T("更新") }, Margin = new Thickness(0, 0, 6, 0) };
                 updateButton.Click += (_, _) => RunUpdates([update]);
                 Grid.SetColumn(updateButton, 2);
                 grid.Children.Add(updateButton);
             }
             var delete = new Button { Classes = { "ghost", "danger-text" }, Content = new Icon { Kind = "delete", Size = 17 }, Padding = new Thickness(9, 0) };
-            ToolTip.SetTip(delete, "删除");
+            ToolTip.SetTip(delete, T("删除"));
             delete.Click += (_, _) => Delete(item);
             Grid.SetColumn(delete, 3);
             grid.Children.Add(delete);
@@ -692,7 +695,7 @@ public partial class ResourcesPage : UserControl, IPage
         catch (Exception e)
         {
             toggle.IsChecked = mod.Enabled;
-            await Main.Dialog("操作失败", "无法重命名模组文件（游戏是否正在运行？）：" + e.Message, "error");
+            await Main.Dialog(T("操作失败"), F("无法重命名模组文件（游戏是否正在运行？）：{0}", e.Message), "error");
             return;
         }
         _updates.Clear();
@@ -702,7 +705,7 @@ public partial class ResourcesPage : UserControl, IPage
 
     private async void Delete(LocalFile item)
     {
-        if (!await Main.Confirm("删除", $"确定要删除 {item.Filename} 吗？此操作无法撤销。", "删除", "warn", "danger"))
+        if (!await Main.Confirm(T("删除"), F("确定要删除 {0} 吗？此操作无法撤销。", item.Filename), T("删除"), "warn", "danger"))
             return;
         try
         {
@@ -713,7 +716,7 @@ public partial class ResourcesPage : UserControl, IPage
         }
         catch (Exception e)
         {
-            await Main.Dialog("删除失败", e.Message, "error");
+            await Main.Dialog(T("删除失败"), e.Message, "error");
             return;
         }
         _updates.Remove(item.Path);
@@ -738,14 +741,14 @@ public partial class ResourcesPage : UserControl, IPage
         var mods = _kind == "mod" ? _localItems.ToList() : [];
         if (mods.Count == 0)
         {
-            Main.Toast("没有可以检查的模组", "warn");
+            Main.Toast(T("没有可以检查的模组"), "warn");
             return;
         }
         var ctx = _ctx;
         var modrinth = (ModrinthClient)_clients["modrinth"];
         var curseforge = (CurseForgeClient)_clients["curseforge"];
         CheckUpdateButton.IsEnabled = false;
-        CheckUpdateLabel.Text = "检查中…";
+        CheckUpdateLabel.Text = T("检查中…");
         List<ModUpdate> updates;
         try
         {
@@ -753,26 +756,26 @@ public partial class ResourcesPage : UserControl, IPage
         }
         catch (Exception ex)
         {
-            await Main.Dialog("检查更新失败", MainWindow.ErrorText(ex), "error");
+            await Main.Dialog(T("检查更新失败"), MainWindow.ErrorText(ex), "error");
             return;
         }
         finally
         {
             CheckUpdateButton.IsEnabled = true;
-            CheckUpdateLabel.Text = "检查更新";
+            CheckUpdateLabel.Text = T("检查更新");
         }
         if (ctx != _ctx)
             return;
         _updates = updates.ToDictionary(u => u.Mod.Path);
         RenderLocal();
         UpdateUpdateAll();
-        Main.Toast(updates.Count > 0 ? $"有 {updates.Count} 个模组可以更新" : "所有模组都是最新版本");
+        Main.Toast(updates.Count > 0 ? F("有 {0} 个模组可以更新", updates.Count) : T("所有模组都是最新版本"));
     }
 
     private void UpdateUpdateAll()
     {
         UpdateAllButton.IsVisible = _updates.Count > 0;
-        UpdateAllLabel.Text = $"全部更新（{_updates.Count}）";
+        UpdateAllLabel.Text = F("全部更新（{0}）", _updates.Count);
     }
 
     private void OnUpdateAll(object sender, RoutedEventArgs e) => RunUpdates(_updates.Values.ToList());
@@ -780,19 +783,19 @@ public partial class ResourcesPage : UserControl, IPage
     private void RunUpdates(List<ModUpdate> updates)
     {
         var dl = Main.MakeLauncher().Dl;
-        _ = Main.RunTask("更新模组", async () =>
+        _ = Main.RunTask(T("更新模组"), async () =>
         {
             var failed = new List<string>();
             for (var i = 0; i < updates.Count; i++)
             {
-                Main.Progress(i, updates.Count, "更新模组");
+                Main.Progress(i, updates.Count, T("更新模组"));
                 try
                 {
                     await Mods.ApplyUpdateAsync(dl, updates[i]);
                 }
                 catch (Exception ex)
                 {
-                    failed.Add($"{updates[i].Mod.Name}：{MainWindow.ErrorText(ex)}");
+                    failed.Add(F("{0}：{1}", updates[i].Mod.Name, MainWindow.ErrorText(ex)));
                 }
             }
             return failed;
@@ -803,9 +806,9 @@ public partial class ResourcesPage : UserControl, IPage
             UpdateUpdateAll();
             ReloadLocal(false);
             if (failed.Count > 0)
-                _ = Main.Dialog("部分模组更新失败", string.Join("\n", failed.Take(8)), "error");
+                _ = Main.Dialog(T("部分模组更新失败"), string.Join("\n", failed.Take(8)), "error");
             else
-                Main.Toast($"已更新 {updates.Count} 个模组");
+                Main.Toast(F("已更新 {0} 个模组", updates.Count));
         });
     }
 

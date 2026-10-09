@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -77,14 +78,14 @@ public static class Updater
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
-            throw new DownloadException("无法连接 GitHub：" + (e is TaskCanceledException ? "连接超时" : e.Message), e);
+            throw new DownloadException(F("无法连接 GitHub：{0}", e is TaskCanceledException ? T("连接超时") : e.Message), e);
         }
         if (result.Status == 404)
             return null;
         if (result.Status == 403)
-            throw new DownloadException("GitHub 访问次数过多，请稍后再试");
+            throw new DownloadException(T("GitHub 访问次数过多，请稍后再试"));
         if (!result.Ok)
-            throw new DownloadException($"检查更新失败（HTTP {result.Status}）");
+            throw new DownloadException(F("检查更新失败（HTTP {0}）", result.Status));
         var json = result.Json();
         var version = (json.Str("tag_name") ?? "").Trim().TrimStart('v', 'V');
         if (!IsNewer(version, Mc.LauncherVersion))
@@ -100,7 +101,7 @@ public static class Updater
                                                    CancellationToken cancel = default)
     {
         if (string.IsNullOrEmpty(info.Url))
-            throw new DownloadException($"这个版本没有提供 {info.AssetName}，请到发布页手动下载");
+            throw new DownloadException(F("这个版本没有提供 {0}，请到发布页手动下载", info.AssetName));
         var dir = Path.Combine(AppPaths.CacheDir, "update");
         Directory.CreateDirectory(dir);
         var target = Path.Combine(dir, info.AssetName);
@@ -134,7 +135,7 @@ public static class Updater
             }
             progress?.Invoke(done, total);
             if (info.Size > 0 && done != info.Size)
-                throw new DownloadException("更新文件下载不完整，请重试");
+                throw new DownloadException(T("更新文件下载不完整，请重试"));
         }
         File.Move(part, target, true);
         return target;
@@ -144,7 +145,7 @@ public static class Updater
     public static void Apply(string downloaded)
     {
         if (!CanSelfUpdate)
-            throw new InvalidOperationException("当前运行的不是发布版，无法自动更新");
+            throw new InvalidOperationException(T("当前运行的不是发布版，无法自动更新"));
         if (Platform.IsWindows)
             ApplyWindows(downloaded);
         else
@@ -183,7 +184,7 @@ public static class Updater
         var staging = Path.Combine(parent, ".maox-update-" + Guid.NewGuid().ToString("N")[..8]);
         Run("ditto", "-x", "-k", downloaded, staging);
         var fresh = Directory.GetDirectories(staging, "*.app").FirstOrDefault()
-                    ?? throw new DownloadException("更新包里没有找到 .app");
+                    ?? throw new DownloadException(T("更新包里没有找到 .app"));
         var old = bundle + ".old";
         TryDeleteDirectory(old);
         Directory.Move(bundle, old);
@@ -210,7 +211,7 @@ public static class Updater
             Process.Start("open", ["-n", bundle]);
             return;
         }
-        var exe = Environment.ProcessPath ?? throw new InvalidOperationException("无法确定启动器的位置");
+        var exe = Environment.ProcessPath ?? throw new InvalidOperationException(T("无法确定启动器的位置"));
         Process.Start(new ProcessStartInfo(exe)
         {
             UseShellExecute = false,
@@ -242,12 +243,12 @@ public static class Updater
             using var process = Process.Start(new ProcessStartInfo(file, args) { UseShellExecute = false });
             process?.WaitForExit(60_000);
             if (process is { HasExited: true, ExitCode: not 0 } && file == "ditto")
-                throw new DownloadException($"解压更新包失败（ditto 退出码 {process.ExitCode}）");
+                throw new DownloadException(F("解压更新包失败（ditto 退出码 {0}）", process.ExitCode));
         }
         catch (System.ComponentModel.Win32Exception e)
         {
             if (file == "ditto")
-                throw new DownloadException("解压更新包失败：" + e.Message, e);
+                throw new DownloadException(F("解压更新包失败：{0}", e.Message), e);
         }
     }
 

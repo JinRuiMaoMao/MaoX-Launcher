@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -242,7 +243,7 @@ public static partial class JavaManager
         if ((entries == null || entries.Count == 0) && platform == null && Platform.IsMac && Platform.IsArm)
             entries = all.Get("mac-os").Arr(component);  // 没有 Apple 芯片版本时用 Rosetta 运行 Intel 版本
         if (entries == null || entries.Count == 0)
-            throw new InvalidOperationException($"官方没有为当前平台提供 Java 运行时 {component}");
+            throw new InvalidOperationException(F("官方没有为当前平台提供 Java 运行时 {0}", component));
         var manifest = await dl.FetchJsonAsync(entries[0].Get("manifest").Str("url"));
 
         var home = Path.Combine(runtimeRoot, component);
@@ -286,7 +287,7 @@ public static partial class JavaManager
 
         var java = RuntimeJavaPath(home);
         if (!File.Exists(java))
-            throw new InvalidOperationException($"Java 运行时安装不完整：找不到 {java}");
+            throw new InvalidOperationException(F("Java 运行时安装不完整：找不到 {0}", java));
         return java;
     }
 }

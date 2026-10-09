@@ -6,21 +6,21 @@
   <DockPanel>
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,22">
       <StackPanel Spacing="2">
-        <TextBlock Text="下载游戏" Classes="h1" />
-        <TextBlock Text="选择一个 Minecraft 版本进行安装，已安装的版本会自动补全缺失文件" Classes="muted" />
+        <TextBlock Text="{c:Tr 下载游戏}" Classes="h1" />
+        <TextBlock Text="{c:Tr 选择一个 Minecraft 版本进行安装，已安装的版本会自动补全缺失文件}" Classes="muted" />
       </StackPanel>
       <Button Name="RefreshButton" Grid.Column="1" VerticalAlignment="Bottom" Click="OnRefresh">
-        <c:IconLabel Icon="refresh" Text="刷新列表" />
+        <c:IconLabel Icon="refresh" Text="{c:Tr 刷新列表}" />
       </Button>
     </Grid>
 
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <ToggleButton Name="ReleaseChip" Classes="chip" Content="正式版" IsChecked="True" Click="OnFilterChanged" />
-        <ToggleButton Name="SnapshotChip" Classes="chip" Content="快照版" Click="OnFilterChanged" />
-        <ToggleButton Name="OldChip" Classes="chip" Content="远古版本" Click="OnFilterChanged" />
+        <ToggleButton Name="ReleaseChip" Classes="chip" Content="{c:Tr 正式版}" IsChecked="True" Click="OnFilterChanged" />
+        <ToggleButton Name="SnapshotChip" Classes="chip" Content="{c:Tr 快照版}" Click="OnFilterChanged" />
+        <ToggleButton Name="OldChip" Classes="chip" Content="{c:Tr 远古版本}" Click="OnFilterChanged" />
       </StackPanel>
-      <TextBox Name="SearchBox" Grid.Column="1" Width="250" Watermark="搜索版本">
+      <TextBox Name="SearchBox" Grid.Column="1" Width="250" Watermark="{c:Tr 搜索版本}">
         <TextBox.InnerLeftContent>
           <c:Icon Kind="search" Size="16" Margin="10,0,0,0" Foreground="{StaticResource Dim}" />
         </TextBox.InnerLeftContent>
@@ -30,23 +30,23 @@
     <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,16,0,0">
       <c:Icon Kind="layers" Size="24" Foreground="{StaticResource Accent}" />
       <StackPanel Grid.Column="1" Margin="14,0,0,0" Spacing="2" VerticalAlignment="Center">
-        <TextBlock Text="支持全部模组加载器" FontWeight="SemiBold" />
-        <TextBlock Text="点击安装后可选择 Forge、NeoForge、Fabric、Quilt 与 OptiFine" Classes="small muted" />
+        <TextBlock Text="{c:Tr 支持全部模组加载器}" FontWeight="SemiBold" />
+        <TextBlock Text="{c:Tr 点击安装后可选择 Forge、NeoForge、Fabric、Quilt 与 OptiFine}" Classes="small muted" />
       </StackPanel>
-      <TextBlock Name="SelectedText" Grid.Column="2" Text="未选择版本" Classes="muted" VerticalAlignment="Center"
+      <TextBlock Name="SelectedText" Grid.Column="2" Text="{c:Tr 未选择版本}" Classes="muted" VerticalAlignment="Center"
                  Margin="0,0,18,0" />
       <Button Name="InstallButton" Grid.Column="3" Classes="primary" MinWidth="150" Height="42" Click="OnInstall">
-        <c:IconLabel Icon="download" Text="安装" />
+        <c:IconLabel Icon="download" Text="{c:Tr 安装}" />
       </Button>
     </Grid>
 
     <Border Classes="card">
       <DockPanel>
         <Grid DockPanel.Dock="Top" ColumnDefinitions="2*,1.2*,1.2*,*" Margin="20,12,20,8">
-          <TextBlock Text="版本" Classes="label" />
-          <TextBlock Grid.Column="1" Text="类型" Classes="label" />
-          <TextBlock Grid.Column="2" Text="发布日期" Classes="label" />
-          <TextBlock Grid.Column="3" Text="状态" Classes="label" />
+          <TextBlock Text="{c:Tr 版本}" Classes="label" />
+          <TextBlock Grid.Column="1" Text="{c:Tr 类型}" Classes="label" />
+          <TextBlock Grid.Column="2" Text="{c:Tr 发布日期}" Classes="label" />
+          <TextBlock Grid.Column="3" Text="{c:Tr 状态}" Classes="label" />
         </Grid>
         <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource CardBorder}" />
         <Panel>
@@ -61,14 +61,14 @@
                   <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="7" IsVisible="{Binding Installed}"
                               VerticalAlignment="Center">
                     <Ellipse Width="7" Height="7" Fill="{StaticResource Success}" />
-                    <TextBlock Text="已安装" Foreground="{StaticResource Success}" />
+                    <TextBlock Text="{c:Tr 已安装}" Foreground="{StaticResource Success}" />
                   </StackPanel>
                 </Grid>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
           <TextBlock Name="HintText" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Text="正在获取版本列表…" />
+                     Text="{c:Tr 正在获取版本列表…}" />
         </Panel>
       </DockPanel>
     </Border>

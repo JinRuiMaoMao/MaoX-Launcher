@@ -3,12 +3,13 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using MaoX.Core;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Pages;
 
 public partial class SettingsPage : UserControl, IPage
 {
-    private const string AutoJava = "自动选择（推荐）";
+    private static string AutoJava => T("自动选择（推荐）");
 
     private static readonly (string Key, string Text)[] Sources =
     [
@@ -38,12 +39,12 @@ public partial class SettingsPage : UserControl, IPage
         IsolationSwitch.IsChecked = cfg.VersionIsolation;
 
         var ram = Platform.TotalMemoryMb();
-        RamText.Text = $"系统内存 {ram / 1024.0:0} GB";
+        RamText.Text = F("系统内存 {0:0} GB", ram / 1024.0);
         MemorySlider.Maximum = Math.Max(2048, ram / 512 * 512);
         MemorySlider.Value = Math.Clamp(cfg.MaxMemory, 512, MemorySlider.Maximum);
         MemoryText.Text = $"{(int)MemorySlider.Value} MB";
 
-        SourceBox.ItemsSource = Sources.Select(s => s.Text).ToList();
+        SourceBox.ItemsSource = Sources.Select(s => T(s.Text)).ToList();
         SourceBox.SelectedIndex = Math.Max(0, Array.FindIndex(Sources, s => s.Key == cfg.DownloadSource));
         ThreadsSlider.Value = Math.Clamp(cfg.DownloadThreads, 1, 64);
         ThreadsText.Text = ((int)ThreadsSlider.Value).ToString();
@@ -53,14 +54,14 @@ public partial class SettingsPage : UserControl, IPage
         JvmBox.Text = cfg.JvmArgs;
         ClientIdBox.Text = cfg.MsaClientId;
 
-        AfterLaunchBox.ItemsSource = AfterLaunchModes.Select(s => s.Text).ToList();
+        AfterLaunchBox.ItemsSource = AfterLaunchModes.Select(s => T(s.Text)).ToList();
         AfterLaunchBox.SelectedIndex = Math.Max(0, Array.FindIndex(AfterLaunchModes, s => s.Key == cfg.AfterLaunch));
         BackgroundBox.Text = cfg.Background;
         MaskSlider.Value = Math.Clamp(cfg.BackgroundMask, 0, 90);
         MaskText.Text = $"{(int)MaskSlider.Value}%";
         AboutVersion.Text = $"MaoX Launcher v{Mc.LauncherVersion}";
         AboutPlatform.Text = $"{(Platform.IsWindows ? "Windows" : Platform.IsMac ? "macOS" : "Linux")} {Platform.Arch}"
-                             + (Updater.CanSelfUpdate ? "" : "  ·  开发版本，不会自动更新");
+                             + (Updater.CanSelfUpdate ? "" : T("  ·  开发版本，不会自动更新"));
         AutoUpdateSwitch.IsChecked = cfg.AutoCheckUpdate;
         LanguageBox.ItemsSource = I18n.Languages.Select(l => l.Name).ToList();
         LanguageBox.SelectedIndex = Math.Max(0, Array.FindIndex(I18n.Languages, l => l.Key == (cfg.Language ?? "")));
@@ -118,7 +119,7 @@ public partial class SettingsPage : UserControl, IPage
             {
                 Classes = { "swatch" }, Background = new SolidColorBrush(Color.Parse(color)),
             };
-            ToolTip.SetTip(swatch, name);
+            ToolTip.SetTip(swatch, T(name));
             swatch.Click += (_, _) => SetAccent(color);
             _swatches.Add((swatch, color));
             AccentSwatches.Children.Insert(index++, swatch);
@@ -178,7 +179,7 @@ public partial class SettingsPage : UserControl, IPage
         error = null;
         if (!int.TryParse(WidthBox.Text, out var w) || w <= 0 || !int.TryParse(HeightBox.Text, out var h) || h <= 0)
         {
-            error = "游戏窗口的宽度和高度必须是正整数。";
+            error = T("游戏窗口的宽度和高度必须是正整数。");
             return false;
         }
         Cfg.WindowWidth = w;
@@ -214,7 +215,7 @@ public partial class SettingsPage : UserControl, IPage
 
     private async void OnBrowseMcDir(object sender, RoutedEventArgs e)
     {
-        var path = await Main.PickFolder("选择游戏目录（.minecraft）", McDirBox.Text);
+        var path = await Main.PickFolder(T("选择游戏目录（.minecraft）"), McDirBox.Text);
         if (path == null)
             return;
         McDirBox.Text = path;
@@ -253,10 +254,10 @@ public partial class SettingsPage : UserControl, IPage
     private void OnDetectJava(object sender, RoutedEventArgs e)
     {
         var runtime = RuntimeDir;
-        _ = Main.RunTask("检测 Java", () => Task.Run(() => JavaManager.FindJava([runtime])), javas =>
+        _ = Main.RunTask(T("检测 Java"), () => Task.Run(() => JavaManager.FindJava([runtime])), javas =>
         {
             FillJava(javas);
-            Main.Toast($"检测到 {javas.Count} 个 Java");
+            Main.Toast(F("检测到 {0} 个 Java", javas.Count));
         });
     }
 
@@ -276,7 +277,7 @@ public partial class SettingsPage : UserControl, IPage
             selected = _javaMap.FirstOrDefault(p => string.Equals(p.Value, Cfg.JavaPath, StringComparison.OrdinalIgnoreCase)).Key;
             if (selected == null)
             {
-                selected = "自定义  —  " + Cfg.JavaPath;
+                selected = F("自定义  —  {0}", Cfg.JavaPath);
                 _javaMap[selected] = Cfg.JavaPath;
                 items.Add(selected);
             }
@@ -296,8 +297,8 @@ public partial class SettingsPage : UserControl, IPage
     private async void OnBrowseJava(object sender, RoutedEventArgs e)
     {
         var path = Platform.IsWindows
-            ? await Main.PickFile("选择 Java 可执行文件", "Java", "javaw.exe", "java.exe")
-            : await Main.PickFile("选择 Java 可执行文件");
+            ? await Main.PickFile(T("选择 Java 可执行文件"), "Java", "javaw.exe", "java.exe")
+            : await Main.PickFile(T("选择 Java 可执行文件"));
         if (path == null)
             return;
         Cfg.JavaPath = path;
@@ -356,7 +357,7 @@ public partial class SettingsPage : UserControl, IPage
 
     private async void OnBrowseBackground(object sender, RoutedEventArgs e)
     {
-        var path = await Main.PickFile("选择背景图片", "图片", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp", "*.gif");
+        var path = await Main.PickFile(T("选择背景图片"), T("图片"), "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp", "*.gif");
         if (path != null)
             SetBackground(path);
     }

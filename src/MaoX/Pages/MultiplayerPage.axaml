@@ -4,30 +4,30 @@
              x:Class="MaoX.Pages.MultiplayerPage">
   <DockPanel>
     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18" Spacing="2">
-      <TextBlock Text="多人游戏" Classes="h1" />
+      <TextBlock Text="{c:Tr 多人游戏}" Classes="h1" />
       <TextBlock Name="Subtitle" Classes="muted" />
     </StackPanel>
 
     <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <ToggleButton Name="RoomTab" Classes="chip" Content="联机房间" Tag="room" Click="OnTabClick" />
-        <ToggleButton Name="ServerTab" Classes="chip" Content="服务器" Tag="servers" Click="OnTabClick" />
+        <ToggleButton Name="RoomTab" Classes="chip" Content="{c:Tr 联机房间}" Tag="room" Click="OnTabClick" />
+        <ToggleButton Name="ServerTab" Classes="chip" Content="{c:Tr 服务器}" Tag="servers" Click="OnTabClick" />
       </StackPanel>
       <StackPanel Name="ServerTools" Grid.Column="2" Orientation="Horizontal" Spacing="8" IsVisible="False">
         <Button Click="OnImportServers">
-          <c:IconLabel Icon="archive" Text="从游戏导入" />
+          <c:IconLabel Icon="archive" Text="{c:Tr 从游戏导入}" />
         </Button>
-        <Button Classes="icon" ToolTip.Tip="刷新" Click="OnRefreshServers">
+        <Button Classes="icon" ToolTip.Tip="{c:Tr 刷新}" Click="OnRefreshServers">
           <c:Icon Kind="refresh" Size="17" />
         </Button>
         <Button Classes="primary" Click="OnAddServer">
-          <c:IconLabel Icon="plus" Text="添加服务器" />
+          <c:IconLabel Icon="plus" Text="{c:Tr 添加服务器}" />
         </Button>
       </StackPanel>
     </Grid>
 
     <TextBlock Name="Credit" DockPanel.Dock="Bottom" Classes="small dim titlelink" Margin="0,12,0,0" Cursor="Hand"
-               Text="联机服务由 Terracotta | 陶瓦联机 提供  ·  © Burning_TNT  ·  AGPL-3.0  ·  基于 EasyTier"
+               Text="{c:Tr '联机服务由 Terracotta | 陶瓦联机 提供  ·  © Burning_TNT  ·  AGPL-3.0  ·  基于 EasyTier'}"
                PointerPressed="OnCreditPressed" HorizontalAlignment="Left" />
     <Panel>
       <ScrollViewer Name="RoomView" Padding="0,0,4,0">
@@ -39,11 +39,11 @@
       <StackPanel Name="ServerEmpty" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
                   Margin="0,0,0,60" Spacing="6">
         <c:Icon Kind="globe" Size="46" StrokeWidth="1.4" Foreground="{StaticResource Dim}" />
-        <TextBlock Text="还没有服务器" Classes="h3" HorizontalAlignment="Center" Margin="0,10,0,0" />
+        <TextBlock Text="{c:Tr 还没有服务器}" Classes="h3" HorizontalAlignment="Center" Margin="0,10,0,0" />
         <TextBlock Classes="muted" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" LineHeight="22"
-                   Text="添加服务器后可以看到在线人数和延迟，点「进入」会启动游戏并直接连接。&#10;也可以从游戏自己的多人游戏列表导入。" />
+                   Text="{c:Tr '添加服务器后可以看到在线人数和延迟，点「进入」会启动游戏并直接连接。&#10;也可以从游戏自己的多人游戏列表导入。'}" />
         <Button Classes="primary" HorizontalAlignment="Center" Margin="0,14,0,0" Click="OnAddServer">
-          <c:IconLabel Icon="plus" Text="添加服务器" />
+          <c:IconLabel Icon="plus" Text="{c:Tr 添加服务器}" />
         </Button>
       </StackPanel>
     </Panel>

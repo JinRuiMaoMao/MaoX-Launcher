@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
+using static MaoX.Core.I18n;
 
 namespace MaoX;
 
@@ -18,8 +19,8 @@ public static class ThemeManager
     /// <summary>预设主题色（名称, 颜色）。</summary>
     public static readonly (string Name, string Color)[] Presets =
     [
-        ("科技青", "#00D9FF"), ("天空蓝", "#4C9AFF"), ("草方块绿", "#4ADE80"), ("薄荷绿", "#2DD4BF"),
-        ("紫水晶", "#A78BFA"), ("樱花粉", "#F472B6"), ("落日橙", "#FB923C"), ("金块黄", "#FACC15"),
+        (T("科技青"), "#00D9FF"), (T("天空蓝"), "#4C9AFF"), (T("草方块绿"), "#4ADE80"), (T("薄荷绿"), "#2DD4BF"),
+        (T("紫水晶"), "#A78BFA"), (T("樱花粉"), "#F472B6"), (T("落日橙"), "#FB923C"), (T("金块黄"), "#FACC15"),
     ];
 
     private static readonly Color DarkBg = Color.Parse("#151820");

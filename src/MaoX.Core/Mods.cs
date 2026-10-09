@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -93,8 +94,8 @@ public static partial class Mods
 
     public static readonly IReadOnlyList<SortOption> Sorts =
     [
-        new("relevance", "相关性"), new("downloads", "下载量"), new("follows", "热门"),
-        new("updated", "最近更新"), new("newest", "最新发布"),
+        new("relevance", T("相关性")), new("downloads", T("下载量")), new("follows", T("热门")),
+        new("updated", T("最近更新")), new("newest", T("最新发布")),
     ];
 
     public static readonly IReadOnlySet<string> HiddenCategories = new HashSet<string>
@@ -104,8 +105,8 @@ public static partial class Mods
 
     public static readonly IReadOnlyList<ResourceKind> Kinds =
     [
-        new("mod", "模组", "mods"), new("resourcepack", "资源包", "resourcepacks"),
-        new("shader", "光影", "shaderpacks"), new("datapack", "数据包", "datapacks"), new("modpack", "整合包", null),
+        new("mod", T("模组"), "mods"), new("resourcepack", T("资源包"), "resourcepacks"),
+        new("shader", T("光影"), "shaderpacks"), new("datapack", T("数据包"), "datapacks"), new("modpack", T("整合包"), null),
     ];
 
     public static readonly IReadOnlyDictionary<string, string> KindNames = Kinds.ToDictionary(k => k.Key, k => k.Name);
@@ -388,7 +389,7 @@ public static partial class Mods
                 Enabled = true,
                 IsDir = isDir,
                 Name = ZipSuffix().Replace(filename, ""),
-                Version = isDir ? "文件夹" : null,
+                Version = isDir ? T("文件夹") : null,
             });
         }
         return items;
@@ -597,8 +598,8 @@ public class ModrinthClient : IModClient
             if (version == null)
             {
                 if (pid == projectId)
-                    throw new InvalidOperationException("这个模组没有适用于当前版本的文件");
-                log($"[警告] 前置模组 {pid} 没有适用于当前版本的文件，已跳过");
+                    throw new InvalidOperationException(T("这个模组没有适用于当前版本的文件"));
+                log(F("[警告] 前置模组 {0} 没有适用于当前版本的文件，已跳过", pid));
                 continue;
             }
             var file = PrimaryFile(version);
@@ -610,7 +611,7 @@ public class ModrinthClient : IModClient
             installedProjects.Add(version.Str("project_id"));
             installed.Add(file.Str("filename"));
             if (pid != projectId)
-                log($"已安装前置模组 {file.Str("filename")}");
+                log(F("已安装前置模组 {0}", file.Str("filename")));
             if (kind != "mod")
                 continue;
             foreach (var dep in version.Items("dependencies"))
@@ -682,7 +683,7 @@ public partial class CurseForgeClient : IModClient
                                                 int limit = 20, string index = "relevance", string kind = "mod")
     {
         if (!Mods.CfClasses.TryGetValue(kind, out var classId))
-            throw new ArgumentException($"未知的资源类型：{kind}");
+            throw new ArgumentException(F("未知的资源类型：{0}", kind));
         var parameters = new Dictionary<string, string>
         {
             ["gameId"] = Mods.CfGameId.ToString(),
@@ -885,8 +886,8 @@ public partial class CurseForgeClient : IModClient
             if (file == null)
             {
                 if (pid == projectId)
-                    throw new InvalidOperationException("这个模组没有适用于当前版本的文件");
-                log($"[警告] 前置模组 {pid} 没有适用于当前版本的文件，已跳过");
+                    throw new InvalidOperationException(T("这个模组没有适用于当前版本的文件"));
+                log(F("[警告] 前置模组 {0} 没有适用于当前版本的文件，已跳过", pid));
                 continue;
             }
             var dest = Path.Combine(modsDir, file.Str("fileName"));
@@ -895,7 +896,7 @@ public partial class CurseForgeClient : IModClient
             installedProjects.Add(pid);
             installed.Add(file.Str("fileName"));
             if (pid != projectId)
-                log($"已安装前置模组 {file.Str("fileName")}");
+                log(F("已安装前置模组 {0}", file.Str("fileName")));
             if (kind != "mod")
                 continue;
             foreach (var dep in file.Items("dependencies"))

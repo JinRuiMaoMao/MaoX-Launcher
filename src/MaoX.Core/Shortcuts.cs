@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -21,7 +22,7 @@ public static class Shortcuts
     /// <summary>在桌面创建启动该版本的快捷方式，返回快捷方式路径。</summary>
     public static string CreateDesktopShortcut(string version)
     {
-        var exe = Environment.ProcessPath ?? throw new InvalidOperationException("无法确定启动器的位置");
+        var exe = Environment.ProcessPath ?? throw new InvalidOperationException(T("无法确定启动器的位置"));
         var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         if (string.IsNullOrEmpty(desktop))
             desktop = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Desktop");
@@ -40,7 +41,7 @@ public static class Shortcuts
                 .Append("$s.Arguments = ").Append(Ps(arguments)).Append(';')
                 .Append("$s.WorkingDirectory = ").Append(Ps(Path.GetDirectoryName(exe)!)).Append(';')
                 .Append("$s.IconLocation = ").Append(Ps(exe + ",0")).Append(';')
-                .Append("$s.Description = ").Append(Ps($"用 MaoX Launcher 启动 {version}")).Append(';')
+                .Append("$s.Description = ").Append(Ps(F("用 MaoX Launcher 启动 {0}", version))).Append(';')
                 .Append("$s.Save()")
                 .ToString();
             var psi = new ProcessStartInfo("powershell.exe")
@@ -53,11 +54,11 @@ public static class Shortcuts
             psi.ArgumentList.Add("-NonInteractive");
             psi.ArgumentList.Add("-EncodedCommand");
             psi.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes(script)));
-            using var process = Process.Start(psi) ?? throw new InvalidOperationException("无法创建快捷方式");
+            using var process = Process.Start(psi) ?? throw new InvalidOperationException(T("无法创建快捷方式"));
             var error = process.StandardError.ReadToEnd();
             process.WaitForExit(20_000);
             if (!File.Exists(path))
-                throw new InvalidOperationException("创建快捷方式失败：" + error.Trim());
+                throw new InvalidOperationException(F("创建快捷方式失败：{0}", error.Trim()));
             return path;
         }
 
@@ -67,7 +68,7 @@ public static class Shortcuts
         var body = bundle != null
             ? $"open -n -a {Sh(bundle)} --args {string.Join(" ", args.Select(Sh))}"
             : $"{Sh(exe)} {string.Join(" ", args.Select(Sh))} &";
-        File.WriteAllText(file, $"#!/bin/bash\n# 用 MaoX Launcher 启动 {version}\n{body}\n");
+        File.WriteAllText(file, $"#!/bin/bash\n# {F("用 MaoX Launcher 启动 {0}", version)}\n{body}\n");
         Platform.MakeExecutable(file);
         return file;
     }
@@ -83,7 +84,7 @@ public static class Shortcuts
             sb.Append("@echo off\r\n");
             sb.Append("chcp 65001 >nul\r\n");
             sb.Append($"title {Bat(version)}\r\n");
-            sb.Append($"rem 由 MaoX Launcher 导出的 {version} 启动脚本\r\n");
+            sb.Append($"rem {F("由 MaoX Launcher 导出的 {0} 启动脚本", version)}\r\n");
             sb.Append($"cd /d {BatArg(gameDir)}\r\n");
             var java = BatArg(JavaConsole(command[0]));
             var line = string.Join(" ", command.Skip(1).Select(BatArg));
@@ -91,7 +92,7 @@ public static class Shortcuts
             if (java.Length + line.Length > 8000)
             {
                 if (JavaManager.JavaVersion(command[0]) is < 9)
-                    throw new InvalidOperationException("这个版本的启动命令太长，Windows 批处理放不下，而 Java 8 又不支持参数文件。请换用 Java 9 及以上再导出。");
+                    throw new InvalidOperationException(T("这个版本的启动命令太长，Windows 批处理放不下，而 Java 8 又不支持参数文件。请换用 Java 9 及以上再导出。"));
                 var argsFile = Path.ChangeExtension(path, ".args.txt");
                 File.WriteAllText(argsFile, string.Join("\r\n", command.Skip(1).Select(JavaArgFileArg)), NativeEncoding());
                 line = BatArg("@" + argsFile);
@@ -104,7 +105,7 @@ public static class Shortcuts
         {
             var sb = new StringBuilder();
             sb.Append("#!/bin/bash\n");
-            sb.Append($"# 由 MaoX Launcher 导出的 {version} 启动脚本\n");
+            sb.Append($"# {F("由 MaoX Launcher 导出的 {0} 启动脚本", version)}\n");
             sb.Append($"cd {Sh(gameDir)} || exit 1\n");
             sb.Append("exec ").Append(string.Join(" \\\n  ", command.Select(Sh))).Append('\n');
             File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));

@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using MaoX.Controls;
 using MaoX.Core;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Dialogs;
 
@@ -30,8 +31,8 @@ public class InstallDialog : DialogView
         _mc = mc;
         DialogWidth = 580;
         var root = new StackPanel();
-        root.Children.Add(Title("安装 Minecraft " + mc));
-        root.Children.Add(Paragraph("选择一个模组加载器；只想玩原版的话直接安装即可。"));
+        root.Children.Add(Title(F("安装 Minecraft {0}", mc)));
+        root.Children.Add(Paragraph(T("选择一个模组加载器；只想玩原版的话直接安装即可。")));
 
         var chips = new WrapPanel { Margin = new Thickness(0, 20, 0, 18) };
         foreach (var key in new[] { "vanilla" }.Concat(Loaders.All))
@@ -39,7 +40,7 @@ public class InstallDialog : DialogView
             var chip = new ToggleButton
             {
                 Classes = { "chip" },
-                Content = key == "vanilla" ? "原版" : Mc.LoaderNames[key],
+                Content = key == "vanilla" ? T("原版") : Mc.LoaderNames[key],
                 IsChecked = key == _loader,
                 Margin = new Thickness(0, 0, 8, 8),
             };
@@ -53,7 +54,7 @@ public class InstallDialog : DialogView
         }
         root.Children.Add(chips);
 
-        root.Children.Add(FieldLabel("加载器版本"));
+        root.Children.Add(FieldLabel(T("加载器版本")));
         _versionBox.Margin = new Thickness(0, 7, 0, 0);
         root.Children.Add(_versionBox);
         _hint.Margin = new Thickness(0, 8, 0, 0);
@@ -63,15 +64,15 @@ public class InstallDialog : DialogView
 
         var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 0, 0, 10) };
         head.Children.Add(_optifineSwitch);
-        head.Children.Add(new TextBlock { Text = "同时安装 OptiFine", FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
-        head.Children.Add(new TextBlock { Text = "高清修复与光影支持", Classes = { "small", "dim" }, VerticalAlignment = VerticalAlignment.Center });
+        head.Children.Add(new TextBlock { Text = T("同时安装 OptiFine"), FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
+        head.Children.Add(new TextBlock { Text = T("高清修复与光影支持"), Classes = { "small", "dim" }, VerticalAlignment = VerticalAlignment.Center });
         root.Children.Add(head);
         root.Children.Add(_optifineBox);
         _optifineHint.Margin = new Thickness(0, 8, 0, 0);
         root.Children.Add(_optifineHint);
 
-        _installButton = MakeButton("安装", "primary", "download", Finish);
-        root.Children.Add(ButtonRow(MakeButton("取消", onClick: () => Close()), _installButton));
+        _installButton = MakeButton(T("安装"), "primary", "download", Finish);
+        root.Children.Add(ButtonRow(MakeButton(T("取消"), onClick: () => Close()), _installButton));
         Content = root;
 
         _optifineSwitch.IsCheckedChanged += (_, _) => Refresh();
@@ -97,7 +98,7 @@ public class InstallDialog : DialogView
         _results[loader] = result;
         if (_chips.TryGetValue(loader, out var chip) && result is List<LoaderItem> { Count: 0 })
         {
-            chip.Content = Mc.LoaderNames[loader] + " · 不支持";
+            chip.Content = F("{0} · 不支持", Mc.LoaderNames[loader]);
             chip.IsEnabled = false;
             if (_loader == loader)
                 _loader = "vanilla";
@@ -109,10 +110,10 @@ public class InstallDialog : DialogView
     {
         var tags = new List<string>();
         if (item.Recommended)
-            tags.Add("推荐");
+            tags.Add(T("推荐"));
         if (!item.Stable)
-            tags.Add("测试版");
-        return tags.Count > 0 ? $"{item.Display}    （{string.Join("，", tags)}）" : item.Display;
+            tags.Add(T("测试版"));
+        return tags.Count > 0 ? F("{0}    （{1}）", item.Display, string.Join(T("，"), tags)) : item.Display;
     }
 
     private static void Fill(ComboBox box, List<LoaderItem> items)
@@ -144,10 +145,10 @@ public class InstallDialog : DialogView
         _hint.Foreground = muted;
         if (_loader == "vanilla")
         {
-            _versionBox.ItemsSource = new[] { "无需选择" };
+            _versionBox.ItemsSource = new[] { T("无需选择") };
             _versionBox.SelectedIndex = 0;
             _versionBox.IsEnabled = false;
-            _hint.Text = "将安装不带模组加载器的原版游戏。";
+            _hint.Text = T("将安装不带模组加载器的原版游戏。");
             return true;
         }
         var name = Mc.LoaderNames[_loader];
@@ -157,18 +158,18 @@ public class InstallDialog : DialogView
             case null:
                 _versionBox.ItemsSource = null;
                 _versionBox.IsEnabled = false;
-                _hint.Text = $"正在获取 {name} 版本列表…";
+                _hint.Text = F("正在获取 {0} 版本列表…", name);
                 return false;
             case Exception e:
                 _versionBox.ItemsSource = null;
                 _versionBox.IsEnabled = false;
-                _hint.Text = "获取版本列表失败：" + MainWindow.ErrorText(e);
+                _hint.Text = F("获取版本列表失败：{0}", MainWindow.ErrorText(e));
                 _hint.Foreground = (IBrush)Application.Current!.FindResource("Error");
                 return false;
             default:
                 var items = (List<LoaderItem>)state;
                 Fill(_versionBox, items);
-                _hint.Text = $"共 {items.Count} 个可用版本，默认选中推荐版本。";
+                _hint.Text = F("共 {0} 个可用版本，默认选中推荐版本。", items.Count);
                 return true;
         }
     }
@@ -183,19 +184,19 @@ public class InstallDialog : DialogView
             _optifineSwitch.IsChecked = false;
         string message = state switch
         {
-            null => "正在获取 OptiFine 版本列表…",
-            Exception e => "获取 OptiFine 版本列表失败：" + MainWindow.ErrorText(e),
-            List<LoaderItem> { Count: 0 } => $"OptiFine 暂不支持 Minecraft {_mc}。",
-            _ when !compatible => "OptiFine 只能搭配原版或 Forge 使用。",
-            _ when _loader == "forge" => "OptiFine 会作为模组放进 mods 文件夹，与 Forge 一起加载。",
-            _ => "将生成独立的 OptiFine 版本（独立版本无法加载其他模组）。",
+            null => T("正在获取 OptiFine 版本列表…"),
+            Exception e => F("获取 OptiFine 版本列表失败：{0}", MainWindow.ErrorText(e)),
+            List<LoaderItem> { Count: 0 } => F("OptiFine 暂不支持 Minecraft {0}。", _mc),
+            _ when !compatible => T("OptiFine 只能搭配原版或 Forge 使用。"),
+            _ when _loader == "forge" => T("OptiFine 会作为模组放进 mods 文件夹，与 Forge 一起加载。"),
+            _ => T("将生成独立的 OptiFine 版本（独立版本无法加载其他模组）。"),
         };
         if (_optifineSwitch.IsChecked == true && state is List<LoaderItem> list)
         {
             Fill(_optifineBox, list);
             var item = list[Math.Max(_optifineBox.SelectedIndex, 0)];
             if (_loader == "forge" && item.Forge?.StartsWith("Forge ") == true)
-                message += $"建议 Forge 版本不低于 {item.Forge[6..]}。";
+                message += F("建议 Forge 版本不低于 {0}。", item.Forge[6..]);
         }
         else
         {

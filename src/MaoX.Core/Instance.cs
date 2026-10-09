@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -29,7 +30,7 @@ public static partial class Instance
 
     public static readonly IReadOnlyDictionary<int, string> GameModes = new Dictionary<int, string>
     {
-        [0] = "生存", [1] = "创造", [2] = "冒险", [3] = "旁观",
+        [0] = T("生存"), [1] = T("创造"), [2] = T("冒险"), [3] = T("旁观"),
     };
 
     /// <summary>检查新版本名是否可用，返回去掉首尾空白的名称；不可用时抛出 ArgumentException。</summary>
@@ -37,12 +38,12 @@ public static partial class Instance
     {
         name = (name ?? "").Trim();
         if (name.Length == 0)
-            throw new ArgumentException("名称不能为空");
+            throw new ArgumentException(T("名称不能为空"));
         if (InvalidName().IsMatch(name) || name.EndsWith('.') || name is "." or "..")
-            throw new ArgumentException("名称不能包含 \\ / : * ? \" < > | 等字符");
+            throw new ArgumentException(T("名称不能包含 \\ / : * ? \" < > | 等字符"));
         var path = gl.PathOf("versions", name);
         if (Directory.Exists(path) || File.Exists(path))
-            throw new ArgumentException($"已经存在名为「{name}」的版本");
+            throw new ArgumentException(F("已经存在名为「{0}」的版本", name));
         return name;
     }
 
@@ -116,7 +117,7 @@ public static partial class Instance
                 File.Copy(path, dest, true);
                 File.SetLastWriteTimeUtc(dest, File.GetLastWriteTimeUtc(path));
                 if (progress != null && (i % 20 == 0 || i == total))
-                    progress(i, total, "复制版本");
+                    progress(i, total, T("复制版本"));
             }
             Retarget(dstDir, src, @new);
         }
@@ -172,7 +173,7 @@ public static partial class Instance
         ReadOnlySpan<byte> Take(int size)
         {
             if (size < 0 || pos + size > data.Length)
-                throw new InvalidDataException("NBT 数据不完整");
+                throw new InvalidDataException(T("NBT 数据不完整"));
             var span = data.AsSpan(pos, size);
             pos += size;
             return span;
@@ -230,12 +231,12 @@ public static partial class Instance
                     }
                 }
                 default:
-                    throw new InvalidDataException($"未知的 NBT 类型 {tag}");
+                    throw new InvalidDataException(F("未知的 NBT 类型 {0}", tag));
             }
         }
 
         if ((sbyte)Take(1)[0] != 10)
-            throw new InvalidDataException("不是 NBT 复合标签");
+            throw new InvalidDataException(T("不是 NBT 复合标签"));
         ReadString();
         return (Dictionary<string, object>)Payload(10);
     }
@@ -338,7 +339,7 @@ public static partial class Instance
                     var rel = Path.GetRelativePath(world.Path, path).Replace(Path.DirectorySeparatorChar, '/');
                     zip.CreateEntryFromFile(path, world.Folder + "/" + rel, CompressionLevel.Optimal);
                     if (progress != null && (i % 20 == 0 || i == files.Length))
-                        progress(i, files.Length, "备份存档");
+                        progress(i, files.Length, T("备份存档"));
                 }
             }
             File.Move(tmp, dest, true);

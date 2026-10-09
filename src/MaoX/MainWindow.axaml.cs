@@ -16,6 +16,7 @@ using MaoX.Controls;
 using MaoX.Core;
 using MaoX.Dialogs;
 using MaoX.Pages;
+using static MaoX.Core.I18n;
 
 namespace MaoX;
 
@@ -37,7 +38,7 @@ public partial class MainWindow : Window
     public bool Busy => Tasks.Any(t => t.Running);
 
     /// <summary>是否正在准备启动游戏（启动按钮在此期间不可用）。</summary>
-    public bool Launching => Tasks.Any(t => t.Running && t.Name.StartsWith("启动 ", StringComparison.Ordinal));
+    public bool Launching => Tasks.Any(t => t.Running && t.Name.StartsWith(T("启动 "), StringComparison.Ordinal));
     public HashSet<string> Installed { get; private set; } = [];
     public List<string> InstalledList { get; private set; } = [];
 
@@ -68,7 +69,7 @@ public partial class MainWindow : Window
 
     // 后台线程报告的进度先存下来，由定时器统一刷新界面，避免下载时刷屏
     private readonly TaskCenterView _taskCenter = new();
-    private string _idleStatus = "就绪";
+    private string _idleStatus = T("就绪");
     private bool _barIndeterminate;
 
     public MainWindow()
@@ -124,7 +125,7 @@ public partial class MainWindow : Window
         var version = args[index + 1];
         if (!Installed.Contains(version))
         {
-            Toast($"找不到版本 {version}，可能已被删除或改名", "error");
+            Toast(F("找不到版本 {0}，可能已被删除或改名", version), "error");
             return;
         }
         SelectVersion(version);
@@ -151,13 +152,13 @@ public partial class MainWindow : Window
             catch (Exception e)
             {
                 if (!silent)
-                    await Dialog("检查更新失败", ErrorText(e), "error");
+                    await Dialog(T("检查更新失败"), ErrorText(e), "error");
                 return;
             }
             if (info == null)
             {
                 if (!silent)
-                    Toast($"已经是最新版本 v{Mc.LauncherVersion}");
+                    Toast(F("已经是最新版本 v{0}", Mc.LauncherVersion));
                 return;
             }
             if (silent && info.Version == Cfg.SkippedUpdate)
@@ -173,20 +174,20 @@ public partial class MainWindow : Window
     private async Task OfferUpdate(UpdateInfo info)
     {
         var canApply = Updater.CanSelfUpdate && info.Url != null;
-        var message = $"当前版本 v{Mc.LauncherVersion}。";
+        var message = F("当前版本 v{0}。", Mc.LauncherVersion);
         if (!Updater.CanSelfUpdate)
-            message += "当前运行的不是发布版，请到发布页手动下载。";
+            message += T("当前运行的不是发布版，请到发布页手动下载。");
         else if (info.Url == null)
-            message += "这个版本没有提供当前系统的安装包，请到发布页查看。";
+            message += T("这个版本没有提供当前系统的安装包，请到发布页查看。");
         if (!string.IsNullOrWhiteSpace(info.Notes))
             message += "\n\n" + info.Notes;
         var buttons = new List<(string, object, string)>();
         if (canApply)
-            buttons.Add(("立即更新", "update", "primary"));
-        buttons.Add(("打开发布页", "page", canApply ? "" : "primary"));
-        buttons.Add(("跳过此版本", "skip", ""));
-        buttons.Add(("以后再说", "later", ""));
-        switch (await Dialog($"发现新版本 v{info.Version}", message, "info", buttons.ToArray()))
+            buttons.Add((T("立即更新"), "update", "primary"));
+        buttons.Add((T("打开发布页"), "page", canApply ? "" : "primary"));
+        buttons.Add((T("跳过此版本"), "skip", ""));
+        buttons.Add((T("以后再说"), "later", ""));
+        switch (await Dialog(F("发现新版本 v{0}", info.Version), message, "info", buttons.ToArray()))
         {
             case "update":
                 await InstallUpdate(info);
@@ -204,12 +205,12 @@ public partial class MainWindow : Window
     private async Task InstallUpdate(UpdateInfo info)
     {
         string file = null;
-        await RunTask("下载更新", () => Updater.DownloadAsync(info, (done, total) =>
-            Progress((int)(done / 1024), (int)Math.Max(1, total / 1024), $"下载新版本 v{info.Version}")), path => file = path);
+        await RunTask(T("下载更新"), () => Updater.DownloadAsync(info, (done, total) =>
+            Progress((int)(done / 1024), (int)Math.Max(1, total / 1024), F("下载新版本 v{0}", info.Version))), path => file = path);
         if (file == null)
             return;
         if (MultiplayerPage.InRoom
-            && !await Confirm("更新启动器", "更新需要重启启动器，当前的联机房间会断开。", "继续更新"))
+            && !await Confirm(T("更新启动器"), T("更新需要重启启动器，当前的联机房间会断开。"), T("继续更新")))
             return;
         try
         {
@@ -219,7 +220,7 @@ public partial class MainWindow : Window
         }
         catch (Exception e)
         {
-            await Dialog("更新失败", ErrorText(e) + "\n\n可以到发布页手动下载新版本。", "error");
+            await Dialog(T("更新失败"), F("{0}\n\n可以到发布页手动下载新版本。", ErrorText(e)), "error");
             return;
         }
         _forceClose = true;
@@ -252,7 +253,7 @@ public partial class MainWindow : Window
                 }
                 catch (Exception)
                 {
-                    Toast("无法读取背景图片", "error");
+                    Toast(T("无法读取背景图片"), "error");
                 }
             }
             _background = bitmap;
@@ -339,10 +340,10 @@ public partial class MainWindow : Window
     {
         var running = Tasks.Where(t => t.Running).ToList();
         TasksButton.IsVisible = Tasks.Count > 0;
-        TasksLabel.Text = running.Count > 0 ? $"任务 {running.Count}" : "任务";
+        TasksLabel.Text = running.Count > 0 ? F("任务 {0}", running.Count) : T("任务");
         if (running.Count == 0)
         {
-            StatusText.Text = GameRunning ? "游戏运行中" : _idleStatus;
+            StatusText.Text = GameRunning ? T("游戏运行中") : _idleStatus;
             ProgressText.Text = "";
             ProgressBar.Set(0);
             _barIndeterminate = false;
@@ -352,7 +353,7 @@ public partial class MainWindow : Window
             var first = running[^1];
             StatusText.Text = running.Count == 1
                 ? first.Name + "…"
-                : $"{running.Count} 个任务进行中：{string.Join("、", running.Select(t => t.Name))}";
+                : F("{0} 个任务进行中：{1}", running.Count, string.Join(T("、"), running.Select(t => t.Name)));
             var known = running.Where(t => t.Fraction != null).ToList();
             if (known.Count == 0)
             {
@@ -407,7 +408,7 @@ public partial class MainWindow : Window
     {
         if (IsTaskRunning(name))
         {
-            Toast("这个任务已经在进行中了", "warn");
+            Toast(I18n.T("这个任务已经在进行中了"), "warn");
             return;
         }
         if (!SaveSettings())
@@ -432,7 +433,7 @@ public partial class MainWindow : Window
         {
             task.Finish("cancelled");
             OnTasksChanged();
-            Log($"{name}已取消", "warn");
+            Log(F("{0}已取消", name), "warn");
             return;
         }
         catch (Exception e)
@@ -440,9 +441,9 @@ public partial class MainWindow : Window
             var message = ErrorText(e);
             task.Finish("failed", message);
             OnTasksChanged();
-            Log($"[错误] {name}失败：{message}", "error");
+            Log(F("[错误] {0}失败：{1}", name, message), "error");
             Trace.WriteLine(e);
-            await Dialog(name + "失败", message, "error");
+            await Dialog(F("{0}失败", name), message, "error");
             return;
         }
         task.Finish("done");
@@ -463,8 +464,8 @@ public partial class MainWindow : Window
             e = agg.InnerException!;
         return e switch
         {
-            TaskCanceledException => "操作超时，请检查网络后重试",
-            HttpRequestException http => "网络错误：" + http.Message,
+            TaskCanceledException => T("操作超时，请检查网络后重试"),
+            HttpRequestException http => F("网络错误：{0}", http.Message),
             _ => e.Message,
         };
     }
@@ -563,14 +564,14 @@ public partial class MainWindow : Window
                                params (string Text, object Value, string Style)[] buttons)
     {
         if (buttons.Length == 0)
-            buttons = [("确定", null, "primary")];
+            buttons = [(T("确定"), null, "primary")];
         return ShowDialogAsync(new MessageDialog(title, message, kind, buttons));
     }
 
     public async Task<bool> Confirm(string title, string message, string ok = "确定", string kind = "warn",
                                     string okStyle = "primary")
     {
-        var result = await Dialog(title, message, kind, (ok, true, okStyle), ("取消", false, ""));
+        var result = await Dialog(title, message, kind, (T(ok), true, okStyle), (T("取消"), false, ""));
         return result is true;
     }
 
@@ -631,7 +632,7 @@ public partial class MainWindow : Window
         if (patterns.Length > 0)
             options.FileTypeFilter =
             [
-                new Avalonia.Platform.Storage.FilePickerFileType(filterName ?? "文件") { Patterns = patterns },
+                new Avalonia.Platform.Storage.FilePickerFileType(filterName ?? T("文件")) { Patterns = patterns },
                 Avalonia.Platform.Storage.FilePickerFileTypes.All,
             ];
         var result = await StorageProvider.OpenFilePickerAsync(options);
@@ -659,7 +660,7 @@ public partial class MainWindow : Window
         if (!SettingsPage.Validate(out var error))
         {
             ShowPage("settings");
-            _ = Dialog("设置有误", error, "error");
+            _ = Dialog(T("设置有误"), error, "error");
             return false;
         }
         try
@@ -668,7 +669,7 @@ public partial class MainWindow : Window
         }
         catch (Exception e)
         {
-            Toast("保存设置失败：" + e.Message, "error");
+            Toast(F("保存设置失败：{0}", e.Message), "error");
         }
         return true;
     }
@@ -819,8 +820,8 @@ public partial class MainWindow : Window
     private void UpdateAccountCard()
     {
         var account = CurrentAccount;
-        SidebarAccountName.Text = account?.Name ?? "未设置";
-        SidebarAccountType.Text = account != null ? Accounts.Describe(account) : "点击添加账号";
+        SidebarAccountName.Text = account?.Name ?? T("未设置");
+        SidebarAccountType.Text = account != null ? Accounts.Describe(account) : T("点击添加账号");
         SidebarAvatar.NameText = account?.Name;
         SidebarAvatar.Skin = SkinFor(account);
         AccountChanged?.Invoke();
@@ -853,7 +854,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrEmpty(version))
         {
             ShowPage("download");
-            Toast("请先安装一个游戏版本", "warn");
+            Toast(T("请先安装一个游戏版本"), "warn");
             return;
         }
         await ShowDialogAsync(new VersionDialog(version));
@@ -892,7 +893,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrEmpty(version))
         {
             ShowPage("download");
-            Toast("请先安装一个游戏版本", "warn");
+            Toast(T("请先安装一个游戏版本"), "warn");
             return;
         }
         var account = CurrentAccount;
@@ -903,22 +904,22 @@ public partial class MainWindow : Window
         }
         if (Launching)
         {
-            Toast("游戏正在启动，请稍候", "warn");
+            Toast(T("游戏正在启动，请稍候"), "warn");
             return;
         }
-        if (GameRunning && !await Confirm("游戏正在运行", "已有一个游戏实例在运行，确定要再启动一个吗？", "再启动一个"))
+        if (GameRunning && !await Confirm(T("游戏正在运行"), T("已有一个游戏实例在运行，确定要再启动一个吗？"), T("再启动一个")))
             return;
         Cfg.LastVersion = version;
         if (!SaveSettings())
             return;
         Log(new string('─', 48));
         if (server != null)
-            Log($"启动后将自动进入联机房间 {server}");
+            Log(F("启动后将自动进入联机房间 {0}", server));
         var launcher = MakeLauncher();
         var gameDir = launcher.GameDirFor(version);
         var since = DateTime.Now;
         var cfg = Cfg.Clone();
-        await RunTask("启动 " + version, async () =>
+        await RunTask(F("启动 {0}", version), async () =>
         {
             var (auth, changed) = await Accounts.PrepareLaunchAsync(account, cfg, launcher.Dl, AppPaths.ToolsDir, Log);
             if (changed)
@@ -932,7 +933,7 @@ public partial class MainWindow : Window
         _gameProcess = process;
         _runningVersion = version;
         UpdateStatusBar();
-        Toast("游戏已启动");
+        Toast(T("游戏已启动"));
         LaunchPage.OnGameStateChanged();
         var started = DateTime.Now;
         _ = Task.Run(() => WatchGame(process, version, gameDir, since, started));
@@ -1004,7 +1005,7 @@ public partial class MainWindow : Window
         }
         catch (Exception e)
         {
-            report = new CrashReport { Detail = "崩溃分析失败：" + e.Message };
+            report = new CrashReport { Detail = F("崩溃分析失败：{0}", e.Message) };
         }
         Dispatcher.UIThread.Post(() => OnGameExit(process, code, report));
     }
@@ -1021,7 +1022,7 @@ public partial class MainWindow : Window
             Show();
             Activate();
         }
-        Log($"游戏已退出（退出码 {code}）", code == 0 ? "launcher" : "error");
+        Log(F("游戏已退出（退出码 {0}）", code), code == 0 ? "launcher" : "error");
         UpdateStatusBar();
         var reasons = report.Reasons.Where(r => code != 0 || r.Kind == CrashAnalyzer.Mod).Select(r => r.Text).ToList();
         if (code == 0 && reasons.Count == 0)
@@ -1030,7 +1031,7 @@ public partial class MainWindow : Window
             WindowState = WindowState.Normal;
         Activate();
         foreach (var text in reasons)
-            Log("[崩溃分析] " + text, "warn");
+            Log(F("[崩溃分析] {0}", text), "warn");
         await ShowDialogAsync(new CrashDialog(code, reasons, report));
     }
 
@@ -1067,7 +1068,7 @@ public partial class MainWindow : Window
         if (MultiplayerPage.InRoom)
         {
             e.Cancel = true;
-            if (!await Confirm("正在联机", "关闭启动器会同时关闭联机房间，确定要退出吗？", "退出"))
+            if (!await Confirm(T("正在联机"), T("关闭启动器会同时关闭联机房间，确定要退出吗？"), T("退出")))
                 return;
             _forceClose = true;
             Close();
@@ -1076,8 +1077,8 @@ public partial class MainWindow : Window
         if (Busy && !SmokeTest.Active)
         {
             e.Cancel = true;
-            var names = string.Join("、", Tasks.Where(t => t.Running).Select(t => t.Name));
-            if (!await Confirm("还有任务没完成", $"正在进行：{names}。\n现在退出会中断这些任务，确定要退出吗？", "退出"))
+            var names = string.Join(T("、"), Tasks.Where(t => t.Running).Select(t => t.Name));
+            if (!await Confirm(T("还有任务没完成"), F("正在进行：{0}。\n现在退出会中断这些任务，确定要退出吗？", names), T("退出")))
                 return;
             foreach (var task in Tasks.Where(t => t.Running))
                 task.Cancel.Cancel();

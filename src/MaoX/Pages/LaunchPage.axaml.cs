@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MaoX.Core;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Pages;
 
@@ -100,7 +101,7 @@ public partial class LaunchPage : UserControl, IPage
         if (clipboard == null)
             return;
         await clipboard.SetTextAsync(string.Join(Environment.NewLine, _lines.Select(l => l.Text)));
-        Main.Toast("日志已复制到剪贴板");
+        Main.Toast(T("日志已复制到剪贴板"));
     }
 
     private void OnOpenGameDir(object sender, RoutedEventArgs e) => Main.OpenGameDir();
@@ -110,7 +111,7 @@ public partial class LaunchPage : UserControl, IPage
     private void UpdateAccount()
     {
         var account = Main.CurrentAccount;
-        HeroAccountName.Text = account?.Name ?? "未设置";
+        HeroAccountName.Text = account?.Name ?? T("未设置");
         HeroAccountType.Text = account != null ? Accounts.TypeNames.GetValueOrDefault(account.Type, "") : "";
         HeroAvatar.NameText = account?.Name;
         HeroAvatar.Skin = Main.SkinFor(account);
@@ -146,8 +147,8 @@ public partial class LaunchPage : UserControl, IPage
         }
         if (string.IsNullOrEmpty(version))
         {
-            HeroTitle.Text = "还没有游戏版本";
-            HeroMeta.Text = "前往「下载」安装一个 Minecraft 版本";
+            HeroTitle.Text = T("还没有游戏版本");
+            HeroMeta.Text = T("前往「下载」安装一个 Minecraft 版本");
             return;
         }
         HeroTitle.Text = version;
@@ -171,7 +172,7 @@ public partial class LaunchPage : UserControl, IPage
 
     private async void OnStopClick(object sender, RoutedEventArgs e)
     {
-        if (await Main.Confirm("结束游戏", "确定要强制结束正在运行的游戏吗？未保存的进度可能会丢失。", "结束游戏", "warn", "danger"))
+        if (await Main.Confirm(T("结束游戏"), T("确定要强制结束正在运行的游戏吗？未保存的进度可能会丢失。"), T("结束游戏"), "warn", "danger"))
             Main.KillGame();
     }
 
@@ -180,7 +181,7 @@ public partial class LaunchPage : UserControl, IPage
     private void UpdateLaunchButton()
     {
         LaunchButton.IsEnabled = !Main.Launching;
-        LaunchLabel.Text = Main.Launching ? "正在启动…" : "启动游戏";
+        LaunchLabel.Text = Main.Launching ? T("正在启动…") : T("启动游戏");
         StopButton.IsVisible = Main.GameRunning;
     }
 
