@@ -188,6 +188,49 @@ internal static class SmokeTest
             return $"parallel={running}; {states}";
         });
 
+        Account skinAccount = null;
+        var skinRequests = new List<string>();
+        await Check("offline skin", async () =>
+        {
+            var png = TestSkin();
+            var account = Accounts.OfflineAccount("MaoXSmoke");
+            account.Skin = Skins.Store(png);
+            account.SkinSlim = true;
+            var server = OfflineSkinServer.Shared;
+            server.Register(account);
+            server.Requested += path =>
+            {
+                lock (skinRequests)
+                    skinRequests.Add(path);
+            };
+            var meta = (await Http.SendAsync(server.Root + "/")).Json();
+            var profile = (await Http.SendAsync($"{server.Root}/sessionserver/session/minecraft/profile/{account.Uuid}?unsigned=false")).Json();
+            var property = profile.Items("properties").First();
+            using var rsa = System.Security.Cryptography.RSA.Create();
+            rsa.ImportFromPem(meta.Str("signaturePublickey"));
+            if (!rsa.VerifyData(Encoding.UTF8.GetBytes(property.Str("value")), Convert.FromBase64String(property.Str("signature")),
+                                System.Security.Cryptography.HashAlgorithmName.SHA1,
+                                System.Security.Cryptography.RSASignaturePadding.Pkcs1))
+                throw new Exception("textures signature does not verify");
+            var (skinUrl, slim, _) = Skins.ParseTextures(profile);
+            var texture = await Http.SendAsync(skinUrl);
+            if (!slim || !texture.Body.AsSpan().SequenceEqual(png))
+                throw new Exception($"texture mismatch: slim={slim} status={texture.Status}");
+            var joined = (await Http.SendAsync($"{server.Root}/sessionserver/session/minecraft/hasJoined?username=Friend&serverId=x")).Json();
+            if (joined.Str("id") != Mc.OfflineUuid("Friend"))
+                throw new Exception("hasJoined returned " + joined.ToJsonString());
+
+            var dialog = new Dialogs.SkinDialog(account);
+            _ = window.ShowDialogAsync(dialog);
+            await Task.Delay(2000);
+            // 整窗截图在高 DPI 下会把带缩放变换的对话框卡片画大，只截对话框内容
+            ScreenshotControl(dialog, Path.Combine(output, "skin-dialog.png"));
+            dialog.Close();
+            await Task.Delay(300);
+            skinAccount = account;
+            return $"{server.Root} signed profile ok, texture {texture.Body.Length} bytes";
+        });
+
         await Check("terracotta", async () =>
         {
             var tc = new Terracotta(null, window.MakeLauncher().Dl, _ => { })
@@ -215,11 +258,54 @@ internal static class SmokeTest
         }, required: false, timeout: TimeSpan.FromMinutes(3));
 
         if (version != null)
-            await Check("launch " + version, () => Task.Run(() => LaunchGame(window, version, output)));
+            await Check("launch " + version, () => Task.Run(async () =>
+            {
+                LaunchAuth auth = null;
+                if (skinAccount != null)
+                    (auth, _) = await Accounts.PrepareLaunchAsync(skinAccount, window.Cfg, window.MakeLauncher().Dl, AppPaths.ToolsDir);
+                lock (skinRequests)
+                    skinRequests.Clear();
+                var result = await LaunchGame(window, version, output, auth);
+                if (auth == null)
+                    return result;
+                lock (skinRequests)
+                    return $"{result}; skin server saw: {string.Join(", ", skinRequests.Distinct())}";
+            }));
 
         lock (reportPath)
             File.AppendAllText(reportPath, (failed ? "RESULT: FAIL" : "RESULT: PASS") + Environment.NewLine);
         return failed;
+    }
+
+    /// <summary>画一张简单的 64×64 测试皮肤（纤细模型，手臂第 54–55 列留空）。</summary>
+    private static byte[] TestSkin()
+    {
+        using var bitmap = new WriteableBitmap(new PixelSize(64, 64), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888,
+                                               Avalonia.Platform.AlphaFormat.Unpremul);
+        using (var buffer = bitmap.Lock())
+        {
+            var pixels = new byte[64 * 64 * 4];
+            void Fill(int x0, int y0, int w, int h, uint argb)
+            {
+                for (var y = y0; y < y0 + h; y++)
+                for (var x = x0; x < x0 + w; x++)
+                    BitConverter.GetBytes(argb).CopyTo(pixels, (y * 64 + x) * 4);
+            }
+            Fill(0, 0, 32, 16, 0xFFE0B48C);
+            Fill(8, 8, 8, 3, 0xFF5A3A22);
+            Fill(9, 12, 2, 1, 0xFF2050E0);
+            Fill(13, 12, 2, 1, 0xFF2050E0);
+            Fill(0, 16, 16, 16, 0xFF3050A0);
+            Fill(16, 16, 24, 16, 0xFF00B5D6);
+            Fill(40, 16, 14, 16, 0xFFE0B48C);
+            Fill(16, 48, 16, 16, 0xFF3050A0);
+            Fill(32, 48, 14, 16, 0xFFE0B48C);
+            for (var y = 0; y < 64; y++)
+                System.Runtime.InteropServices.Marshal.Copy(pixels, y * 256, buffer.Address + y * buffer.RowBytes, 256);
+        }
+        using var stream = new MemoryStream();
+        bitmap.Save(stream);
+        return stream.ToArray();
     }
 
     private static void ScreenshotControl(Control control, string path)
@@ -241,7 +327,7 @@ internal static class SmokeTest
     }
 
     /// <summary>安装并启动游戏，等到开始渲染（或至少完成登录、加载主类）后结束进程。</summary>
-    private static async Task<string> LaunchGame(MainWindow window, string version, string output)
+    private static async Task<string> LaunchGame(MainWindow window, string version, string output, LaunchAuth auth)
     {
         // 边运行边写 game.log，卡住或超时也能看到进行到哪里
         using var log = new StreamWriter(Path.Combine(output, "game.log")) { AutoFlush = true };
@@ -253,7 +339,7 @@ internal static class SmokeTest
                                             if (Interlocked.Exchange(ref progressStep, tenth) != tenth)
                                                 Console.WriteLine($"       {what} {current}/{total}");
                                         });
-        using var process = await launcher.LaunchAsync(version);
+        using var process = await launcher.LaunchAsync(version, null, auth);
         _game = process;
         var reached = "";
         var done = new TaskCompletionSource();

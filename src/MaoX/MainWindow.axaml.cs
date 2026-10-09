@@ -750,11 +750,15 @@ public partial class MainWindow : Window
 
     private void OnAccountCardClick(object sender, RoutedEventArgs e) => ManageAccounts();
 
-    /// <summary>正版 / 外置账号的皮肤，尚未加载时返回 null 并在后台获取（加载完成后触发 AccountChanged）。</summary>
+    /// <summary>
+    /// 账号的皮肤。离线账号读取本地设置的皮肤；正版 / 外置账号尚未加载时返回 null 并在后台获取（加载完成后触发 AccountChanged）。
+    /// </summary>
     public Bitmap SkinFor(Account account)
     {
-        if (account == null || account.Type == "offline" || string.IsNullOrEmpty(account.Uuid))
+        if (account == null || string.IsNullOrEmpty(account.Uuid))
             return null;
+        if (account.Type == "offline")
+            return LocalSkin(account.Skin);
         var key = account.Uuid;
         if (_skins.TryGetValue(key, out var skin))
             return skin;
@@ -783,6 +787,33 @@ public partial class MainWindow : Window
             });
         }
         return null;
+    }
+
+    private Bitmap LocalSkin(string hash)
+    {
+        if (!Skins.Exists(hash))
+            return null;
+        var key = "local:" + hash;
+        if (!_skins.TryGetValue(key, out var bitmap))
+        {
+            try
+            {
+                bitmap = new Bitmap(Skins.PathFor(hash));
+            }
+            catch (Exception)
+            {
+                bitmap = null;
+            }
+            _skins[key] = bitmap;
+        }
+        return bitmap;
+    }
+
+    /// <summary>换了皮肤后丢掉缓存，重新获取并刷新头像。</summary>
+    public void SkinChanged(Account account)
+    {
+        _skins.Remove(account.Uuid ?? "");
+        UpdateAccountCard();
     }
 
     private void UpdateAccountCard()

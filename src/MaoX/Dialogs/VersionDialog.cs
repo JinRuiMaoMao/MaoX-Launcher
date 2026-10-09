@@ -437,7 +437,8 @@ public class VersionDialog : DialogView
         var launcher = Main.MakeLauncher();
         await Main.RunTask("导出启动脚本", async () =>
         {
-            var (auth, changed) = await Accounts.PrepareLaunchAsync(account, cfg, launcher.Dl, AppPaths.ToolsDir, Main.Log);
+            var (auth, changed) = await Accounts.PrepareLaunchAsync(account, cfg, launcher.Dl, AppPaths.ToolsDir, Main.Log,
+                                                                    localSkins: false);
             if (changed)
                 Avalonia.Threading.Dispatcher.UIThread.Post(Main.AccountsChanged);
             var (command, gameDir) = await launcher.PrepareCommandAsync(_version, null, auth);

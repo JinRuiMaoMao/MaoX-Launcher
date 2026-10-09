@@ -21,7 +21,7 @@ public class AccountDialog : DialogView
         DialogWidth = 560;
         var root = new StackPanel();
         root.Children.Add(Title("账号管理"));
-        root.Children.Add(Paragraph("离线账号可以随意改名；正版和外置账号联机时能显示皮肤"));
+        root.Children.Add(Paragraph("离线账号可以随意改名；点「皮肤」可以更换皮肤和披风（离线账号也可以）"));
         root.Children.Add(new ScrollViewer
         {
             Content = _list,
@@ -67,7 +67,7 @@ public class AccountDialog : DialogView
             var account = accounts[i];
             var selected = i == Main.AccountIndex;
 
-            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto") };
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto,Auto") };
             grid.Children.Add(new Avatar { Width = 36, Height = 36, NameText = account.Name, Skin = Main.SkinFor(account) });
             var names = new StackPanel { Spacing = 2, Margin = new Thickness(14, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
             names.Children.Add(new TextBlock { Text = account.Name, FontWeight = FontWeight.SemiBold });
@@ -80,17 +80,21 @@ public class AccountDialog : DialogView
                 Grid.SetColumn(badge, 2);
                 grid.Children.Add(badge);
             }
+            var skin = MakeButton("皮肤", "ghost", onClick: () => _ = Main.ShowDialogAsync(new SkinDialog(account)));
+            skin.MinWidth = 0;
+            Grid.SetColumn(skin, 3);
+            grid.Children.Add(skin);
             if (account.Type == "offline")
             {
                 var rename = MakeButton("改名", "ghost", onClick: () => Rename(index));
                 rename.MinWidth = 0;
-                Grid.SetColumn(rename, 3);
+                Grid.SetColumn(rename, 4);
                 grid.Children.Add(rename);
             }
             var delete = new Button { Classes = { "ghost", "danger-text" }, Content = new Icon { Kind = "delete", Size = 17 }, Padding = new Thickness(8, 0) };
             ToolTip.SetTip(delete, "删除账号");
             delete.Click += (_, _) => Remove(index);
-            Grid.SetColumn(delete, 4);
+            Grid.SetColumn(delete, 5);
             grid.Children.Add(delete);
 
             var row = new Border
@@ -134,8 +138,11 @@ public class AccountDialog : DialogView
         var account = Main.AccountList[index];
         var name = await Main.ShowDialogAsync(new InputDialog("修改名称", "离线账号的玩家名称（不超过 16 个字符，不能有空格）",
                                                               account.Name, ValidateOffline)) as string;
-        if (!string.IsNullOrEmpty(name) && name != account.Name)
-            Main.ReplaceAccount(index, Accounts.OfflineAccount(name));
+        if (string.IsNullOrEmpty(name) || name == account.Name)
+            return;
+        var renamed = Accounts.OfflineAccount(name);
+        (renamed.Skin, renamed.SkinSlim, renamed.Cape) = (account.Skin, account.SkinSlim, account.Cape);
+        Main.ReplaceAccount(index, renamed);
     }
 
     private async void AddOffline()

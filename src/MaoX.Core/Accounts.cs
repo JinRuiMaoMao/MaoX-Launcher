@@ -483,17 +483,35 @@ public static class Accounts
 
     // ------------------------------------------------------------------ 启动
 
-    /// <summary>必要时刷新令牌（直接修改 account），返回启动用的身份信息与账号信息是否有更新（有更新时应保存配置）。</summary>
+    /// <summary>微软账号令牌快过期时续期（直接修改 account），返回账号信息是否有更新。</summary>
+    public static Task<bool> RefreshAsync(Account account, LauncherConfig cfg) =>
+        account.Type == "msa" ? MsaRefreshAsync(account, (cfg?.MsaClientId ?? "").Trim()) : Task.FromResult(false);
+
+    /// <summary>
+    /// 必要时刷新令牌（直接修改 account），返回启动用的身份信息与账号信息是否有更新（有更新时应保存配置）。
+    /// localSkins 为 false 时离线账号不使用本地皮肤服务器（导出的启动脚本脱离启动器运行）。
+    /// </summary>
     public static async Task<(LaunchAuth Auth, bool Changed)> PrepareLaunchAsync(
-        Account account, LauncherConfig cfg, Downloader dl, string toolsDir = null, Action<string> log = null)
+        Account account, LauncherConfig cfg, Downloader dl, string toolsDir = null, Action<string> log = null,
+        bool localSkins = true)
     {
         switch (account.Type)
         {
             case "offline":
+            {
+                var jvmArgs = new List<string>();
+                if (localSkins && (Skins.Exists(account.Skin) || Skins.Exists(account.Cape)))
+                {
+                    var jar = await EnsureAuthlibInjectorAsync(dl, toolsDir, log);
+                    var server = OfflineSkinServer.Shared;
+                    server.Register(account);
+                    jvmArgs = server.JvmArgs(jar);
+                }
                 return (new LaunchAuth
                 {
-                    Name = account.Name, Uuid = account.Uuid, Token = account.Uuid, UserType = "msa",
+                    Name = account.Name, Uuid = account.Uuid, Token = account.Uuid, UserType = "msa", JvmArgs = jvmArgs,
                 }, false);
+            }
             case "msa":
             {
                 var changed = await MsaRefreshAsync(account, (cfg?.MsaClientId ?? "").Trim());
