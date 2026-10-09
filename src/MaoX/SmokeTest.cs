@@ -12,7 +12,8 @@ namespace MaoX;
 /// <summary>
 /// 给 GitHub Actions 用的自检：MaoXLauncher --smoke-test &lt;输出目录&gt; [--launch &lt;版本&gt;]
 /// 依次打开每个页面并截图，检查平台识别、Java、版本列表、陶瓦联机；
-/// 带 --launch 时还会真实安装并启动该版本，看到游戏开始渲染后结束进程。结果写到 report.txt。
+/// 带 --launch 时还会真实安装并启动该版本，看到游戏开始渲染后结束进程。
+/// 带 --apply-update 时如果有新版本，会下载并替换自己，然后启动新版本。结果写到 report.txt。
 /// </summary>
 internal static class SmokeTest
 {
@@ -28,9 +29,10 @@ internal static class SmokeTest
         var output = Path.GetFullPath(index + 1 < args.Length ? args[index + 1] : "smoke-test");
         var launch = Array.IndexOf(args, "--launch");
         var version = launch >= 0 && launch + 1 < args.Length ? args[launch + 1] : null;
+        var applyUpdate = args.Contains("--apply-update");
         window.Opened += async (_, _) =>
         {
-            var failed = await Run(window, output, version);
+            var failed = await Run(window, output, version, applyUpdate);
             desktop.Shutdown(failed ? 1 : 0);
         };
         return true;
@@ -41,7 +43,7 @@ internal static class SmokeTest
 
     private static Process _game;
 
-    private static async Task<bool> Run(MainWindow window, string output, string version)
+    private static async Task<bool> Run(MainWindow window, string output, string version, bool applyUpdate)
     {
         Directory.CreateDirectory(output);
         var reportPath = Path.Combine(output, "report.txt");
@@ -259,6 +261,20 @@ internal static class SmokeTest
                 await tc.ShutdownAsync();
             }
         }, required: false, timeout: TimeSpan.FromMinutes(3));
+
+        await Check("update", async () =>
+        {
+            var info = await Updater.CheckAsync();
+            if (info == null)
+                return $"up to date (v{Mc.LauncherVersion})";
+            var summary = $"v{Mc.LauncherVersion} -> v{info.Version}, "
+                          + (info.Url != null ? $"{info.AssetName} {info.Size / 1048576.0:F1} MB" : $"{info.AssetName} missing");
+            if (!applyUpdate)
+                return summary;
+            var file = await Updater.DownloadAsync(info, null);
+            Updater.Apply(file);
+            return summary + ", installed and restarted";
+        }, required: false, timeout: TimeSpan.FromMinutes(5));
 
         if (version != null)
             await Check("launch " + version, () => Task.Run(async () =>
