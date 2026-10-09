@@ -8,4 +8,8 @@
     <RootNamespace>MaoX.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Lang\*.json" WithCulture="false" />
+  </ItemGroup>
+
 </Project>

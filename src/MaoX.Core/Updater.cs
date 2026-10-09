@@ -202,6 +202,22 @@ public static class Updater
         Process.Start("open", ["-n", bundle]);
     }
 
+    /// <summary>再启动一个启动器进程（用于切换语言后重启），调用方随后关闭自己。</summary>
+    public static void Relaunch()
+    {
+        if (AppBundle is { } bundle)
+        {
+            Process.Start("open", ["-n", bundle]);
+            return;
+        }
+        var exe = Environment.ProcessPath ?? throw new InvalidOperationException("无法确定启动器的位置");
+        Process.Start(new ProcessStartInfo(exe)
+        {
+            UseShellExecute = false,
+            WorkingDirectory = Path.GetDirectoryName(exe)!,
+        });
+    }
+
     /// <summary>删除上次更新留下的旧版本。旧进程可能还没完全退出，所以在后台重试几次。</summary>
     public static void CleanupOldVersion()
     {

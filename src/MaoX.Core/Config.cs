@@ -94,6 +94,8 @@ public class LauncherConfig
     /// <summary>dark / light / system</summary>
     public string Theme { get; set; } = "dark";
     public string AccentColor { get; set; } = "#00D9FF";
+    /// <summary>界面语言：空 = 跟随系统、zh、en</summary>
+    public string Language { get; set; } = "";
 
     public static LauncherConfig Load()
     {

@@ -12,6 +12,7 @@ internal static class Program
         var home = Array.IndexOf(args, "--home");
         if (home >= 0 && home + 1 < args.Length)
             Environment.SetEnvironmentVariable("MAOX_HOME", args[home + 1]);
+        I18n.SetLanguage(LauncherConfig.Load().Language);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => WriteCrashLog(e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
         try

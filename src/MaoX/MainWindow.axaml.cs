@@ -1036,6 +1036,29 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ 关闭
 
+    /// <summary>重启启动器（切换语言后）。有任务或联机房间时提示稍后手动重启。</summary>
+    public async void RestartLauncher()
+    {
+        if (Busy || MultiplayerPage.InRoom)
+        {
+            Toast(I18n.T("有任务或联机房间正在进行，稍后手动重启启动器即可生效"), "info");
+            return;
+        }
+        if (!SaveSettings())
+            return;
+        try
+        {
+            Updater.Relaunch();
+        }
+        catch (Exception e)
+        {
+            await Dialog(I18n.T("重启失败"), e.Message, "error");
+            return;
+        }
+        _forceClose = true;
+        Close();
+    }
+
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);

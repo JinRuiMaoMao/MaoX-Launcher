@@ -62,6 +62,8 @@ public partial class SettingsPage : UserControl, IPage
         AboutPlatform.Text = $"{(Platform.IsWindows ? "Windows" : Platform.IsMac ? "macOS" : "Linux")} {Platform.Arch}"
                              + (Updater.CanSelfUpdate ? "" : "  ·  开发版本，不会自动更新");
         AutoUpdateSwitch.IsChecked = cfg.AutoCheckUpdate;
+        LanguageBox.ItemsSource = I18n.Languages.Select(l => l.Name).ToList();
+        LanguageBox.SelectedIndex = Math.Max(0, Array.FindIndex(I18n.Languages, l => l.Key == (cfg.Language ?? "")));
         BuildSwatches();
         UpdateThemeControls();
         FillJava([]);
@@ -314,6 +316,25 @@ public partial class SettingsPage : UserControl, IPage
     {
         if (!_loading && AfterLaunchBox.SelectedIndex >= 0)
             Cfg.AfterLaunch = AfterLaunchModes[AfterLaunchBox.SelectedIndex].Key;
+    }
+
+    private async void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || LanguageBox.SelectedIndex < 0)
+            return;
+        Cfg.Language = I18n.Languages[LanguageBox.SelectedIndex].Key;
+        Main.SaveSettings();
+        if (I18n.Resolve(Cfg.Language) == I18n.Language)
+            return;
+        // 提示用新选的语言显示，用户可能看不懂当前语言
+        var english = I18n.Resolve(Cfg.Language) == "en";
+        var choice = await Main.Dialog(english ? "Restart required" : "需要重启",
+                                       english ? "The new language takes effect after restarting the launcher."
+                                               : "重启启动器后才会切换到新的语言。",
+                                       "info", (english ? "Restart now" : "立即重启", "restart", "primary"),
+                                       (english ? "Later" : "稍后", null, ""));
+        if (choice is "restart")
+            Main.RestartLauncher();
     }
 
     private void OnManageAccounts(object sender, RoutedEventArgs e) => Main.ManageAccounts();
