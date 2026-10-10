@@ -32,12 +32,12 @@
                                ChromeHigh="#CBD2DD" />
       </FluentTheme.Palettes>
     </FluentTheme>
-    <StyleInclude Source="avares://MaoXLauncher/Styles/Theme.axaml" />
+    <StyleInclude Source="avares://MaoX.UI/Styles/Theme.axaml" />
   </Application.Styles>
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
-        <ResourceInclude Source="avares://MaoXLauncher/Styles/Icons.axaml" />
+        <ResourceInclude Source="avares://MaoX.UI/Styles/Icons.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>

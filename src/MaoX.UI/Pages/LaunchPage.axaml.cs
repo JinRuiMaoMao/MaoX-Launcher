@@ -29,7 +29,7 @@ public partial class LaunchPage : UserControl, IPage
     private readonly ConcurrentQueue<LogLine> _pending = new();
     private bool _updatingVersions;
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public LaunchPage()
     {

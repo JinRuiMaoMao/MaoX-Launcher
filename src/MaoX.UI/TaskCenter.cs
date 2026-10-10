@@ -10,7 +10,7 @@ namespace MaoX;
 /// <summary>任务中心里的一个后台任务。进度可在任意线程报告，由界面定时器统一刷新。</summary>
 public class TaskItem
 {
-    /// <summary>当前 async 调用链所属的任务（MainWindow.Progress 据此把进度记到对应任务上）。</summary>
+    /// <summary>当前 async 调用链所属的任务（MainView.Progress 据此把进度记到对应任务上）。</summary>
     public static readonly AsyncLocal<TaskItem> Current = new();
 
     private readonly object _lock = new();
@@ -77,7 +77,7 @@ public class TaskCenterView : UserControl
         var clear = new Button { Classes = { "link" }, Content = T("清除已结束") };
         clear.Click += (_, _) =>
         {
-            MainWindow.Current.ClearFinishedTasks();
+            MainView.Current.ClearFinishedTasks();
             Refresh();
         };
         Grid.SetColumn(clear, 1);
@@ -92,7 +92,7 @@ public class TaskCenterView : UserControl
     /// <summary>重新同步列表（任务增删或状态变化时调用）。</summary>
     public void Refresh()
     {
-        var tasks = MainWindow.Current.Tasks;
+        var tasks = MainView.Current.Tasks;
         _empty.IsVisible = tasks.Count == 0;
         var structure = tasks.Count != _rows.Count || tasks.Any(t => !_rows.TryGetValue(t, out var r) || r.State != t.State);
         if (structure)

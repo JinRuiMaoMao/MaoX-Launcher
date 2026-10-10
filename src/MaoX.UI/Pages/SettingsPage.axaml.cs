@@ -27,7 +27,7 @@ public partial class SettingsPage : UserControl, IPage
     public IReadOnlyList<JavaInfo> DetectedJava => _detected;
     private bool _loading;
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
     private static LauncherConfig Cfg => Main.Cfg;
 
     public SettingsPage()

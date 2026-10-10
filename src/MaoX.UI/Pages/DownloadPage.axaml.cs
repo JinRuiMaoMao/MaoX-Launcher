@@ -17,7 +17,7 @@ public partial class DownloadPage : UserControl, IPage
         ["release"] = T("正式版"), ["snapshot"] = T("快照版"), ["old_beta"] = T("远古 Beta"), ["old_alpha"] = T("远古 Alpha"),
     };
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public DownloadPage()
     {

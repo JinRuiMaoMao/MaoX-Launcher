@@ -33,7 +33,7 @@ public partial class MultiplayerPage : UserControl, IPage
     private readonly DispatcherTimer _poll;
     private readonly TextBox _code = new() { Watermark = "U/XXXX-XXXX-XXXX-XXXX" };
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public MultiplayerPage()
     {
@@ -130,7 +130,7 @@ public partial class MultiplayerPage : UserControl, IPage
         }
         catch (Exception e)
         {
-            SetPhase("fatal", MainWindow.ErrorText(e));
+            SetPhase("fatal", MainView.ErrorText(e));
         }
     }
 
@@ -197,7 +197,7 @@ public partial class MultiplayerPage : UserControl, IPage
         }
         catch (Exception e)
         {
-            await Main.Dialog(errorTitle, MainWindow.ErrorText(e), "error");
+            await Main.Dialog(errorTitle, MainView.ErrorText(e), "error");
         }
         Schedule(0);
     }

@@ -36,7 +36,7 @@ public class VersionDialog : DialogView
     private readonly TextBlock _worldCount = new() { Classes = { "accent", "bold" } };
     private readonly Dictionary<string, string> _javaMap = [];
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public VersionDialog(string version)
     {
@@ -460,7 +460,7 @@ public class VersionDialog : DialogView
         }
         catch (Exception e)
         {
-            await Main.Dialog(T("创建快捷方式失败"), MainWindow.ErrorText(e), "error");
+            await Main.Dialog(T("创建快捷方式失败"), MainView.ErrorText(e), "error");
         }
     }
 }

@@ -9,24 +9,17 @@
     <RootNamespace>MaoX</RootNamespace>
     <AssemblyName>MaoXLauncher</AssemblyName>
     <Product>MaoX Launcher</Product>
-    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <ApplicationIcon>..\MaoX.UI\Assets\icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
   </PropertyGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.3.22" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MaoX.Core\MaoX.Core.csproj" />
+    <ProjectReference Include="..\MaoX.UI\MaoX.UI.csproj" />
   </ItemGroup>
 
 </Project>

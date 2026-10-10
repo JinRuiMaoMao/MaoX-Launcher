@@ -24,7 +24,7 @@ public class ServerDialog : DialogView
         _name = new TextBox { Text = server?.Name ?? "", Watermark = T("Minecraft 服务器") };
         _address = new TextBox { Text = server?.Address ?? "", Watermark = T("例如 mc.example.com 或 1.2.3.4:25565") };
         var versions = new List<string> { T(FollowSelected) };
-        versions.AddRange(MainWindow.Current.InstalledList);
+        versions.AddRange(MainView.Current.InstalledList);
         if (!string.IsNullOrEmpty(server?.Version) && !versions.Contains(server.Version))
             versions.Add(server.Version);
         _version = new ComboBox

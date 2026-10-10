@@ -13,7 +13,7 @@ internal static class Program
         if (home >= 0 && home + 1 < args.Length)
             Environment.SetEnvironmentVariable("MAOX_HOME", args[home + 1]);
         I18n.SetLanguage(LauncherConfig.Load().Language);
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => WriteCrashLog(e.ExceptionObject as Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => App.WriteCrashLog(e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
         try
         {
@@ -21,7 +21,7 @@ internal static class Program
         }
         catch (Exception e)
         {
-            WriteCrashLog(e);
+            App.WriteCrashLog(e);
             throw;
         }
     }
@@ -31,20 +31,4 @@ internal static class Program
             .UsePlatformDetect()
             .With(new MacOSPlatformOptions { ShowInDock = true })
             .LogToTrace();
-
-    public static void WriteCrashLog(Exception e)
-    {
-        if (e == null)
-            return;
-        try
-        {
-            Directory.CreateDirectory(AppPaths.BaseDir);
-            File.AppendAllText(Path.Combine(AppPaths.BaseDir, "launcher_crash.log"),
-                               $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {e}\n\n");
-        }
-        catch (Exception)
-        {
-            // 无法写入日志时忽略
-        }
-    }
 }

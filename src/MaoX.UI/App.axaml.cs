@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using MaoX.Core;
 using static MaoX.Core.I18n;
 
 namespace MaoX;
@@ -14,21 +15,41 @@ public class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Dispatcher.UIThread.UnhandledException += OnUnhandledException;
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            Dispatcher.UIThread.UnhandledException += OnUnhandledException;
             var window = new MainWindow();
             SmokeTest.TryAttach(desktop, window);
             desktop.MainWindow = window;
         }
+        else if (ApplicationLifetime is ISingleViewApplicationLifetime single)
+        {
+            single.MainView = new MainView();
+        }
         base.OnFrameworkInitializationCompleted();
+    }
+
+    public static void WriteCrashLog(Exception e)
+    {
+        if (e == null)
+            return;
+        try
+        {
+            Directory.CreateDirectory(AppPaths.BaseDir);
+            File.AppendAllText(Path.Combine(AppPaths.BaseDir, "launcher_crash.log"),
+                               $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {e}\n\n");
+        }
+        catch (Exception)
+        {
+            // 无法写入日志时忽略
+        }
     }
 
     private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        Program.WriteCrashLog(e.Exception);
-        var main = MainWindow.Current;
-        if (main == null || !main.IsVisible || _reporting)
+        WriteCrashLog(e.Exception);
+        var main = MainView.Current;
+        if (main == null || MainWindow.Current is { IsVisible: false } || _reporting)
             return;
         e.Handled = true;
         _reporting = true;

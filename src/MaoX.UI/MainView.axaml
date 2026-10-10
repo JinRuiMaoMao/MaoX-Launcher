@@ -1,14 +1,8 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:c="using:MaoX.Controls"
-        x:Class="MaoX.MainWindow"
-        Title="MaoX Launcher"
-        Icon="/Assets/icon.ico"
-        Width="1180" Height="760" MinWidth="1000" MinHeight="660"
-        WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Bg}"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaTitleBarHeightHint="38">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:MaoX.Controls"
+             x:Class="MaoX.MainView"
+             Background="{StaticResource Bg}">
   <Panel>
     <!-- 全窗口背景图 + 遮罩 -->
     <Border Name="BackdropImage" IsVisible="False" IsHitTestVisible="False" />
@@ -90,10 +84,6 @@
       </Grid>
     </Grid>
 
-    <!-- 标题栏拖动区域（扩展到客户区后需要自己处理） -->
-    <Border Name="TitleBar" Height="38" VerticalAlignment="Top" Background="Transparent"
-            PointerPressed="OnTitleBarPressed" DoubleTapped="OnTitleBarDoubleTapped" />
-
     <!-- 提示气泡 -->
     <StackPanel Name="ToastLayer" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,52"
                 Spacing="10" />
@@ -110,4 +100,4 @@
       <Panel Name="DialogStack" />
     </Panel>
   </Panel>
-</Window>
+</UserControl>

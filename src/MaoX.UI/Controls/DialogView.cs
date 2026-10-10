@@ -6,7 +6,7 @@ using Avalonia.Media;
 
 namespace MaoX.Controls;
 
-/// <summary>窗口内的模态对话框。用 MainWindow.ShowDialogAsync 显示，调用 Close(结果) 关闭。</summary>
+/// <summary>窗口内的模态对话框。用 MainView.ShowDialogAsync 显示，调用 Close(结果) 关闭。</summary>
 public class DialogView : UserControl
 {
     internal readonly TaskCompletionSource<object> Completion = new();
@@ -17,7 +17,7 @@ public class DialogView : UserControl
     /// <summary>按 Esc 或点击遮罩时是否允许关闭（返回 null）。</summary>
     public bool Dismissible { get; set; } = true;
 
-    public void Close(object result = null) => MainWindow.Current.CloseDialog(this, result);
+    public void Close(object result = null) => MainView.Current.CloseDialog(this, result);
 
     public virtual void OnOpened()
     {

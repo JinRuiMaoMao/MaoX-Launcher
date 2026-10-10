@@ -587,21 +587,21 @@
   </Style>
 
   <!-- 设置了背景图：卡片半透明，让背景透出来 -->
-  <Style Selector=":is(Window).hasbg Border.card">
+  <Style Selector=".hasbg Border.card">
     <Setter Property="Background" Value="{StaticResource GlassCard}" />
     <Setter Property="BorderBrush" Value="{StaticResource GlassCardBorder}" />
   </Style>
-  <Style Selector=":is(Window).hasbg Border.row">
+  <Style Selector=".hasbg Border.row">
     <Setter Property="Background" Value="{StaticResource GlassCard}" />
     <Setter Property="BorderBrush" Value="{StaticResource GlassRowBorder}" />
   </Style>
-  <Style Selector=":is(Window).hasbg Border.row:pointerover">
+  <Style Selector=".hasbg Border.row:pointerover">
     <Setter Property="BorderBrush" Value="{StaticResource InputHover}" />
   </Style>
-  <Style Selector=":is(Window).hasbg Border.log">
+  <Style Selector=".hasbg Border.log">
     <Setter Property="Background" Value="{StaticResource GlassLog}" />
   </Style>
-  <Style Selector=":is(Window).hasbg ToggleButton.chip">
+  <Style Selector=".hasbg ToggleButton.chip">
     <Setter Property="Background" Value="{StaticResource GlassCard}" />
   </Style>
 </Styles>

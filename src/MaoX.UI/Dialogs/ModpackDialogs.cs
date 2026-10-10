@@ -64,7 +64,7 @@ public static partial class ModpackActions
     [GeneratedRegex(@"[\\/:*?""<>|]")]
     private static partial Regex InvalidChars();
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public static string UniqueName(GameLauncher gl, string baseName)
     {
@@ -137,7 +137,7 @@ public static partial class ModpackActions
         catch (Exception e)
         {
             Main.SetStatus(T("就绪"));
-            await Main.Dialog(T("获取版本列表失败"), MainWindow.ErrorText(e), "error");
+            await Main.Dialog(T("获取版本列表失败"), MainView.ErrorText(e), "error");
             return;
         }
         Main.SetStatus(T("就绪"));
@@ -204,7 +204,7 @@ public class ModpackExportDialog : DialogView
     private readonly Dictionary<string, ToggleSwitch> _switches = [];
     private readonly TextBlock _error = new() { Classes = { "small" }, Margin = new Thickness(0, 6, 0, 0) };
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public ModpackExportDialog(string version)
     {

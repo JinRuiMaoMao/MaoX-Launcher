@@ -43,8 +43,9 @@ internal static class SmokeTest
 
     private static Process _game;
 
-    private static async Task<bool> Run(MainWindow window, string output, string version, bool applyUpdate)
+    private static async Task<bool> Run(MainWindow host, string output, string version, bool applyUpdate)
     {
+        var window = host.View;
         Directory.CreateDirectory(output);
         var reportPath = Path.Combine(output, "report.txt");
         File.WriteAllText(reportPath, "");
@@ -91,7 +92,7 @@ internal static class SmokeTest
             }
             catch (Exception e)
             {
-                Line(required ? "FAIL" : "WARN", name, MainWindow.ErrorText(e));
+                Line(required ? "FAIL" : "WARN", name, MainView.ErrorText(e));
             }
         }
 
@@ -436,8 +437,9 @@ internal static class SmokeTest
         bitmap.Save(path);
     }
 
-    private static void Screenshot(MainWindow window, string path)
+    private static void Screenshot(MainView view, string path)
     {
+        var window = TopLevel.GetTopLevel(view)!;
         var scale = window.RenderScaling;
         var size = new PixelSize((int)(window.Bounds.Width * scale), (int)(window.Bounds.Height * scale));
         using var bitmap = new RenderTargetBitmap(size, new Vector(96 * scale, 96 * scale));
@@ -446,7 +448,7 @@ internal static class SmokeTest
     }
 
     /// <summary>安装并启动游戏，等到开始渲染（或至少完成登录、加载主类）后结束进程。</summary>
-    private static async Task<string> LaunchGame(MainWindow window, string version, string output, LaunchAuth auth)
+    private static async Task<string> LaunchGame(MainView window, string version, string output, LaunchAuth auth)
     {
         // 边运行边写 game.log，卡住或超时也能看到进行到哪里
         using var log = new StreamWriter(Path.Combine(output, "game.log")) { AutoFlush = true };

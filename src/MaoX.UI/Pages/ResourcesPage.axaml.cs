@@ -41,7 +41,7 @@ public partial class ResourcesPage : UserControl, IPage
     private readonly Dictionary<string, ToggleButton> _kindChips = [];
     private bool _updatingBoxes;
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public ResourcesPage()
     {
@@ -377,7 +377,7 @@ public partial class ResourcesPage : UserControl, IPage
             if (gen != _searchGen)
                 return;
             BrowseList.Children.Remove(loading);
-            Status(F("搜索失败：{0}", MainWindow.ErrorText(e)), true);
+            Status(F("搜索失败：{0}", MainView.ErrorText(e)), true);
             return;
         }
         if (gen != _searchGen)
@@ -572,7 +572,7 @@ public partial class ResourcesPage : UserControl, IPage
             Main.SetStatus(T("就绪"));
             button.Content = new IconLabel { Icon = "download", Text = T("安装") };
             button.IsEnabled = true;
-            await Main.Dialog(F("安装 {0} 失败", hit.Title), MainWindow.ErrorText(e), "error");
+            await Main.Dialog(F("安装 {0} 失败", hit.Title), MainView.ErrorText(e), "error");
             return;
         }
         _installing.Remove(hit.Id);
@@ -783,7 +783,7 @@ public partial class ResourcesPage : UserControl, IPage
         }
         catch (Exception ex)
         {
-            await Main.Dialog(T("检查更新失败"), MainWindow.ErrorText(ex), "error");
+            await Main.Dialog(T("检查更新失败"), MainView.ErrorText(ex), "error");
             return;
         }
         finally
@@ -822,7 +822,7 @@ public partial class ResourcesPage : UserControl, IPage
                 }
                 catch (Exception ex)
                 {
-                    failed.Add(F("{0}：{1}", updates[i].Mod.Name, MainWindow.ErrorText(ex)));
+                    failed.Add(F("{0}：{1}", updates[i].Mod.Name, MainView.ErrorText(ex)));
                 }
             }
             return failed;

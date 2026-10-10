@@ -45,7 +45,7 @@ public class ModVersionsDialog : DialogView
     private ModFileVersion _installing;
     private bool _ready;
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     private static IBrush Res(string key) => (IBrush)Application.Current!.FindResource(key)!;
 
@@ -219,7 +219,7 @@ public class ModVersionsDialog : DialogView
             if (gen != _gen)
                 return;
             _list.Children.Clear();
-            _list.Children.Add(Status(F("获取版本列表失败：{0}", MainWindow.ErrorText(e)), true));
+            _list.Children.Add(Status(F("获取版本列表失败：{0}", MainView.ErrorText(e)), true));
             var retry = MakeButton(T("重试"), icon: "refresh", onClick: Reload);
             retry.HorizontalAlignment = HorizontalAlignment.Center;
             _list.Children.Add(retry);
@@ -287,7 +287,7 @@ public class ModVersionsDialog : DialogView
                 return;
             more.IsEnabled = true;
             more.Content = T("加载更多");
-            Main.Toast(F("获取版本列表失败：{0}", MainWindow.ErrorText(e)), "error");
+            Main.Toast(F("获取版本列表失败：{0}", MainView.ErrorText(e)), "error");
             return;
         }
         if (gen != _gen)
@@ -476,7 +476,7 @@ public class ModVersionsDialog : DialogView
         {
             _installing = null;
             UpdateButtons();
-            await Main.Dialog(F("安装 {0} 失败", _hit.Title), MainWindow.ErrorText(e), "error");
+            await Main.Dialog(F("安装 {0} 失败", _hit.Title), MainView.ErrorText(e), "error");
             return;
         }
         _installing = null;

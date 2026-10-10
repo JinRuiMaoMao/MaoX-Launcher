@@ -25,9 +25,10 @@ public interface IPage
     void OnShow();
 }
 
-public partial class MainWindow : Window
+/// <summary>启动器的整个界面。电脑上放在 MainWindow 里，手机/平板上直接作为应用的主视图。</summary>
+public partial class MainView : UserControl
 {
-    public static MainWindow Current { get; private set; }
+    public static MainView Current { get; private set; }
 
     public LauncherConfig Cfg { get; }
     public JsonNode Manifest { get; set; }
@@ -65,14 +66,14 @@ public partial class MainWindow : Window
     private Process _gameProcess;
     private string _runningVersion;
     private bool _hiddenForGame;
-    private bool _forceClose;
+    private bool _started;
 
     // 后台线程报告的进度先存下来，由定时器统一刷新界面，避免下载时刷屏
     private readonly TaskCenterView _taskCenter = new();
     private string _idleStatus = T("就绪");
     private bool _barIndeterminate;
 
-    public MainWindow()
+    public MainView()
     {
         Current = this;
         InitializeComponent();
@@ -104,15 +105,35 @@ public partial class MainWindow : Window
         RefreshInstalled();
         ApplyBackground();
         ShowPage("launch");
-        Opened += (_, _) =>
+        AttachedToVisualTree += (_, _) =>
         {
+            if (_started)
+                return;
+            _started = true;
             SettingsPage.DetectJavaInBackground();
             Updater.CleanupOldVersion();
             if (Cfg.AutoCheckUpdate && Updater.CanSelfUpdate && !SmokeTest.Active)
                 DispatcherTimer.RunOnce(() => _ = CheckForUpdate(true), TimeSpan.FromSeconds(3));
             if (!SmokeTest.Active)
-                LaunchFromCommandLine();
+                DispatcherTimer.RunOnce(LaunchFromCommandLine, TimeSpan.Zero);
         };
+    }
+
+    private static IBrush Res(string key) => (IBrush)Application.Current!.FindResource(key)!;
+
+    /// <summary>所在的桌面窗口；手机/平板上为 null。</summary>
+    private Window HostWindow => TopLevel.GetTopLevel(this) as Window;
+
+    private IStorageProvider Storage => TopLevel.GetTopLevel(this)!.StorageProvider;
+
+    /// <summary>退出启动器（更新、重启时用），不再询问。</summary>
+    private static void ExitApp()
+    {
+        if (MainWindow.Current != null)
+            MainWindow.Current.ForceClose();
+        else
+            (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IControlledApplicationLifetime)
+                ?.Shutdown();
     }
 
     /// <summary>处理桌面快捷方式传来的 --launch &lt;版本&gt;。</summary>
@@ -223,8 +244,7 @@ public partial class MainWindow : Window
             await Dialog(T("更新失败"), F("{0}\n\n可以到发布页手动下载新版本。", ErrorText(e)), "error");
             return;
         }
-        _forceClose = true;
-        Close();
+        ExitApp();
     }
 
     private static string PlatformLabel() =>
@@ -268,8 +288,8 @@ public partial class MainWindow : Window
         BackdropMask.Opacity = Math.Clamp(Cfg.BackgroundMask, 0, 90) / 100.0;
         Classes.Set("hasbg", on);
         SidebarPanel.Background = on
-            ? (IBrush)this.FindResource("GlassSidebar")
-            : (IBrush)this.FindResource("Sidebar");
+            ? Res("GlassSidebar")
+            : Res("Sidebar");
         LaunchPage.SetHasBackground(on);
     }
 
@@ -293,18 +313,6 @@ public partial class MainWindow : Window
     {
         if (sender is RadioButton { Tag: string key })
             ShowPage(key);
-    }
-
-    private void OnTitleBarPressed(object sender, PointerPressedEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && e.ClickCount == 1)
-            BeginMoveDrag(e);
-    }
-
-    private void OnTitleBarDoubleTapped(object sender, TappedEventArgs e)
-    {
-        if (CanResize)
-            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     }
 
     // ------------------------------------------------------------------ 日志与进度（可在任意线程调用）
@@ -506,7 +514,7 @@ public partial class MainWindow : Window
         };
         var backdrop = new Border
         {
-            Background = (IBrush)this.FindResource("Overlay"),
+            Background = Res("Overlay"),
             Opacity = 0,
             Transitions = [new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(160) }],
         };
@@ -584,7 +592,7 @@ public partial class MainWindow : Window
             "info" => ("info", "Accent"),
             _ => ("success", "Success"),
         };
-        var iconControl = new Icon { Kind = icon, Size = 18, Foreground = (IBrush)this.FindResource(brushKey) };
+        var iconControl = new Icon { Kind = icon, Size = 18, Foreground = Res(brushKey) };
         var toast = new Border
         {
             Classes = { "toast" },
@@ -621,8 +629,8 @@ public partial class MainWindow : Window
     {
         var options = new Avalonia.Platform.Storage.FolderPickerOpenOptions { Title = title };
         if (!string.IsNullOrEmpty(start) && Directory.Exists(start))
-            options.SuggestedStartLocation = await StorageProvider.TryGetFolderFromPathAsync(new Uri(Path.GetFullPath(start)));
-        var result = await StorageProvider.OpenFolderPickerAsync(options);
+            options.SuggestedStartLocation = await Storage.TryGetFolderFromPathAsync(new Uri(Path.GetFullPath(start)));
+        var result = await Storage.OpenFolderPickerAsync(options);
         return result.Count > 0 ? result[0].TryGetLocalPath() : null;
     }
 
@@ -635,7 +643,7 @@ public partial class MainWindow : Window
                 new Avalonia.Platform.Storage.FilePickerFileType(filterName ?? T("文件")) { Patterns = patterns },
                 Avalonia.Platform.Storage.FilePickerFileTypes.All,
             ];
-        var result = await StorageProvider.OpenFilePickerAsync(options);
+        var result = await Storage.OpenFilePickerAsync(options);
         return result.Count > 0 ? result[0].TryGetLocalPath() : null;
     }
 
@@ -648,7 +656,7 @@ public partial class MainWindow : Window
             FileTypeChoices = [new Avalonia.Platform.Storage.FilePickerFileType(filterName) { Patterns = patterns }],
             DefaultExtension = patterns.FirstOrDefault()?.TrimStart('*', '.'),
         };
-        var result = await StorageProvider.SaveFilePickerAsync(options);
+        var result = await Storage.SaveFilePickerAsync(options);
         return result?.TryGetLocalPath();
     }
 
@@ -937,16 +945,18 @@ public partial class MainWindow : Window
         LaunchPage.OnGameStateChanged();
         var started = DateTime.Now;
         _ = Task.Run(() => WatchGame(process, version, gameDir, since, started));
+        if (HostWindow is not { } window)
+            return;
         switch (Cfg.AfterLaunch)
         {
             case "minimize":
-                WindowState = WindowState.Minimized;
+                window.WindowState = WindowState.Minimized;
                 break;
             case "hide":
                 if (!MultiplayerPage.InRoom)
                 {
                     _hiddenForGame = true;
-                    Hide();
+                    window.Hide();
                 }
                 break;
         }
@@ -1016,20 +1026,21 @@ public partial class MainWindow : Window
             _gameProcess = null;
         LaunchPage.OnGameStateChanged();
         LaunchPage.RefreshHero();
+        var window = HostWindow;
         if (_hiddenForGame)
         {
             _hiddenForGame = false;
-            Show();
-            Activate();
+            window?.Show();
+            window?.Activate();
         }
         Log(F("游戏已退出（退出码 {0}）", code), code == 0 ? "launcher" : "error");
         UpdateStatusBar();
         var reasons = report.Reasons.Where(r => code != 0 || r.Kind == CrashAnalyzer.Mod).Select(r => r.Text).ToList();
         if (code == 0 && reasons.Count == 0)
             return;
-        if (WindowState == WindowState.Minimized)
-            WindowState = WindowState.Normal;
-        Activate();
+        if (window?.WindowState == WindowState.Minimized)
+            window.WindowState = WindowState.Normal;
+        window?.Activate();
         foreach (var text in reasons)
             Log(F("[崩溃分析] {0}", text), "warn");
         await ShowDialogAsync(new CrashDialog(code, reasons, report));
@@ -1056,42 +1067,30 @@ public partial class MainWindow : Window
             await Dialog(I18n.T("重启失败"), e.Message, "error");
             return;
         }
-        _forceClose = true;
-        Close();
+        ExitApp();
     }
 
-    protected override async void OnClosing(WindowClosingEventArgs e)
+    /// <summary>退出前是否需要先问用户（正在联机或有任务没完成）。</summary>
+    public bool NeedsExitConfirm => MultiplayerPage.InRoom || (Busy && !SmokeTest.Active);
+
+    /// <summary>询问是否退出；同意时取消进行中的任务。</summary>
+    public async Task<bool> ConfirmExit()
     {
-        base.OnClosing(e);
-        if (_forceClose)
-            return;
         if (MultiplayerPage.InRoom)
-        {
-            e.Cancel = true;
-            if (!await Confirm(T("正在联机"), T("关闭启动器会同时关闭联机房间，确定要退出吗？"), T("退出")))
-                return;
-            _forceClose = true;
-            Close();
-            return;
-        }
-        if (Busy && !SmokeTest.Active)
-        {
-            e.Cancel = true;
-            var names = string.Join(T("、"), Tasks.Where(t => t.Running).Select(t => t.Name));
-            if (!await Confirm(T("还有任务没完成"), F("正在进行：{0}。\n现在退出会中断这些任务，确定要退出吗？", names), T("退出")))
-                return;
-            foreach (var task in Tasks.Where(t => t.Running))
-                task.Cancel.Cancel();
-            _forceClose = true;
-            Close();
-            return;
-        }
-        SaveSettings();
+            return await Confirm(T("正在联机"), T("关闭启动器会同时关闭联机房间，确定要退出吗？"), T("退出"));
+        if (!Busy)
+            return true;
+        var names = string.Join(T("、"), Tasks.Where(t => t.Running).Select(t => t.Name));
+        if (!await Confirm(T("还有任务没完成"), F("正在进行：{0}。\n现在退出会中断这些任务，确定要退出吗？", names), T("退出")))
+            return false;
+        foreach (var task in Tasks.Where(t => t.Running))
+            task.Cancel.Cancel();
+        return true;
     }
 
-    protected override void OnClosed(EventArgs e)
+    /// <summary>界面关闭后保存配置、关闭联机。</summary>
+    public void Shutdown()
     {
-        base.OnClosed(e);
         try
         {
             Cfg.Save();

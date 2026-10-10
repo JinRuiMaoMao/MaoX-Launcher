@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:MaoX"
+        x:Class="MaoX.MainWindow"
+        Title="MaoX Launcher"
+        Icon="/Assets/icon.ico"
+        Width="1180" Height="760" MinWidth="1000" MinHeight="660"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Bg}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="38">
+  <Panel>
+    <local:MainView Name="View" />
+
+    <!-- 标题栏拖动区域（扩展到客户区后需要自己处理） -->
+    <Border Name="TitleBar" Height="38" VerticalAlignment="Top" Background="Transparent"
+            PointerPressed="OnTitleBarPressed" DoubleTapped="OnTitleBarDoubleTapped" />
+  </Panel>
+</Window>

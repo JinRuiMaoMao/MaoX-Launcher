@@ -1,5 +1,5 @@
-// 生成应用图标：src/MaoX/Assets/icon.ico 和 packaging/macos/MaoX.icns。
-// 图形和 src/MaoX/Controls/Icon.cs 里的 Logo 一致（带狼耳朵的 MX），改 Logo 后记得同步这里再重新生成。
+// 生成应用图标：src/MaoX.UI/Assets/icon.ico 和 packaging/macos/MaoX.icns。
+// 图形和 src/MaoX.UI/Controls/Icon.cs 里的 Logo 一致（带狼耳朵的 MX），改 Logo 后记得同步这里再重新生成。
 // 用法：dotnet run packaging/MakeIcon.cs
 #:package SkiaSharp@2.88.9
 
@@ -84,7 +84,7 @@ void WriteIcns(string path, (string Type, int Size)[] entries)
     }
 }
 
-var ico = Path.Combine(root, "src", "MaoX", "Assets", "icon.ico");
+var ico = Path.Combine(root, "src", "MaoX.UI", "Assets", "icon.ico");
 WriteIco(ico, [16, 24, 32, 48, 64, 128, 256]);
 var icns = Path.Combine(here, "macos", "MaoX.icns");
 WriteIcns(icns, [("icp4", 16), ("icp5", 32), ("icp6", 64), ("ic07", 128), ("ic08", 256), ("ic09", 512), ("ic10", 1024),

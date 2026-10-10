@@ -15,7 +15,7 @@ public class AccountDialog : DialogView
 {
     private readonly StackPanel _list = new() { Spacing = 8 };
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public AccountDialog()
     {
@@ -198,7 +198,7 @@ public class AuthlibLoginDialog : DialogView
     private readonly Button _login;
     private bool _closed;
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     public AuthlibLoginDialog()
     {
@@ -278,7 +278,7 @@ public class AuthlibLoginDialog : DialogView
             if (_closed)
                 return;
             _login.IsEnabled = true;
-            SetStatus(MainWindow.ErrorText(e), true);
+            SetStatus(MainView.ErrorText(e), true);
         }
     }
 }
@@ -343,7 +343,7 @@ public class MsaLoginDialog : DialogView
         catch (Exception e)
         {
             if (!_cancel.IsCancellationRequested)
-                Dispatcher.UIThread.Post(() => SetStatus(MainWindow.ErrorText(e), true));
+                Dispatcher.UIThread.Post(() => SetStatus(MainView.ErrorText(e), true));
         }
     }
 

@@ -38,7 +38,7 @@ public class SkinDialog : DialogView
     private string _capeId;
     private bool _capeDirty;
 
-    private static MainWindow Main => MainWindow.Current;
+    private static MainView Main => MainView.Current;
 
     private bool Offline => _account.Type == "offline";
 
@@ -262,7 +262,7 @@ public class SkinDialog : DialogView
             if (_closed)
                 return;
             SetBusy(false);
-            SetStatus(MainWindow.ErrorText(e), true);
+            SetStatus(MainView.ErrorText(e), true);
         }
     }
 
@@ -365,7 +365,7 @@ public class SkinDialog : DialogView
             if (_closed)
                 return;
             SetBusy(false);
-            SetStatus(MainWindow.ErrorText(e), true);
+            SetStatus(MainView.ErrorText(e), true);
         }
     }
 
@@ -462,7 +462,7 @@ public class SkinDialog : DialogView
             if (_closed)
                 return;
             SetBusy(false);
-            SetStatus(MainWindow.ErrorText(e), true);
+            SetStatus(MainView.ErrorText(e), true);
         }
     }
 }

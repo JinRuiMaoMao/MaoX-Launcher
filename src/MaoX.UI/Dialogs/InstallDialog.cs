@@ -79,7 +79,7 @@ public class InstallDialog : DialogView
         _optifineBox.SelectionChanged += (_, _) => Refresh();
         Refresh();
 
-        var installer = new LoaderInstaller(MainWindow.Current.MakeLauncher());
+        var installer = new LoaderInstaller(MainView.Current.MakeLauncher());
         foreach (var key in Loaders.All.Append("optifine"))
             _ = Fetch(installer, key);
     }
@@ -163,7 +163,7 @@ public class InstallDialog : DialogView
             case Exception e:
                 _versionBox.ItemsSource = null;
                 _versionBox.IsEnabled = false;
-                _hint.Text = F("获取版本列表失败：{0}", MainWindow.ErrorText(e));
+                _hint.Text = F("获取版本列表失败：{0}", MainView.ErrorText(e));
                 _hint.Foreground = (IBrush)Application.Current!.FindResource("Error");
                 return false;
             default:
@@ -185,7 +185,7 @@ public class InstallDialog : DialogView
         string message = state switch
         {
             null => T("正在获取 OptiFine 版本列表…"),
-            Exception e => F("获取 OptiFine 版本列表失败：{0}", MainWindow.ErrorText(e)),
+            Exception e => F("获取 OptiFine 版本列表失败：{0}", MainView.ErrorText(e)),
             List<LoaderItem> { Count: 0 } => F("OptiFine 暂不支持 Minecraft {0}。", _mc),
             _ when !compatible => T("OptiFine 只能搭配原版或 Forge 使用。"),
             _ when _loader == "forge" => T("OptiFine 会作为模组放进 mods 文件夹，与 Forge 一起加载。"),
