@@ -247,7 +247,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, macos, android]
+    needs: [windows, macos, android, ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -272,5 +272,6 @@ jobs:
           **下载**：Windows 下载 `MaoX-Launcher-Windows-x64.exe`；Mac（M 系列芯片）下载 `MaoX-Launcher-macOS-arm64.zip`，Intel 芯片下载 `MaoX-Launcher-macOS-x64.zip`。
           Mac 首次打开如果提示无法验证开发者：右键点击 → 打开，或到"系统设置 → 隐私与安全性"点"仍要打开"。需要 macOS 14 或更高版本。
           安卓手机/平板下载 `MaoX-Launcher-Android.apk` 直接安装（需要 Android 8.0 或更高版本，64 位）。
+          iPhone/iPad 下载 `MaoX-Launcher-iOS.ipa`，用 AltStore / SideStore / TrollStore 安装（需要 iOS 15 或更高版本）；受 iOS 限制暂时只能管理账号、版本和模组，还不能启动游戏。
           EOF
           gh release create "$GITHUB_REF_NAME" artifacts/* --title "MaoX Launcher $GITHUB_REF_NAME" --notes-file notes.md
