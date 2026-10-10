@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MaoX.Controls;
 using MaoX.Core;
 using MaoX.Dialogs;
@@ -430,16 +431,6 @@ public partial class ResourcesPage : UserControl, IPage
             LoadIcon(hit.IconUrl, iconBox);
 
         var title = new TextBlock { Text = hit.Title, FontWeight = FontWeight.SemiBold, FontSize = 15 };
-        if (!string.IsNullOrEmpty(hit.Url))
-        {
-            title.Cursor = new Cursor(StandardCursorType.Hand);
-            title.Classes.Add("titlelink");
-            title.PointerPressed += (_, e) =>
-            {
-                if (e.GetCurrentPoint(title).Properties.IsLeftButtonPressed)
-                    Platform.OpenUrl(hit.Url);
-            };
-        }
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         titleRow.Children.Add(title);
         if (!string.IsNullOrEmpty(hit.Author))
@@ -480,7 +471,37 @@ public partial class ResourcesPage : UserControl, IPage
         grid.Children.Add(text);
         Grid.SetColumn(button, 2);
         grid.Children.Add(button);
-        return new Border { Classes = { "row" }, Padding = new Thickness(16, 14), Child = grid };
+        var card = new Border { Classes = { "row" }, Padding = new Thickness(16, 14), Child = grid, Cursor = new Cursor(StandardCursorType.Hand) };
+        card.Tapped += (_, e) =>
+        {
+            if (e.Source is Visual origin && origin.FindAncestorOfType<Button>(true) != null)
+                return;
+            ShowVersions(hit, source);
+        };
+        return card;
+    }
+
+    /// <summary>打开资源详情，查看并安装指定版本；整合包直接进入安装流程（里面可以选版本）。</summary>
+    private async void ShowVersions(SearchHit hit, string source)
+    {
+        if (_kind == "modpack")
+        {
+            await ModpackActions.InstallFromHit(_clients[source], hit);
+            return;
+        }
+        var ctx = _ctx;
+        var kind = _kind;
+        var target = new ResourceTarget(ctx.Version, ctx.Game, ctx.Loader, kind, TargetDir());
+        var icon = string.IsNullOrEmpty(hit.IconUrl) ? null : _icons.GetValueOrDefault(hit.IconUrl);
+        await Main.ShowDialogAsync(new ModVersionsDialog(hit, _clients[source], target, _installedProjects[source], icon, () =>
+        {
+            if (ctx != _ctx || kind != _kind)
+                return;
+            _updates.Clear();
+            UpdateUpdateAll();
+            MarkInstalled();
+            ReloadLocal(false);
+        }));
     }
 
     private async void LoadIcon(string url, Border box)

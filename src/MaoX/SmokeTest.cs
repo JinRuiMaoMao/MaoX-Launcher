@@ -236,6 +236,84 @@ internal static class SmokeTest
             return $"{server.Root} signed profile ok, texture {texture.Body.Length} bytes";
         });
 
+        await Check("mod versions", async () =>
+        {
+            var dl = window.MakeLauncher().Dl;
+            var dir = Path.Combine(Path.GetTempPath(), $"maox-smoke-mods-{Guid.NewGuid():N}");
+            try
+            {
+                const string sodium = "AANobbMI";
+                var modrinth = new ModrinthClient(dl);
+                var versions = (await modrinth.VersionsAsync(sodium, "1.21.1", "fabric")).Versions;
+                if (versions.Count < 2 || versions.Any(v => !v.GameVersions.Contains("1.21.1") || !v.Loaders.Contains("fabric")))
+                    throw new Exception($"modrinth filter returned {versions.Count} versions");
+                var projects = new HashSet<string>();
+                await modrinth.InstallVersionAsync(versions[1], "1.21.1", "fabric", dir, projects);
+                var installed = await modrinth.InstalledVersionsAsync(sodium, Mods.ListLocalMods(dir));
+                if (installed.Count != 1 || installed[0].VersionId != versions[1].Id)
+                    throw new Exception("old version not identified: " + string.Join(", ", installed.Select(i => i.VersionId)));
+                await modrinth.InstallVersionAsync(versions[0], "1.21.1", "fabric", dir, projects, installed.Select(i => i.File).ToList());
+                var files = Mods.ListLocalMods(dir).Select(f => f.Filename).ToList();
+                if (!files.Contains(versions[0].Filename) || files.Contains(versions[1].Filename))
+                    throw new Exception("switch failed, files: " + string.Join(", ", files));
+
+                var curseforge = new CurseForgeClient(dl);
+                const string jei = "238222";
+                var filtered = (await curseforge.VersionsAsync(jei, "1.20.1", "forge")).Versions;
+                if (filtered.Count == 0 || filtered.Any(v => !v.GameVersions.Contains("1.20.1")))
+                    throw new Exception($"curseforge filter returned {filtered.Count} files");
+                var first = await curseforge.VersionsAsync(jei, null, null);
+                var second = first.Next != null ? await curseforge.VersionsAsync(jei, null, null, next: first.Next) : null;
+                if (second == null || second.Versions.Count == 0 || second.Versions.Any(v => first.Versions.Any(f => f.Id == v.Id)))
+                    throw new Exception("curseforge paging failed");
+
+                var hit = new SearchHit { Id = sodium, Title = "Sodium", Author = "jellysquid3", Downloads = 1, Url = "https://modrinth.com/mod/sodium" };
+                var dialog = new Dialogs.ModVersionsDialog(hit, modrinth, new Dialogs.ResourceTarget("1.21.1-Fabric", "1.21.1", "fabric", "mod", dir),
+                                                           projects, null, null);
+                _ = window.ShowDialogAsync(dialog);
+                await Task.Delay(4000);
+                ScreenshotControl(dialog, Path.Combine(output, "mod-versions.png"));
+                dialog.Close();
+                await Task.Delay(300);
+                return $"modrinth {versions.Count} versions, switched {versions[1].Name} -> {versions[0].Name}; "
+                       + $"curseforge {filtered.Count} files for forge 1.20.1, paging {first.Versions.Count}+{second.Versions.Count}";
+            }
+            finally
+            {
+                if (Directory.Exists(dir))
+                    Directory.Delete(dir, true);
+            }
+        }, required: false, timeout: TimeSpan.FromMinutes(3));
+
+        await Check("resource card click", async () =>
+        {
+            window.ShowPage("resources");
+            Border card = null;
+            for (var i = 0; i < 30 && card == null; i++)
+            {
+                await Task.Delay(500);
+                card = window.ResourcesPage.GetVisualDescendants().OfType<Border>()
+                    .FirstOrDefault(b => b.Classes.Contains("row") && b.Cursor != null && b.IsEffectivelyVisible);
+            }
+            if (card == null)
+                return "no search results (no modded version installed)";
+            var title = card.GetVisualDescendants().OfType<TextBlock>().First(t => !string.IsNullOrEmpty(t.Text));
+            title.RaiseEvent(new Avalonia.Input.TappedEventArgs(Avalonia.Input.Gestures.TappedEvent, null));
+            Dialogs.ModVersionsDialog dialog = null;
+            for (var i = 0; i < 10 && dialog == null; i++)
+            {
+                await Task.Delay(300);
+                dialog = window.GetVisualDescendants().OfType<Dialogs.ModVersionsDialog>().FirstOrDefault();
+            }
+            if (dialog == null)
+                throw new Exception("clicking a card did not open the versions dialog");
+            await Task.Delay(3000);
+            ScreenshotControl(dialog, Path.Combine(output, "card-versions.png"));
+            dialog.Close();
+            await Task.Delay(300);
+            return $"opened versions of {title.Text}";
+        }, required: false);
+
         await Check("terracotta", async () =>
         {
             var tc = new Terracotta(null, window.MakeLauncher().Dl, _ => { })

@@ -1,0 +1,23 @@
+{
+  "{0} 标注适用于 {1}，当前是 {2}，装上后可能无法加载。仍要安装吗？": "{0} is marked for {1}, but this version is {2}. It may fail to load. Install anyway?",
+  "{0} 次下载": "{0} downloads",
+  "不适用于当前版本": "Not for this version",
+  "仍要安装": "Install anyway",
+  "全部加载器": "All loaders",
+  "全部版本": "All versions",
+  "关闭": "Close",
+  "加载中…": "Loading…",
+  "加载器": "Loader",
+  "加载更多": "Load more",
+  "已加载 {0} 个版本": "{0} versions loaded",
+  "已安装：{0}": "Installed: {0}",
+  "已替换为 {0}": "Switched to {0}",
+  "打开网页": "Open website",
+  "早期测试版": "Alpha",
+  "更新日志": "Changelog",
+  "替换": "Switch",
+  "替换已安装的 {0}": "Replace the installed {0}",
+  "没有找到符合条件的版本，可以把筛选条件改成「全部」看看": "No matching versions. Try setting the filters to \"All\".",
+  "版本可能不兼容": "Version may be incompatible",
+  "这个版本没有可下载的文件": "This version has no downloadable file"
+}

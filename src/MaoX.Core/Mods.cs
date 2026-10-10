@@ -66,6 +66,30 @@ public class ModUpdate
     public string Version { get; set; }
 }
 
+/// <summary>资源的一个版本（Modrinth 的版本 / CurseForge 的文件）。Type 为 release / beta / alpha。</summary>
+public class ModFileVersion
+{
+    public string Id { get; set; }
+    public string ProjectId { get; set; }
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = "release";
+    public List<string> GameVersions { get; set; } = [];
+    public List<string> Loaders { get; set; } = [];
+    public DateTime Date { get; set; }
+    public long Downloads { get; set; }
+    public string Filename { get; set; }
+    public string Url { get; set; }
+    public string Sha1 { get; set; }
+    public long? Size { get; set; }
+    /// <summary>必需前置的项目 id。</summary>
+    public List<string> Dependencies { get; set; } = [];
+    /// <summary>更新日志（只有 Modrinth 提供，可能为空）。</summary>
+    public string Changelog { get; set; }
+}
+
+/// <summary>一页版本列表。Next 不为 null 时把它传回 VersionsAsync 加载下一页。</summary>
+public record VersionPage(List<ModFileVersion> Versions, object Next);
+
 /// <summary>Modrinth 与 CurseForge 客户端的公共接口。</summary>
 public interface IModClient
 {
@@ -80,6 +104,21 @@ public interface IModClient
 
     Task<List<string>> InstallAsync(string projectId, string gameVersion, string loader, string modsDir,
                                     ISet<string> installedProjects, Action<string> log = null, string kind = "mod");
+
+    /// <summary>项目的版本列表，新版本在前。gameVersion / loader 为 null 时不按它过滤（loader 只对模组生效）。</summary>
+    Task<VersionPage> VersionsAsync(string projectId, string gameVersion, string loader, string kind = "mod",
+                                    object next = null);
+
+    /// <summary>
+    /// 安装指定版本，返回新安装的文件名列表（模组会补装缺少的必需前置）。
+    /// replace 是同一项目已安装的文件，新文件下载完成后删除它们（保留禁用状态）。
+    /// </summary>
+    Task<List<string>> InstallVersionAsync(ModFileVersion version, string gameVersion, string loader, string dir,
+                                           ISet<string> installedProjects, IReadOnlyList<LocalFile> replace = null,
+                                           Action<string> log = null, string kind = "mod");
+
+    /// <summary>本地文件中属于这个项目的文件及其版本 id。</summary>
+    Task<List<(string VersionId, LocalFile File)>> InstalledVersionsAsync(string projectId, IEnumerable<LocalFile> files);
 }
 
 /// <summary>模组、资源包、光影、数据包的常量与本地文件管理，以及更新检查。</summary>
@@ -245,6 +284,39 @@ public static partial class Mods
             File.Delete(mod.Path);
         return dest;
     }
+
+    /// <summary>下载指定版本到 dir；replace 不为空时替换这些旧文件（保留第一个文件的禁用状态）。</summary>
+    internal static async Task DownloadVersionAsync(Downloader dl, ModFileVersion version, string dir,
+                                                    IReadOnlyList<LocalFile> replace)
+    {
+        if (string.IsNullOrEmpty(version.Url) || string.IsNullOrEmpty(version.Filename))
+            throw new InvalidOperationException(T("这个版本没有可下载的文件"));
+        if (replace is not { Count: > 0 })
+        {
+            Directory.CreateDirectory(dir);
+            await dl.DownloadManyAsync([new DownloadTask(version.Url, Path.Combine(dir, version.Filename), version.Sha1, version.Size)]);
+            return;
+        }
+        var dest = await ApplyUpdateAsync(dl, new ModUpdate
+        {
+            Mod = replace[0], Filename = version.Filename, Url = version.Url, Sha1 = version.Sha1, Size = version.Size,
+            Version = version.Name,
+        });
+        var comparison = Platform.IsLinux ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        foreach (var old in replace.Skip(1))
+        {
+            if (!old.IsDir && File.Exists(old.Path)
+                && !string.Equals(Path.GetFullPath(old.Path), Path.GetFullPath(dest), comparison))
+                File.Delete(old.Path);
+        }
+    }
+
+    internal static DateTime ParseDate(string text) =>
+        DateTime.TryParse(text, System.Globalization.CultureInfo.InvariantCulture,
+                          System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                          out var date)
+            ? date.ToLocalTime()
+            : DateTime.MinValue;
 
     // ------------------------------------------------------------------ 本地模组
 
@@ -584,43 +656,89 @@ public class ModrinthClient : IModClient
                                                  ISet<string> installedProjects, Action<string> log = null,
                                                  string kind = "mod")
     {
+        if (installedProjects.Contains(projectId))
+            return [];
+        var version = await BestVersionAsync(projectId, gameVersion, Mods.ModrinthVersionLoaders(kind, loader));
+        if (version == null || PrimaryFile(version) == null)
+            throw new InvalidOperationException(T("这个模组没有适用于当前版本的文件"));
+        return await InstallVersionAsync(ToVersion(version), gameVersion, loader, modsDir, installedProjects, null, log, kind);
+    }
+
+    public async Task<VersionPage> VersionsAsync(string projectId, string gameVersion, string loader, string kind = "mod",
+                                                 object next = null)
+    {
+        var versions = await ProjectVersionsAsync(projectId, gameVersion, Mods.ModrinthVersionLoaders(kind, loader));
+        return new VersionPage(versions.Select(ToVersion).Where(v => v.Url != null).ToList(), null);
+    }
+
+    public async Task<List<string>> InstallVersionAsync(ModFileVersion version, string gameVersion, string loader,
+                                                        string dir, ISet<string> installedProjects,
+                                                        IReadOnlyList<LocalFile> replace = null,
+                                                        Action<string> log = null, string kind = "mod")
+    {
         log ??= _ => { };
-        var loaders = Mods.ModrinthVersionLoaders(kind, loader);
-        Directory.CreateDirectory(modsDir);
-        var queue = new Queue<string>([projectId]);
-        var installed = new List<string>();
+        await Mods.DownloadVersionAsync(_dl, version, dir, replace);
+        installedProjects.Add(version.ProjectId);
+        var installed = new List<string> { version.Filename };
+        if (kind != "mod")
+            return installed;
+        var loaders = Mods.ModrinthLoaders(loader);
+        var queue = new Queue<string>(version.Dependencies);
+        var seen = new HashSet<string>();
         while (queue.Count > 0)
         {
             var pid = queue.Dequeue();
-            if (installedProjects.Contains(pid))
+            if (installedProjects.Contains(pid) || !seen.Add(pid))
                 continue;
-            var version = await BestVersionAsync(pid, gameVersion, loaders);
-            if (version == null)
+            var raw = await BestVersionAsync(pid, gameVersion, loaders);
+            var dep = raw != null ? ToVersion(raw) : null;
+            if (dep?.Url == null)
             {
-                if (pid == projectId)
-                    throw new InvalidOperationException(T("这个模组没有适用于当前版本的文件"));
                 log(F("[警告] 前置模组 {0} 没有适用于当前版本的文件，已跳过", pid));
                 continue;
             }
-            var file = PrimaryFile(version);
-            if (file == null)
-                continue;
-            var dest = Path.Combine(modsDir, file.Str("filename"));
-            await _dl.DownloadManyAsync([new DownloadTask(file.Str("url"), dest, file.Get("hashes").Str("sha1"),
-                                                          file.Long("size"))]);
-            installedProjects.Add(version.Str("project_id"));
-            installed.Add(file.Str("filename"));
-            if (pid != projectId)
-                log(F("已安装前置模组 {0}", file.Str("filename")));
-            if (kind != "mod")
-                continue;
-            foreach (var dep in version.Items("dependencies"))
-            {
-                if (dep.Str("dependency_type") == "required" && !string.IsNullOrEmpty(dep.Str("project_id")))
-                    queue.Enqueue(dep.Str("project_id"));
-            }
+            await Mods.DownloadVersionAsync(_dl, dep, dir, null);
+            installedProjects.Add(dep.ProjectId);
+            installed.Add(dep.Filename);
+            log(F("已安装前置模组 {0}", dep.Filename));
+            foreach (var id in dep.Dependencies)
+                queue.Enqueue(id);
         }
         return installed;
+    }
+
+    public async Task<List<(string VersionId, LocalFile File)>> InstalledVersionsAsync(string projectId,
+                                                                                        IEnumerable<LocalFile> files)
+    {
+        var hashes = await Mods.HashFilesAsync(files.Where(f => !f.IsDir));
+        var found = await IdentifyAsync(hashes.Keys);
+        return found.Where(p => p.Value.Str("project_id") == projectId && hashes.ContainsKey(p.Key))
+            .Select(p => (p.Value.Str("id"), hashes[p.Key])).ToList();
+    }
+
+    private static ModFileVersion ToVersion(JsonNode v)
+    {
+        var file = PrimaryFile(v);
+        var name = v.Str("name");
+        return new ModFileVersion
+        {
+            Id = v.Str("id"),
+            ProjectId = v.Str("project_id"),
+            Name = string.IsNullOrWhiteSpace(name) ? v.Str("version_number", "") : name,
+            Type = v.Str("version_type", "release"),
+            GameVersions = v.Items("game_versions").Select(g => g.AsStr()).Where(g => g != null).ToList(),
+            Loaders = v.Items("loaders").Select(l => l.AsStr()).Where(l => l != null).ToList(),
+            Date = Mods.ParseDate(v.Str("date_published")),
+            Downloads = v.Long("downloads"),
+            Filename = file.Str("filename"),
+            Url = file.Str("url"),
+            Sha1 = file.Get("hashes").Str("sha1"),
+            Size = file.Get("size") != null ? file.Long("size") : null,
+            Dependencies = v.Items("dependencies")
+                .Where(d => d.Str("dependency_type") == "required" && !string.IsNullOrEmpty(d.Str("project_id")))
+                .Select(d => d.Str("project_id")).ToList(),
+            Changelog = v.Str("changelog"),
+        };
     }
 
     /// <summary>返回 (可更新列表, Modrinth 不认识的模组列表)。</summary>
@@ -872,39 +990,143 @@ public partial class CurseForgeClient : IModClient
                                                  ISet<string> installedProjects, Action<string> log = null,
                                                  string kind = "mod")
     {
+        if (installedProjects.Contains(projectId))
+            return [];
+        var file = await BestFileAsync(projectId, gameVersion, loader, kind);
+        if (file == null)
+            throw new InvalidOperationException(T("这个模组没有适用于当前版本的文件"));
+        var version = ToVersion(file);
+        version.ProjectId ??= projectId;
+        return await InstallVersionAsync(version, gameVersion, loader, modsDir, installedProjects, null, log, kind);
+    }
+
+    /// <summary>版本列表的翻页位置：使用的加载器类型、是否为「未标注加载器的老 Forge 文件」、起始序号。</summary>
+    private sealed record FilesCursor(int? LoaderType, bool Untagged, int Index);
+
+    private const int FilesPageSize = 50;
+
+    public async Task<VersionPage> VersionsAsync(string projectId, string gameVersion, string loader, string kind = "mod",
+                                                 object next = null)
+    {
+        if (next is FilesCursor cursor)
+            return await FilesPageAsync(projectId, gameVersion, cursor);
+        var types = kind == "mod" && loader != null ? Mods.CfLoaderTypes.GetValueOrDefault(loader) : null;
+        if (types == null)
+            return await FilesPageAsync(projectId, gameVersion, new FilesCursor(null, false, 0));
+        // 与 FilesAsync 相同：Quilt 没有文件时用 Fabric 的，老版本 Forge 模组的文件可能没有标注加载器
+        foreach (var type in types)
+        {
+            var page = await FilesPageAsync(projectId, gameVersion, new FilesCursor(type, false, 0));
+            if (page.Versions.Count > 0 || page.Next != null)
+                return page;
+        }
+        return loader == "forge"
+            ? await FilesPageAsync(projectId, gameVersion, new FilesCursor(null, true, 0))
+            : new VersionPage([], null);
+    }
+
+    private async Task<VersionPage> FilesPageAsync(string projectId, string gameVersion, FilesCursor cursor)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            ["pageSize"] = FilesPageSize.ToString(),
+            ["index"] = cursor.Index.ToString(),
+        };
+        if (!string.IsNullOrEmpty(gameVersion))
+            parameters["gameVersion"] = gameVersion;
+        if (cursor.LoaderType != null)
+            parameters["modLoaderType"] = cursor.LoaderType.ToString();
+        var data = await GetAsync($"/mods/{projectId}/files", parameters);
+        var files = data.Items("data").Where(f => f.Bool("isAvailable", true) && !f.Bool("isServerPack"));
+        if (cursor.Untagged)
+            files = files.Where(f => !f.Items("gameVersions")
+                .Any(v => Mods.CfLoaderTags.Contains((v.AsStr() ?? "").ToLowerInvariant())));
+        var versions = files.Select(ToVersion).OrderByDescending(v => v.Date).ToList();
+        foreach (var v in versions)
+            v.ProjectId ??= projectId;
+        var nextIndex = cursor.Index + FilesPageSize;
+        // CurseForge 的分页上限为 10000 条
+        var more = nextIndex < data.Get("pagination").Long("totalCount") && nextIndex + FilesPageSize <= 10000;
+        return new VersionPage(versions, more ? cursor with { Index = nextIndex } : null);
+    }
+
+    public async Task<List<string>> InstallVersionAsync(ModFileVersion version, string gameVersion, string loader,
+                                                        string dir, ISet<string> installedProjects,
+                                                        IReadOnlyList<LocalFile> replace = null,
+                                                        Action<string> log = null, string kind = "mod")
+    {
         log ??= _ => { };
-        Directory.CreateDirectory(modsDir);
-        var queue = new Queue<string>([projectId]);
-        var installed = new List<string>();
+        await Mods.DownloadVersionAsync(_dl, version, dir, replace);
+        installedProjects.Add(version.ProjectId);
+        var installed = new List<string> { version.Filename };
+        if (kind != "mod")
+            return installed;
+        var queue = new Queue<string>(version.Dependencies);
         var seen = new HashSet<string>();
         while (queue.Count > 0)
         {
             var pid = queue.Dequeue();
             if (installedProjects.Contains(pid) || !seen.Add(pid))
                 continue;
-            var file = await BestFileAsync(pid, gameVersion, loader, kind);
+            var file = await BestFileAsync(pid, gameVersion, loader);
             if (file == null)
             {
-                if (pid == projectId)
-                    throw new InvalidOperationException(T("这个模组没有适用于当前版本的文件"));
                 log(F("[警告] 前置模组 {0} 没有适用于当前版本的文件，已跳过", pid));
                 continue;
             }
-            var dest = Path.Combine(modsDir, file.Str("fileName"));
-            await _dl.DownloadManyAsync([new DownloadTask(DownloadUrl(file), dest, Mods.CfSha1(file),
-                                                          file.Long("fileLength"))]);
+            var dep = ToVersion(file);
+            await Mods.DownloadVersionAsync(_dl, dep, dir, null);
             installedProjects.Add(pid);
-            installed.Add(file.Str("fileName"));
-            if (pid != projectId)
-                log(F("已安装前置模组 {0}", file.Str("fileName")));
-            if (kind != "mod")
-                continue;
-            foreach (var dep in file.Items("dependencies"))
-            {
-                if (dep.Int("relationType") == Mods.CfRequiredDependency)
-                    queue.Enqueue(dep.Get("modId")?.AsStr());
-            }
+            installed.Add(dep.Filename);
+            log(F("已安装前置模组 {0}", dep.Filename));
+            foreach (var id in dep.Dependencies)
+                queue.Enqueue(id);
         }
         return installed;
+    }
+
+    public async Task<List<(string VersionId, LocalFile File)>> InstalledVersionsAsync(string projectId,
+                                                                                        IEnumerable<LocalFile> files)
+    {
+        var prints = await Mods.FingerprintFilesAsync(files.Where(f => !f.IsDir));
+        if (prints.Count == 0)
+            return [];
+        var data = await _dl.PostJsonAsync(Mods.CurseForgeApi + "/fingerprints", new JsonObject
+        {
+            ["fingerprints"] = new JsonArray(prints.Keys.Select(p => (JsonNode)p).ToArray()),
+        });
+        var output = new List<(string, LocalFile)>();
+        foreach (var match in data.Get("data").Items("exactMatches"))
+        {
+            var file = match.Get("file");
+            if (match.Get("id")?.AsStr() == projectId && file != null
+                && prints.TryGetValue((uint)file.Long("fileFingerprint"), out var local))
+                output.Add((file.Get("id")?.AsStr(), local));
+        }
+        return output;
+    }
+
+    private static ModFileVersion ToVersion(JsonNode file)
+    {
+        var tags = file.Items("gameVersions").Select(v => v.AsStr() ?? "").ToList();
+        var display = file.Str("displayName");
+        return new ModFileVersion
+        {
+            Id = file.Get("id")?.AsStr(),
+            ProjectId = file.Get("modId")?.AsStr(),
+            Name = string.IsNullOrWhiteSpace(display) ? file.Str("fileName", "") : display,
+            Type = file.Int("releaseType") switch { 2 => "beta", 3 => "alpha", _ => "release" },
+            GameVersions = tags.Where(v => StartsWithDigit().IsMatch(v)).ToList(),
+            Loaders = tags.Select(v => v.ToLowerInvariant()).Where(Mods.CfLoaderTags.Contains).ToList(),
+            Date = Mods.ParseDate(file.Str("fileDate")),
+            Downloads = file.Long("downloadCount"),
+            Filename = file.Str("fileName"),
+            Url = DownloadUrl(file),
+            Sha1 = Mods.CfSha1(file),
+            Size = file.Get("fileLength") != null ? file.Long("fileLength") : null,
+            Dependencies = file.Items("dependencies")
+                .Where(d => d.Int("relationType") == Mods.CfRequiredDependency && d.Get("modId") != null)
+                .Select(d => d.Get("modId").AsStr()).ToList(),
+        };
     }
 }
