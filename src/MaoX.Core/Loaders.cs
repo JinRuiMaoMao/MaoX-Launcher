@@ -442,8 +442,7 @@ public partial class LoaderInstaller
         if (names.Contains("optifine/Patcher.class"))
         {
             Log(T("正在生成 OptiFine 补丁..."));
-            var java = await _gl.SelectJavaAsync(_gl.LoadVersion(mc));
-            var (code, output) = await Loaders.RunJavaAsync(java,
+            var (code, output) = await _gl.RunToolJavaAsync(_gl.LoadVersion(mc),
                 ["-cp", installer, "optifine.Patcher", _gl.PathOf("versions", mc, mc + ".jar"), installer, library]);
             if (code != 0 || !File.Exists(library))
                 throw new LoaderException(F("OptiFine 补丁生成失败（退出码 {0}）：\n{1}", code, Loaders.Tail(output)));
@@ -624,7 +623,7 @@ public partial class LoaderInstaller
                 return DataToken().Replace(arg, m => data.TryGetValue(m.Groups[1].Value, out var v) ? v : m.Value);
             }
 
-            var java = await _gl.SelectJavaAsync(_gl.LoadVersion(mc));
+            var mcJson = _gl.LoadVersion(mc);
             var total = processors.Count;
             for (var index = 1; index <= total; index++)
             {
@@ -645,8 +644,8 @@ public partial class LoaderInstaller
                 var task = taskIndex >= 0 && taskIndex < args.Count - 1 ? args[taskIndex + 1] : jarCoord.Split(':')[1];
                 Log(F("运行安装处理器 {0}/{1}：{2}", index, total, task));
                 _gl.Progress(index - 1, total, F("安装 {0}", name));
-                var (code, output) = await Loaders.RunJavaAsync(
-                    java, new[] { "-cp", classpath, Loaders.MainClass(jar) }.Concat(args), work);
+                var (code, output) = await _gl.RunToolJavaAsync(
+                    mcJson, new[] { "-cp", classpath, Loaders.MainClass(jar) }.Concat(args).ToList(), work);
                 if (code != 0)
                     throw new LoaderException(F("安装处理器 {0} 失败（退出码 {1}）：\n{2}", task, code, Loaders.Tail(output)));
                 foreach (var (path, sha) in outputs)

@@ -1,6 +1,7 @@
 package io.github.jinruimaomao.maox;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.os.Handler;
@@ -41,7 +42,7 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
     private static final String TAG = "MaoXGame";
     public static final String EXTRA_CONFIG = "config";
 
-    private static String sExitFile;
+    static String sExitFile;
 
     private JSONObject mConfig;
     private TextureView mTextureView;
@@ -75,7 +76,6 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
             String path = getIntent().getStringExtra(EXTRA_CONFIG);
             mConfig = new JSONObject(new String(Files.readAllBytes(new File(path).toPath()), StandardCharsets.UTF_8));
             mScale = (float) mConfig.optDouble("scale", 1.0);
-            sExitFile = mConfig.optString("exitFile", null);
         } catch (Exception e) {
             Log.e(TAG, "read launch config failed", e);
             finish();
@@ -161,10 +161,27 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
     }
 
     private void startGame() {
+        try {
+            JSONObject env = mConfig.getJSONObject("env");
+            env.put("AWTSTUB_WIDTH", String.valueOf(CallbackBridge.windowWidth));
+            env.put("AWTSTUB_HEIGHT", String.valueOf(CallbackBridge.windowHeight));
+        } catch (Exception e) {
+            Log.e(TAG, "set window env failed", e);
+        }
+        CallbackBridge.nativeSetUseInputStackQueue(mConfig.optBoolean("inputStackQueue", true));
+        List<String> extra = new ArrayList<>();
+        extra.add("-Dglfwstub.windowWidth=" + CallbackBridge.windowWidth);
+        extra.add("-Dglfwstub.windowHeight=" + CallbackBridge.windowHeight);
+        startJvmThread(getApplication(), mConfig, extra, null);
+    }
+
+    /** 在新线程里启动 JVM，结束后带着退出码结束整个进程（JVM 不能在同一进程里再启动一次）。 */
+    static void startJvmThread(Context app, JSONObject config, List<String> extraArgs, Runnable beforeExit) {
+        sExitFile = config.optString("exitFile", null);
         new Thread(() -> {
             int code;
             try {
-                code = runJvm();
+                code = runJvm(app, config, extraArgs);
             } catch (Throwable e) {
                 Log.e(TAG, "launch failed", e);
                 try {
@@ -173,42 +190,40 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
                 }
                 code = -1;
             }
-            if (code != 0) writeExitCode(code, false);
+            writeExitCode(code, false);
+            if (beforeExit != null) beforeExit.run();
             System.exit(code);
         }, "JVM Main thread").start();
     }
 
-    private int runJvm() throws Exception {
-        File logFile = new File(mConfig.getString("logFile"));
+    private static int runJvm(Context app, JSONObject config, List<String> extraArgs) throws Exception {
+        File logFile = new File(config.getString("logFile"));
         logFile.getParentFile().mkdirs();
         logFile.createNewFile();
+        JREUtils.load();
         Logger.begin(logFile.getAbsolutePath());
 
-        JSONObject env = mConfig.getJSONObject("env");
+        JSONObject env = config.getJSONObject("env");
         for (Iterator<String> it = env.keys(); it.hasNext(); ) {
             String key = it.next();
             Os.setenv(key, env.getString(key), true);
         }
-        Os.setenv("AWTSTUB_WIDTH", String.valueOf(CallbackBridge.windowWidth), true);
-        Os.setenv("AWTSTUB_HEIGHT", String.valueOf(CallbackBridge.windowHeight), true);
-        JREUtils.setLdLibraryPath(mConfig.getString("ldLibraryPath"));
+        JREUtils.setLdLibraryPath(config.getString("ldLibraryPath"));
 
-        JSONArray preload = mConfig.getJSONArray("preload");
+        JSONArray preload = config.getJSONArray("preload");
         for (int i = 0; i < preload.length(); i++) {
             String lib = preload.getString(i);
             if (!JREUtils.dlopen(lib)) Logger.appendToLog("MaoX: dlopen failed: " + lib);
         }
 
-        CallbackBridge.nativeSetUseInputStackQueue(mConfig.optBoolean("inputStackQueue", true));
-        JREUtils.setupExitMethod(getApplication());
+        JREUtils.setupExitMethod(app);
         JREUtils.initializeHooks();
-        JREUtils.chdir(mConfig.getString("gameDir"));
+        JREUtils.chdir(config.getString("gameDir"));
 
-        JSONArray args = mConfig.getJSONArray("args");
+        JSONArray args = config.getJSONArray("args");
         List<String> argv = new ArrayList<>();
         argv.add("java");
-        argv.add("-Dglfwstub.windowWidth=" + CallbackBridge.windowWidth);
-        argv.add("-Dglfwstub.windowHeight=" + CallbackBridge.windowHeight);
+        argv.addAll(extraArgs);
         for (int i = 0; i < args.length(); i++) argv.add(args.getString(i));
         Logger.appendToLog("MaoX: launching JVM with " + argv.size() + " arguments");
         return VMLauncher.launchJVM(argv.toArray(new String[0]));

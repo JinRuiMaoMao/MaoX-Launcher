@@ -35,6 +35,73 @@ internal static class GameHost
     {
         _activity = activity;
         GameLauncher.MobileStarter = StartAsync;
+        GameLauncher.MobileJavaRunner = RunToolAsync;
+    }
+
+    private static string ToolLogFile => Path.Combine(DataDir, "tool.log");
+
+    /// <summary>在 :game 进程里用手机版 Java 运行一次安装工具（不显示界面），等它结束后返回退出码和输出。</summary>
+    private static async Task<(int ExitCode, List<string> Output)> RunToolAsync(GameLauncher launcher, int major,
+                                                                               IReadOnlyList<string> toolArgs, string workDir)
+    {
+        if (IsGameRunning())
+            throw new InvalidOperationException(T("请先退出游戏再安装"));
+        var jre = await EnsureJreAsync(launcher, major);
+        var configPath = Path.Combine(DataDir, "tool.json");
+        await Task.Run(() =>
+        {
+            var config = BuildToolConfig(jre, toolArgs, workDir ?? AppPaths.BaseDir);
+            File.WriteAllText(configPath, config.ToJsonString());
+            File.Delete(ExitFile);
+            File.WriteAllBytes(ToolLogFile, []);
+        });
+
+        var tool = new AndroidGame();
+        var intent = new Intent().SetClassName(Ctx, "io.github.jinruimaomao.maox.ToolService")
+                                 .PutExtra("config", configPath)
+                                 .PutExtra("exitFile", ExitFile);
+        Ctx.StartService(intent);
+        tool.Start();
+        var code = await tool.WaitForExitAsync();
+        var output = (await File.ReadAllLinesAsync(ToolLogFile)).ToList();
+        return (code, output);
+    }
+
+    private static JsonObject BuildToolConfig(string jreHome, IReadOnlyList<string> toolArgs, string workDir)
+    {
+        var cache = Ctx.CacheDir!.AbsolutePath;
+        var resolv = Path.Combine(DataDir, "resolv.conf");
+        File.WriteAllText(resolv, ResolvConf());
+        var memory = (int)Math.Clamp(DeviceMemoryMb() / 4, 512, 1536);
+        var (ldPath, preload) = JvmLibraries(jreHome);
+        var args = new List<string>
+        {
+            $"-Xmx{memory}m",
+            "-Djava.home=" + jreHome,
+            "-Djava.io.tmpdir=" + cache,
+            "-Duser.home=" + AppPaths.BaseDir,
+            "-Dos.name=Linux",
+            "-Djava.awt.headless=true",
+            "-Dext.net.resolvPath=" + resolv,
+            "-Djava.library.path=" + JvmLibDir(jreHome) + ":" + NativeLibDir,
+        };
+        args.AddRange(toolArgs);
+        return new JsonObject
+        {
+            ["env"] = new JsonObject
+            {
+                ["JAVA_HOME"] = jreHome,
+                ["HOME"] = AppPaths.BaseDir,
+                ["TMPDIR"] = cache,
+                ["LD_LIBRARY_PATH"] = ldPath,
+            },
+            ["ldLibraryPath"] = JvmServerDir(jreHome) + ":" + ldPath,
+            ["preload"] = new JsonArray(preload.Select(p => (JsonNode)p).ToArray()),
+            ["args"] = new JsonArray(args.Select(a => (JsonNode)a).ToArray()),
+            ["gameDir"] = workDir,
+            ["logFile"] = ToolLogFile,
+            ["exitFile"] = ExitFile,
+        };
     }
 
     private static async Task<RunningGame> StartAsync(GameLauncher launcher, PreparedGame info, string server,
@@ -157,6 +224,30 @@ internal static class GameHost
         return Path.Combine(home, "lib");
     }
 
+    private static string JvmServerDir(string home)
+    {
+        var lib = JvmLibDir(home);
+        return Path.Combine(lib, Directory.Exists(Path.Combine(lib, "server")) ? "server" : "client");
+    }
+
+    /// <summary>JVM 的库搜索路径，以及和 Amethyst 一样按顺序预先加载的 Java 核心库和 JRE 里其余的 .so。</summary>
+    private static (string LdPath, List<string> Preload) JvmLibraries(string jreHome, params string[] extraDirs)
+    {
+        var jvmLib = JvmLibDir(jreHome);
+        var ldPath = string.Join(":", new[] { Path.Combine(jvmLib, "jli"), jvmLib, "/system/lib64", "/vendor/lib64",
+                                              "/vendor/lib64/hw", NativeLibDir }.Concat(extraDirs));
+        string Find(string name) =>
+            ldPath.Split(':').Select(d => Path.Combine(d, name)).FirstOrDefault(File.Exists) ?? name;
+        var preload = new List<string>
+        {
+            Find("libjli.so"), Path.Combine(JvmServerDir(jreHome), "libjvm.so"), Find("libverify.so"), Find("libjava.so"),
+            Find("libnet.so"), Find("libnio.so"), Find("libawt.so"), Find("libawt_headless.so"),
+            Find("libfreetype.so"), Find("libfontmanager.so"),
+        };
+        preload.AddRange(Directory.GetFiles(jvmLib, "*.so", SearchOption.AllDirectories));
+        return (ldPath, preload);
+    }
+
     // ------------------------------------------------------------------ 启动参数
 
     /// <summary>版本 JSON 里 LWJGL 的版本号，如 3.3.3 → 333、2.9.4 → 294。</summary>
@@ -189,8 +280,6 @@ internal static class GameHost
         var components = Path.Combine(DataDir, "components");
         var lwjglJars = Path.Combine(components, "lwjgl3", lwjglVer);
         var lwjglNatives = Path.Combine(components, $"lwjgl-{lwjglVer}-natives", Abi);
-        var jvmLib = JvmLibDir(jreHome);
-        var jvmServer = Path.Combine(jvmLib, Directory.Exists(Path.Combine(jvmLib, "server")) ? "server" : "client");
 
         // LWJGL 换成移动版：核心和合并包放最前，其余模块随后；版本自带的 org.lwjgl 库全部去掉
         var classpath = new List<string>
@@ -267,8 +356,7 @@ internal static class GameHost
         var command = launcher.BuildCommand(info.VJson, "java", mobileInfo, server, auth);
         args.AddRange(command.Skip(1).Where(a => !dropped.Any(a.StartsWith)));
 
-        var ldPath = string.Join(":", Path.Combine(jvmLib, "jli"), jvmLib, "/system/lib64", "/vendor/lib64",
-                                 "/vendor/lib64/hw", NativeLibDir, lwjglNatives);
+        var (ldPath, preload) = JvmLibraries(jreHome, lwjglNatives);
         var env = new JsonObject
         {
             ["POJAV_NATIVEDIR"] = NativeLibDir,
@@ -293,24 +381,13 @@ internal static class GameHost
             ["SFPEW_EGL"] = "libmobileglues.so",
         };
         Directory.CreateDirectory(Path.Combine(DataDir, "MobileGlues"));
-
-        // 和 Amethyst 一样：先按顺序加载 Java 的核心库，再加载 JRE 里其余的 .so、OpenAL 和渲染器
-        string Find(string name) =>
-            ldPath.Split(':').Select(d => Path.Combine(d, name)).FirstOrDefault(File.Exists) ?? name;
-        var preload = new List<string>
-        {
-            Find("libjli.so"), Path.Combine(jvmServer, "libjvm.so"), Find("libverify.so"), Find("libjava.so"),
-            Find("libnet.so"), Find("libnio.so"), Find("libawt.so"), Find("libawt_headless.so"),
-            Find("libfreetype.so"), Find("libfontmanager.so"),
-        };
-        preload.AddRange(Directory.GetFiles(jvmLib, "*.so", SearchOption.AllDirectories));
         preload.Add(Path.Combine(NativeLibDir, "libopenal.so"));
         preload.Add(Path.Combine(NativeLibDir, "libmobileglues.so"));
 
         return new JsonObject
         {
             ["env"] = env,
-            ["ldLibraryPath"] = jvmServer + ":" + ldPath,
+            ["ldLibraryPath"] = JvmServerDir(jreHome) + ":" + ldPath,
             ["preload"] = new JsonArray(preload.Select(p => (JsonNode)p).ToArray()),
             ["args"] = new JsonArray(args.Select(a => (JsonNode)a).ToArray()),
             ["gameDir"] = info.GameDir,
@@ -375,11 +452,12 @@ internal static class GameHost
         private async Task MonitorAsync()
         {
             var deadline = DateTime.UtcNow.AddSeconds(30);
-            while (FindGameProcess() == null && DateTime.UtcNow < deadline)
+            bool seen;
+            while (!(seen = FindGameProcess() != null) && DateTime.UtcNow < deadline)
                 await Task.Delay(300);
             while (FindGameProcess() != null)
                 await Task.Delay(500);
-            var code = 0;
+            var code = seen ? 0 : -1;
             try
             {
                 if (File.Exists(ExitFile))

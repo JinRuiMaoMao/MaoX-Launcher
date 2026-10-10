@@ -68,7 +68,8 @@ public static class CrashAnalyzer
     private static readonly Regex Corrupt =
         R(@"zip END header not found|Invalid or corrupt jarfile|error in opening zip file|" +
           @"ZipException: (?:invalid|zip file is empty)");
-    private static readonly Regex NativeLink = R(@"UnsatisfiedLinkError|Failed to locate library: \S+\.dll");
+    // 讲述人的 flite 库在 Linux / 手机上经常没有，游戏会自己忽略，不算加载失败
+    private static readonly Regex NativeLink = R(@"UnsatisfiedLinkError(?!: (?:Unable to load library 'flite'|dlopen failed: library ""libflite))|Failed to locate library: \S+\.dll");
     private static readonly Regex MissingClass = R(@"(?:NoClassDefFoundError|ClassNotFoundException): ([\w.$/]+)");
     private static readonly Regex Description = R(@"Description: (.+)\n+(.+)");
     private static readonly Regex ExceptionLine =

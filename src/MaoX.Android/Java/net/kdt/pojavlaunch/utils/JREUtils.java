@@ -15,6 +15,10 @@ public final class JREUtils {
     public static native void initializeHooks();
     public static native void setupExitMethod(Context context);
 
+    /** 加载原生库（Logger 等类的原生方法也在 libpojavexec.so 里）。 */
+    public static void load() {
+    }
+
     static {
         System.loadLibrary("exithook");
         System.loadLibrary("pojavexec");

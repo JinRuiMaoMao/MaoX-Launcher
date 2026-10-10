@@ -934,6 +934,21 @@ public class GameLauncher
     /// <summary>手机上由平台层实现：用准备好的文件在游戏进程里启动游戏。</summary>
     public static Func<GameLauncher, PreparedGame, string, LaunchAuth, Task<RunningGame>> MobileStarter { get; set; }
 
+    /// <summary>手机上不能启动 java 子进程，安装工具（Forge 处理器等）由平台层用手机版 Java 运行。参数：所需 Java 主版本、Java 参数、工作目录。</summary>
+    public static Func<GameLauncher, int, IReadOnlyList<string>, string, Task<(int ExitCode, List<string> Output)>> MobileJavaRunner { get; set; }
+
+    /// <summary>用适合 <paramref name="vjson"/> 的 Java 运行安装工具，返回 (退出码, 输出行)。</summary>
+    internal async Task<(int ExitCode, List<string> Output)> RunToolJavaAsync(JsonObject vjson, IReadOnlyList<string> args,
+                                                                             string workDir = null)
+    {
+        if (Platform.IsMobile)
+        {
+            var runner = MobileJavaRunner ?? throw new PlatformNotSupportedException(T("这个平台还不能运行 Java 安装程序"));
+            return await runner(this, vjson.Obj("javaVersion")?.Int("majorVersion", 8) ?? 8, args, workDir);
+        }
+        return await Loaders.RunJavaAsync(await SelectJavaAsync(vjson), args, workDir);
+    }
+
     /// <summary>准备文件并启动游戏：电脑上启动 java 子进程，手机上交给 <see cref="MobileStarter"/>。</summary>
     public async Task<RunningGame> StartAsync(string versionId, string server = null, LaunchAuth auth = null)
     {
