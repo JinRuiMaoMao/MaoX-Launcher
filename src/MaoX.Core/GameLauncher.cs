@@ -930,4 +930,19 @@ public class GameLauncher
         process.StandardInput.Close();
         return process;
     }
+
+    /// <summary>手机上由平台层实现：用准备好的文件在游戏进程里启动游戏。</summary>
+    public static Func<GameLauncher, PreparedGame, string, LaunchAuth, Task<RunningGame>> MobileStarter { get; set; }
+
+    /// <summary>准备文件并启动游戏：电脑上启动 java 子进程，手机上交给 <see cref="MobileStarter"/>。</summary>
+    public async Task<RunningGame> StartAsync(string versionId, string server = null, LaunchAuth auth = null)
+    {
+        if (!Platform.IsMobile)
+            return RunningGame.Of(await LaunchAsync(versionId, server, auth));
+        var starter = MobileStarter ?? throw new PlatformNotSupportedException(T("这个平台还不能启动游戏"));
+        Cfg = EffectiveConfig(versionId);
+        var info = await PrepareAsync(versionId);
+        Log(F("正在启动 {0}（玩家 {1}，最大内存 {2} MB）...", versionId, auth?.Name ?? Cfg.Username, Cfg.MaxMemory));
+        return await starter(this, info, server, auth);
+    }
 }

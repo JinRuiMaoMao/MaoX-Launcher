@@ -63,7 +63,7 @@ public partial class MainView : UserControl
     private readonly HashSet<string> _skinLoading = [];
     private readonly List<(DialogView View, Panel Layer)> _dialogs = [];
 
-    private Process _gameProcess;
+    private RunningGame _gameProcess;
     private string _runningVersion;
     private bool _hiddenForGame;
     private bool _started;
@@ -439,11 +439,13 @@ public partial class MainView : UserControl
 
     public void ShowTaskCenter() => OnTasksButtonClick(null, null);
 
+    private Flyout _taskFlyout;
+
     private void OnTasksButtonClick(object sender, RoutedEventArgs e)
     {
         _taskCenter.Refresh();
-        var flyout = new Flyout { Content = _taskCenter, Placement = PlacementMode.TopEdgeAlignedRight };
-        flyout.ShowAt(TasksButton);
+        _taskFlyout ??= new Flyout { Content = _taskCenter, Placement = PlacementMode.TopEdgeAlignedRight };
+        _taskFlyout.ShowAt(TasksButton);
     }
 
     public void ClearFinishedTasks()
@@ -940,7 +942,7 @@ public partial class MainView : UserControl
     {
         try
         {
-            _gameProcess?.Kill(true);
+            _gameProcess?.Kill();
         }
         catch (Exception)
         {
@@ -985,11 +987,11 @@ public partial class MainView : UserControl
             var (auth, changed) = await Accounts.PrepareLaunchAsync(account, cfg, launcher.Dl, AppPaths.ToolsDir, Log);
             if (changed)
                 Dispatcher.UIThread.Post(AccountsChanged);
-            return await launcher.LaunchAsync(version, server, auth);
+            return await launcher.StartAsync(version, server, auth);
         }, process => OnGameStarted(process, version, gameDir, since));
     }
 
-    private void OnGameStarted(Process process, string version, string gameDir, DateTime since)
+    private void OnGameStarted(RunningGame process, string version, string gameDir, DateTime since)
     {
         _gameProcess = process;
         _runningVersion = version;
@@ -1015,7 +1017,7 @@ public partial class MainView : UserControl
         }
     }
 
-    private async Task WatchGame(Process process, string version, string gameDir, DateTime since, DateTime started)
+    private async Task WatchGame(RunningGame process, string version, string gameDir, DateTime since, DateTime started)
     {
         var parser = new LogParser();
         var recent = new Queue<string>();
@@ -1038,18 +1040,15 @@ public partial class MainView : UserControl
                 LaunchPage.AppendLog(line, null);
         }
 
-        var stdout = Task.Run(() => GameOutput.ReadLines(process.StandardOutput.BaseStream, OnLine));
-        var stderr = Task.Run(() => GameOutput.ReadLines(process.StandardError.BaseStream, OnLine));
         try
         {
-            await Task.WhenAll(stdout, stderr);
+            await process.ReadOutputAsync(OnLine);
         }
         catch (Exception)
         {
             // 管道异常时只等待进程结束
         }
-        await process.WaitForExitAsync();
-        var code = process.ExitCode;
+        var code = await process.WaitForExitAsync();
         try
         {
             PlayTime.Record(new GameLauncher(Cfg), version, started, DateTime.Now);
@@ -1073,7 +1072,7 @@ public partial class MainView : UserControl
         Dispatcher.UIThread.Post(() => OnGameExit(process, code, report));
     }
 
-    private async void OnGameExit(Process process, int code, CrashReport report)
+    private async void OnGameExit(RunningGame process, int code, CrashReport report)
     {
         if (_gameProcess == process)
             _gameProcess = null;

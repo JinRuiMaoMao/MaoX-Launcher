@@ -1,0 +1,15 @@
+{
+  "这个平台还不能启动游戏": "Launching the game is not supported on this platform yet",
+  "游戏已经在运行了": "The game is already running",
+  "正在下载手机版 Java {0}...": "Downloading mobile Java {0}...",
+  "正在解压手机版 Java {0}...": "Extracting mobile Java {0}...",
+  "手机内存有限，游戏最大内存调整为 {0} MB": "Limited device memory: max game memory adjusted to {0} MB",
+  "跳跃": "Jump",
+  "潜行": "Sneak",
+  "背包": "Inventory",
+  "丢弃": "Drop",
+  "聊天": "Chat",
+  "视角": "View",
+  "暂停": "Pause",
+  "键盘": "Keyboard"
+}

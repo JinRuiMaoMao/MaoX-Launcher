@@ -20,10 +20,39 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Android" Version="11.3.22" />
+    <PackageReference Include="SharpCompress" Version="0.50.5" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\MaoX.UI\MaoX.UI.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <AndroidJavaSource Include="Java\**\*.java" />
+  </ItemGroup>
+
+  <!-- 启动游戏用的原生库和 LWJGL（来自 Amethyst-Android，LGPL-3.0），放在单独的 Release 里，首次构建时下载 -->
+  <PropertyGroup>
+    <MaoXRuntimePack>maox-android-runtime-1</MaoXRuntimePack>
+    <MaoXRuntimeUrl>https://github.com/JinRuiMaoMao/MaoX-Launcher/releases/download/android-runtime-1/$(MaoXRuntimePack).zip</MaoXRuntimeUrl>
+    <MaoXRuntimeDir>$(MSBuildProjectDirectory)\obj\$(MaoXRuntimePack)\</MaoXRuntimeDir>
+  </PropertyGroup>
+
+  <Target Name="MaoXFetchRuntime" BeforeTargets="PrepareForBuild" Condition="!Exists('$(MaoXRuntimeDir).ok')">
+    <DownloadFile SourceUrl="$(MaoXRuntimeUrl)" DestinationFolder="$(MaoXRuntimeDir)" Retries="3" />
+    <Unzip SourceFiles="$(MaoXRuntimeDir)$(MaoXRuntimePack).zip" DestinationFolder="$(MaoXRuntimeDir)pack" />
+    <Delete Files="$(MaoXRuntimeDir)$(MaoXRuntimePack).zip" />
+    <Touch Files="$(MaoXRuntimeDir).ok" AlwaysCreate="true" />
+  </Target>
+
+  <Target Name="MaoXIncludeRuntime" AfterTargets="MaoXFetchRuntime" BeforeTargets="PrepareForBuild">
+    <ItemGroup>
+      <AndroidNativeLibrary Include="$(MaoXRuntimeDir)pack\lib\**\*.so" />
+      <!-- 这些库只在游戏进程里用，启动器进程启动时不能预加载（JNI_OnLoad 会找不到对应的 Java 类） -->
+      <AndroidNativeLibraryNoJniPreload Include="$(MaoXRuntimeDir)pack\lib\**\*.so" />
+      <MaoXRuntimeAsset Include="$(MaoXRuntimeDir)pack\**\*" Exclude="$(MaoXRuntimeDir)pack\lib\**" />
+      <AndroidAsset Include="@(MaoXRuntimeAsset)" LogicalName="runtime\%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
 
 </Project>

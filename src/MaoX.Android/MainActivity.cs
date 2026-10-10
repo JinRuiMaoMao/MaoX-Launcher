@@ -24,6 +24,7 @@ public class MainActivity : AvaloniaMainActivity<App>
         I18n.SetLanguage(LauncherConfig.Load().Language);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => App.WriteCrashLog(e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
+        GameHost.Install(this);
         base.OnCreate(savedInstanceState);
     }
 
