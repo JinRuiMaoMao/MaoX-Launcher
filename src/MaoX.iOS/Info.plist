@@ -17,8 +17,6 @@
   </array>
   <key>UILaunchScreen</key>
   <dict/>
-  <key>UIRequiresFullScreen</key>
-  <true/>
   <key>UIStatusBarHidden</key>
   <true/>
   <key>UIViewControllerBasedStatusBarAppearance</key>
@@ -28,8 +26,11 @@
     <string>UIInterfaceOrientationLandscapeLeft</string>
     <string>UIInterfaceOrientationLandscapeRight</string>
   </array>
+  <!-- iPad 上可以分屏、竖屏，界面会自动切换成紧凑布局 -->
   <key>UISupportedInterfaceOrientations~ipad</key>
   <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
     <string>UIInterfaceOrientationLandscapeLeft</string>
     <string>UIInterfaceOrientationLandscapeRight</string>
   </array>
