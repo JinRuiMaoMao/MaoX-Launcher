@@ -3,9 +3,9 @@
              xmlns:c="using:MaoX.Controls"
              x:Class="MaoX.Pages.MultiplayerPage">
   <DockPanel>
-    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18" Spacing="2">
+    <StackPanel DockPanel.Dock="Top" Classes="pagehead" Spacing="2">
       <TextBlock Text="{c:Tr 多人游戏}" Classes="h1" />
-      <TextBlock Name="Subtitle" Classes="muted" />
+      <TextBlock Name="Subtitle" Classes="muted pagesub" />
     </StackPanel>
 
     <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">

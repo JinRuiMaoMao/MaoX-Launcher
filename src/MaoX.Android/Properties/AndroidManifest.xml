@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <application android:label="MaoX Launcher" android:icon="@drawable/icon"
+               android:largeHeap="true" android:usesCleartextTraffic="true" />
+</manifest>

@@ -8,14 +8,14 @@
     <Border Name="BackdropImage" IsVisible="False" IsHitTestVisible="False" />
     <Border Name="BackdropMask" IsVisible="False" IsHitTestVisible="False" Background="{StaticResource BackdropMaskBg}" />
 
-    <Grid ColumnDefinitions="236,*">
+    <Grid Name="Shell" ColumnDefinitions="236,*">
       <!-- 侧边栏 -->
       <Border Name="SidebarPanel" Background="{StaticResource Sidebar}" BorderBrush="{StaticResource CardBorder}"
               BorderThickness="0,0,1,0">
-        <DockPanel Margin="14,0,14,16">
+        <DockPanel Name="SidebarDock" Margin="14,0,14,16">
           <StackPanel Name="Brand" DockPanel.Dock="Top" Orientation="Horizontal" Margin="12,52,0,34">
-            <c:Logo Width="36" Height="44" Margin="0,-6,0,0" />
-            <StackPanel Margin="14,0,0,0" VerticalAlignment="Center" Spacing="1">
+            <c:Logo Name="BrandLogo" Width="36" Height="44" Margin="0,-6,0,0" />
+            <StackPanel Name="BrandText" Margin="14,0,0,0" VerticalAlignment="Center" Spacing="1">
               <TextBlock Text="MaoX" FontSize="20" FontWeight="Bold" />
               <TextBlock Text="LAUNCHER" Classes="overline" FontSize="10" LetterSpacing="3.2" />
             </StackPanel>
@@ -27,15 +27,15 @@
                   Click="OnAccountCardClick">
             <Grid ColumnDefinitions="Auto,*,Auto">
               <c:Avatar Name="SidebarAvatar" Width="38" Height="38" />
-              <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+              <StackPanel Name="AccountText" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
                 <TextBlock Name="SidebarAccountName" FontWeight="SemiBold" />
                 <TextBlock Name="SidebarAccountType" Classes="small muted" FontWeight="Normal" />
               </StackPanel>
-              <c:Icon Grid.Column="2" Kind="chevron-right" Size="16" Foreground="{StaticResource Dim}" />
+              <c:Icon Name="AccountChevron" Grid.Column="2" Kind="chevron-right" Size="16" Foreground="{StaticResource Dim}" />
             </Grid>
           </Button>
 
-          <c:PawTrail DockPanel.Dock="Bottom" Width="180" Height="190" HorizontalAlignment="Center"
+          <c:PawTrail Name="SidebarPaws" DockPanel.Dock="Bottom" Width="180" Height="190" HorizontalAlignment="Center"
                       Margin="0,0,0,14" Opacity="0.08" IsHitTestVisible="False" Foreground="{StaticResource Text}" />
 
           <StackPanel Name="Nav" Spacing="4">
@@ -72,7 +72,7 @@
 
         <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
           <c:ProgressLine Name="ProgressBar" Height="2" />
-          <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="36,4,30,8">
+          <Grid Name="StatusBar" Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="36,4,30,8">
             <TextBlock Name="StatusText" Classes="small muted" Text="{c:Tr 就绪}" VerticalAlignment="Center" />
             <TextBlock Name="ProgressText" Grid.Column="1" Classes="small muted" VerticalAlignment="Center" />
             <Button Name="TasksButton" Grid.Column="2" Classes="ghost small" Margin="10,0,0,0" MinHeight="26"

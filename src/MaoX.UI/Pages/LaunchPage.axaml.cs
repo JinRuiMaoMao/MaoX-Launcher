@@ -34,6 +34,7 @@ public partial class LaunchPage : UserControl, IPage
     public LaunchPage()
     {
         InitializeComponent();
+        OpenDirButton.IsVisible = !Platform.IsMobile;
         LogList.ItemsSource = _lines;
         new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Background, (_, _) => FlushLog()).Start();
 

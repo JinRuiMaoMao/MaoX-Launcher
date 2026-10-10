@@ -4,10 +4,10 @@
              xmlns:p="using:MaoX.Pages"
              x:Class="MaoX.Pages.DownloadPage">
   <DockPanel>
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,22">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Classes="pagehead">
       <StackPanel Spacing="2">
         <TextBlock Text="{c:Tr 下载游戏}" Classes="h1" />
-        <TextBlock Text="{c:Tr 选择一个 Minecraft 版本进行安装，已安装的版本会自动补全缺失文件}" Classes="muted" />
+        <TextBlock Text="{c:Tr 选择一个 Minecraft 版本进行安装，已安装的版本会自动补全缺失文件}" Classes="muted pagesub" />
       </StackPanel>
       <Button Name="RefreshButton" Grid.Column="1" VerticalAlignment="Bottom" Click="OnRefresh">
         <c:IconLabel Icon="refresh" Text="{c:Tr 刷新列表}" />

@@ -155,7 +155,7 @@ public class Terracotta : IDisposable
     /// <summary>当前系统的分类名；Windows 10 以下不支持。</summary>
     public static string CurrentClassifier()
     {
-        if (Platform.IsWindows && !OperatingSystem.IsWindowsVersionAtLeast(10))
+        if (Platform.IsWindows && !OperatingSystem.IsWindowsVersionAtLeast(10) || Platform.IsMobile)
             return null;
         return ClassifierFor(Platform.OsName, Platform.Arch);
     }

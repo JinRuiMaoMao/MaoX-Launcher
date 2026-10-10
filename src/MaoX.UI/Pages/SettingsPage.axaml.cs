@@ -33,6 +33,14 @@ public partial class SettingsPage : UserControl, IPage
     public SettingsPage()
     {
         InitializeComponent();
+        if (Platform.IsMobile)
+        {
+            // 手机上游戏目录固定在应用数据目录，Java 由启动器自带，游戏总是全屏
+            McDirBox.IsReadOnly = true;
+            foreach (var c in new Control[] { BrowseMcDirButton, OpenMcDirButton, JavaPathPanel, WindowSizePanel,
+                                              AfterLaunchPanel, AutoUpdatePanel, CheckUpdateButton })
+                c.IsVisible = false;
+        }
         _loading = true;
         var cfg = Cfg;
         McDirBox.Text = cfg.MinecraftDir;

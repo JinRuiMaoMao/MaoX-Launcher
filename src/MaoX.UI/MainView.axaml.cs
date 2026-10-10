@@ -76,13 +76,22 @@ public partial class MainView : UserControl
     public MainView()
     {
         Current = this;
-        InitializeComponent();
-        Cfg = LauncherConfig.Load();
+        InitializeComponent();        Cfg = LauncherConfig.Load();
         ThemeManager.Apply(Cfg.Theme, Cfg.AccentColor);
         InitAccounts();
         VersionText.Text = "v" + Mc.LauncherVersion + "  ·  " + PlatformLabel();
-        Brand.Margin = Platform.IsMac ? new Thickness(12, 58, 0, 34) : new Thickness(12, 52, 0, 34);
+        ApplyLayout(false);
+        SizeChanged += (_, e) => ApplyLayout(e.NewSize.Width < 960 || e.NewSize.Height < 560);
         AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
+        if (Platform.IsMobile)
+        {
+            Platform.MobileOpenUrl = url => _ = TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(new Uri(url));
+            Platform.MobileOpenPath = path =>
+            {
+                _ = TopLevel.GetTopLevel(this)?.Clipboard?.SetTextAsync(path);
+                Toast(F("手机上不能直接打开文件夹，路径已复制：{0}", path), "info");
+            };
+        }
 
         LaunchPage = new LaunchPage();
         DownloadPage = new DownloadPage();
@@ -110,6 +119,9 @@ public partial class MainView : UserControl
             if (_started)
                 return;
             _started = true;
+            // 手机上全屏显示，把状态栏和导航栏的空间留给界面
+            if (Platform.IsMobile && TopLevel.GetTopLevel(this)?.InsetsManager is { } insets)
+                insets.IsSystemBarVisible = false;
             SettingsPage.DetectJavaInBackground();
             Updater.CleanupOldVersion();
             if (Cfg.AutoCheckUpdate && Updater.CanSelfUpdate && !SmokeTest.Active)
@@ -291,6 +303,47 @@ public partial class MainView : UserControl
             ? Res("GlassSidebar")
             : Res("Sidebar");
         LaunchPage.SetHasBackground(on);
+    }
+
+    // ------------------------------------------------------------------ 布局
+
+    private bool? _compact;
+
+    /// <summary>窗口较小（手机）时为紧凑布局。</summary>
+    public bool Compact => _compact == true;
+
+    /// <summary>
+    /// 紧凑布局用在手机上：侧边栏收成一列图标（文字在图标下面），账号卡片只留头像，边距收小。
+    /// 电脑上顶部要给自绘标题栏留位置，手机上不用。
+    /// </summary>
+    private void ApplyLayout(bool compact)
+    {
+        if (_compact == compact)
+            return;
+        _compact = compact;
+        Classes.Set("compact", compact);
+        var top = Platform.IsMobile ? 0 : Platform.IsMac ? 58 : 52;
+        Shell.ColumnDefinitions[0].Width = new GridLength(compact ? 76 : 236);
+        SidebarDock.Margin = compact ? new Thickness(8, 0, 8, 10) : new Thickness(14, 0, 14, 16);
+        Brand.Margin = compact ? new Thickness(0, Math.Max(12, top), 0, 12) : new Thickness(12, Math.Max(24, top), 0, 34);
+        Brand.HorizontalAlignment = compact ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        BrandText.IsVisible = !compact;
+        BrandLogo.Width = compact ? 30 : 36;
+        BrandLogo.Height = compact ? 36 : 44;
+        foreach (var label in Nav.Children.OfType<RadioButton>().Select(b => b.Content).OfType<IconLabel>())
+        {
+            label.Orientation = compact ? Orientation.Vertical : Orientation.Horizontal;
+            label.Spacing = compact ? 3 : 14;
+            label.HorizontalAlignment = compact ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+            label.Classes.Set("navcompact", compact);
+        }
+        AccountCard.Padding = new Thickness(compact ? 6 : 12);
+        AccountText.IsVisible = AccountChevron.IsVisible = !compact;
+        AccountCard.HorizontalContentAlignment = compact ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        VersionText.IsVisible = SidebarPaws.IsVisible = !compact;
+        var side = compact ? 14 : Platform.IsMobile ? 28 : 36;
+        PageHost.Margin = new Thickness(side, compact ? 10 : Platform.IsMobile ? 24 : 46, side, compact ? 4 : 8);
+        StatusBar.Margin = new Thickness(side, compact ? 2 : 4, side - 6, compact ? 4 : 8);
     }
 
     // ------------------------------------------------------------------ 页面

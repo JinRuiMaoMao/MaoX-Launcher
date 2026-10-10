@@ -140,7 +140,7 @@
   </Styles.Resources>
 
   <!-- 全局字体 -->
-  <Style Selector="Window">
+  <Style Selector=":is(TopLevel)">
     <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
     <Setter Property="FontSize" Value="14" />
     <Setter Property="Foreground" Value="{StaticResource Text}" />
@@ -484,6 +484,66 @@
   </Style>
   <Style Selector="RadioButton.nav:checked c|Icon">
     <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+  <!-- 紧凑布局（手机）：图标在上、文字在下 -->
+  <Style Selector=".compact RadioButton.nav /template/ Border#bg">
+    <Setter Property="Height" Value="46" />
+  </Style>
+  <!-- 启动页的尺寸写在样式里，紧凑布局才能覆盖 -->
+  <Style Selector="Border#Hero">
+    <Setter Property="MinHeight" Value="252" />
+  </Style>
+  <Style Selector="DockPanel#HeroDock">
+    <Setter Property="Margin" Value="36,32,36,32" />
+  </Style>
+  <Style Selector="StackPanel#HeroControls">
+    <Setter Property="Margin" Value="0,28,0,0" />
+  </Style>
+  <Style Selector="c|Logo#Watermark">
+    <Setter Property="Width" Value="230" />
+    <Setter Property="Height" Value="260" />
+    <Setter Property="Margin" Value="0,0,44,-48" />
+  </Style>
+  <Style Selector="Border#LogCard">
+    <Setter Property="Margin" Value="0,20,0,0" />
+  </Style>
+  <Style Selector=".compact Border#Hero">
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector=".compact DockPanel#HeroDock">
+    <Setter Property="Margin" Value="22,14,22,16" />
+  </Style>
+  <Style Selector=".compact StackPanel#HeroControls">
+    <Setter Property="Margin" Value="0,12,0,0" />
+  </Style>
+  <Style Selector=".compact TextBlock#HeroTitle">
+    <Setter Property="FontSize" Value="28" />
+  </Style>
+  <Style Selector=".compact c|Logo#Watermark">
+    <Setter Property="Width" Value="150" />
+    <Setter Property="Height" Value="170" />
+    <Setter Property="Margin" Value="0,0,20,-34" />
+  </Style>
+  <Style Selector=".compact Border#LogCard">
+    <Setter Property="Margin" Value="0,12,0,0" />
+  </Style>
+  <Style Selector=".compact RadioButton.nav /template/ ContentPresenter">
+    <Setter Property="Margin" Value="0,0,3,0" />
+  </Style>
+  <Style Selector="c|IconLabel.navcompact TextBlock">
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+  <Style Selector=":is(Panel).pagehead">
+    <Setter Property="Margin" Value="0,0,0,18" />
+  </Style>
+  <Style Selector=".compact :is(Panel).pagehead">
+    <Setter Property="Margin" Value="0,0,0,10" />
+  </Style>
+  <Style Selector=".compact TextBlock.h1">
+    <Setter Property="FontSize" Value="22" />
+  </Style>
+  <Style Selector=".compact TextBlock.pagesub">
+    <Setter Property="IsVisible" Value="False" />
   </Style>
 
   <!-- 输入控件 -->

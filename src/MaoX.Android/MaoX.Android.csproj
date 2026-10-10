@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>MaoX.Android</RootNamespace>
+    <AssemblyName>MaoXLauncher.Android</AssemblyName>
+    <ApplicationId>io.github.jinruimaomao.maox</ApplicationId>
+    <ApplicationTitle>MaoX Launcher</ApplicationTitle>
+    <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
+    <ApplicationVersion>$([System.Version]::Parse($(Version)).Major)$([System.Version]::Parse($(Version)).Minor.ToString("00"))$([System.Version]::Parse($(Version)).Build.ToString("00"))</ApplicationVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" Version="11.3.22" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MaoX.UI\MaoX.UI.csproj" />
+  </ItemGroup>
+
+</Project>

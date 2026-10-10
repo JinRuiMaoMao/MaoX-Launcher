@@ -145,8 +145,11 @@ public class VersionDialog : DialogView
         var export = MakeButton(T("导出"), icon: "upload");
         var menu = new MenuFlyout { Placement = PlacementMode.TopEdgeAlignedRight };
         menu.Items.Add(MenuEntry(T("导出整合包（.mrpack）"), Export));
-        menu.Items.Add(MenuEntry(T("导出启动脚本"), ExportScript));
-        menu.Items.Add(MenuEntry(T("创建桌面快捷方式"), CreateShortcut));
+        if (!Platform.IsMobile)
+        {
+            menu.Items.Add(MenuEntry(T("导出启动脚本"), ExportScript));
+            menu.Items.Add(MenuEntry(T("创建桌面快捷方式"), CreateShortcut));
+        }
         export.Flyout = menu;
         right.Children.Add(export);
         right.Children.Add(MakeButton(T("完成"), "primary", onClick: () => Close()));

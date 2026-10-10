@@ -3,10 +3,10 @@
              xmlns:c="using:MaoX.Controls"
              x:Class="MaoX.Pages.ResourcesPage">
   <DockPanel>
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,18">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Classes="pagehead">
       <StackPanel Spacing="2" VerticalAlignment="Bottom">
         <TextBlock Text="{c:Tr 资源}" Classes="h1" />
-        <TextBlock Text="{c:Tr 模组、资源包、光影、数据包和整合包}" Classes="muted" />
+        <TextBlock Text="{c:Tr 模组、资源包、光影、数据包和整合包}" Classes="muted pagesub" />
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Bottom">
         <StackPanel Name="WorldColumn" Spacing="7" IsVisible="False">

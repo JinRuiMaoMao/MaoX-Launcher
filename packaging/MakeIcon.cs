@@ -1,4 +1,4 @@
-// 生成应用图标：src/MaoX.UI/Assets/icon.ico 和 packaging/macos/MaoX.icns。
+// 生成应用图标：src/MaoX.UI/Assets/icon.ico、packaging/macos/MaoX.icns 和安卓的 icon.png。
 // 图形和 src/MaoX.UI/Controls/Icon.cs 里的 Logo 一致（带狼耳朵的 MX），改 Logo 后记得同步这里再重新生成。
 // 用法：dotnet run packaging/MakeIcon.cs
 #:package SkiaSharp@2.88.9
@@ -89,6 +89,9 @@ WriteIco(ico, [16, 24, 32, 48, 64, 128, 256]);
 var icns = Path.Combine(here, "macos", "MaoX.icns");
 WriteIcns(icns, [("icp4", 16), ("icp5", 32), ("icp6", 64), ("ic07", 128), ("ic08", 256), ("ic09", 512), ("ic10", 1024),
                  ("ic11", 32), ("ic12", 64), ("ic13", 256), ("ic14", 512)]);
-Console.WriteLine($"已生成 {ico}（{new FileInfo(ico).Length} 字节）和 {icns}（{new FileInfo(icns).Length} 字节）");
+var android = Path.Combine(root, "src", "MaoX.Android", "Resources", "drawable", "icon.png");
+Directory.CreateDirectory(Path.GetDirectoryName(android)!);
+File.WriteAllBytes(android, Render(192));
+Console.WriteLine($"已生成 {ico}、{icns} 和 {android}");
 
 static string GetSourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => path;

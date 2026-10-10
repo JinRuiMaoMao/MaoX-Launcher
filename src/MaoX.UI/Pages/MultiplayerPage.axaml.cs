@@ -247,6 +247,8 @@ public partial class MultiplayerPage : UserControl, IPage
         _signature = signature;
         Body.Content = (state != null ? state.Str("state", "unknown") : _phase) switch
         {
+            "unsupported" when Platform.IsMobile => CenterCard("error", T("手机版联机还在开发中"),
+                                                               T("暂时可以在上方的“服务器”标签里加入服务器。"), "Warn"),
             "unsupported" => CenterCard("error", T("当前系统暂不支持联机"),
                                         T("陶瓦联机需要 Windows 10 及以上、macOS 或 Linux（x64 / ARM64）。"), "Warn"),
             "missing" => MissingView(),

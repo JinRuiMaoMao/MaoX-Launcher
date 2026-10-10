@@ -3,9 +3,9 @@
              xmlns:c="using:MaoX.Controls"
              x:Class="MaoX.Pages.SettingsPage">
   <DockPanel>
-    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,22" Spacing="2">
+    <StackPanel DockPanel.Dock="Top" Classes="pagehead" Spacing="2">
       <TextBlock Text="{c:Tr 设置}" Classes="h1" />
-      <TextBlock Text="{c:Tr 所有修改会自动保存}" Classes="muted" />
+      <TextBlock Text="{c:Tr 所有修改会自动保存}" Classes="muted pagesub" />
     </StackPanel>
 
     <ScrollViewer Padding="0,0,14,0">
@@ -18,8 +18,8 @@
               <TextBlock Text="{c:Tr 游戏目录}" />
               <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBox Name="McDirBox" LostFocus="OnMcDirLostFocus" />
-                <Button Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseMcDir" />
-                <Button Grid.Column="2" Classes="icon" Width="36" Margin="6,0,0,0" ToolTip.Tip="{c:Tr 打开文件夹}"
+                <Button Name="BrowseMcDirButton" Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseMcDir" />
+                <Button Name="OpenMcDirButton" Grid.Column="2" Classes="icon" Width="36" Margin="6,0,0,0" ToolTip.Tip="{c:Tr 打开文件夹}"
                         Click="OnOpenMcDir">
                   <c:Icon Kind="folder" Size="17" />
                 </Button>
@@ -39,7 +39,7 @@
         <Border Grid.Column="2" Classes="card" Padding="22,18,22,22">
           <StackPanel Spacing="18">
             <c:IconLabel Icon="java" Text="Java" Classes="cardhead" />
-            <StackPanel Spacing="8">
+            <StackPanel Name="JavaPathPanel" Spacing="8">
               <TextBlock Text="{c:Tr 'Java 路径'}" />
               <Grid ColumnDefinitions="*,Auto,Auto">
                 <ComboBox Name="JavaBox" HorizontalAlignment="Stretch" SelectionChanged="OnJavaChanged" />
@@ -80,7 +80,7 @@
         <Border Grid.Row="2" Grid.Column="2" Classes="card" Padding="22,18,22,22">
           <StackPanel Spacing="18">
             <c:IconLabel Icon="tune" Text="{c:Tr 高级}" Classes="cardhead" />
-            <StackPanel Spacing="8">
+            <StackPanel Name="WindowSizePanel" Spacing="8">
               <TextBlock Text="{c:Tr 游戏窗口大小}" />
               <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBox Name="WidthBox" Width="96" />
@@ -146,7 +146,7 @@
                          LostFocus="OnAccentBoxLostFocus" KeyDown="OnAccentBoxKeyDown" />
               </WrapPanel>
             </StackPanel>
-            <StackPanel Spacing="8">
+            <StackPanel Name="AfterLaunchPanel" Spacing="8">
               <TextBlock Text="{c:Tr 启动游戏后}" />
               <ComboBox Name="AfterLaunchBox" HorizontalAlignment="Stretch" SelectionChanged="OnAfterLaunchChanged" />
             </StackPanel>
@@ -183,7 +183,7 @@
               <TextBlock Name="AboutPlatform" Classes="small muted" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-              <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <StackPanel Name="AutoUpdatePanel" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <TextBlock Text="{c:Tr 自动检查更新}" VerticalAlignment="Center" />
                 <ToggleSwitch Name="AutoUpdateSwitch" OnContent="" OffContent="" MinWidth="0" />
               </StackPanel>
