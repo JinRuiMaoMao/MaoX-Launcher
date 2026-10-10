@@ -25,6 +25,10 @@ public class MainActivity : AvaloniaMainActivity<App>
         AppDomain.CurrentDomain.UnhandledException += (_, e) => App.WriteCrashLog(e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
         GameHost.Install(this);
+#if !DEBUG
+        // 调试版的签名和发布版不同，不能覆盖安装
+        Updater.MobileInstaller = ApkInstaller.Install;
+#endif
         base.OnCreate(savedInstanceState);
     }
 

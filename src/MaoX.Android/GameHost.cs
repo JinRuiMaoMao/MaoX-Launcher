@@ -18,7 +18,7 @@ namespace MaoX.Android;
 /// </summary>
 internal static class GameHost
 {
-    public const string GameProcess = "io.github.jinruimaomao.maox:game";
+    private static string GameProcess => Ctx.PackageName + ":game";
     private const string JreUrl =
         "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/download_jre{0}/jre{0}-android-{1}.tar.xz";
     private static Activity _activity;

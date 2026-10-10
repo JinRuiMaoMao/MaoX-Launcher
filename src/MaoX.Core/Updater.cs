@@ -21,7 +21,11 @@ public static class Updater
     public static string AssetName =>
         Platform.IsWindows ? "MaoX-Launcher-Windows-x64.exe"
         : Platform.IsMac ? $"MaoX-Launcher-macOS-{(Platform.IsArm ? "arm64" : "x64")}.zip"
+        : Platform.IsAndroid ? "MaoX-Launcher-Android.apk"
         : null;
+
+    /// <summary>安卓发布版由宿主设置：把下载好的 APK 交给系统安装程序。</summary>
+    public static Action<string> MobileInstaller { get; set; }
 
     /// <summary>运行中的 .app 包路径（不是从 .app 启动时为 null）。</summary>
     public static string AppBundle
@@ -45,8 +49,10 @@ public static class Updater
     // 单文件发布时 Assembly.Location 为空，正好用来判断是不是发布版
 #pragma warning disable IL3000
     public static bool CanSelfUpdate =>
-        AssetName != null && !string.IsNullOrEmpty(Environment.ProcessPath)
-        && (Platform.IsWindows ? string.IsNullOrEmpty(typeof(Updater).Assembly.Location) : AppBundle != null);
+        Platform.IsMobile
+            ? AssetName != null && MobileInstaller != null
+            : AssetName != null && !string.IsNullOrEmpty(Environment.ProcessPath)
+              && (Platform.IsWindows ? string.IsNullOrEmpty(typeof(Updater).Assembly.Location) : AppBundle != null);
 #pragma warning restore IL3000
 
     /// <summary>比较版本号（忽略开头的 v 和 -beta 之类的后缀）。</summary>
@@ -224,7 +230,9 @@ public static class Updater
     {
         if (!CanSelfUpdate)
             throw new InvalidOperationException(T("当前运行的不是发布版，无法自动更新"));
-        if (Platform.IsWindows)
+        if (Platform.IsMobile)
+            MobileInstaller(downloaded);
+        else if (Platform.IsWindows)
             ApplyWindows(downloaded);
         else
             ApplyMac(downloaded);

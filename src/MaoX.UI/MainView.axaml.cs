@@ -256,11 +256,15 @@ public partial class MainView : UserControl
             await Dialog(T("更新失败"), F("{0}\n\n可以到发布页手动下载新版本。", ErrorText(e)), "error");
             return;
         }
-        ExitApp();
+        // 手机上由系统安装程序接手，安装时会自动结束启动器
+        if (!Platform.IsMobile)
+            ExitApp();
     }
 
     private static string PlatformLabel() =>
-        (Platform.IsWindows ? "Windows" : Platform.IsMac ? "macOS" : "Linux") + " " + Platform.Arch;
+        (Platform.IsWindows ? "Windows" : Platform.IsMac ? "macOS" : Platform.IsAndroid ? "Android"
+            : Platform.IsIOS ? "iOS" : "Linux")
+        + " " + Platform.Arch;
 
     // ------------------------------------------------------------------ 背景图
 

@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto">
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <!-- 启动器自动更新：下载新版 APK 后交给系统安装 -->
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
   <!-- 游戏里的 JVM 按文件路径加载原生库，所以要解压到 nativeLibraryDir -->
   <application android:label="MaoX Launcher" android:icon="@drawable/icon" android:extractNativeLibs="true"
                android:allowNativeHeapPointerTagging="false" android:largeHeap="true" android:usesCleartextTraffic="true">
