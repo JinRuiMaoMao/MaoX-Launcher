@@ -293,6 +293,8 @@ public partial class MultiplayerPage : UserControl, IPage
                 Text = text, Classes = { "muted" }, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap,
                 LineHeight = 22, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 620,
             });
+        if (progress)
+            inner.Children.Add(new PawLoader { Margin = new Thickness(0, 12, 0, 0) });
         if (action != null)
         {
             action.HorizontalAlignment = HorizontalAlignment.Center;

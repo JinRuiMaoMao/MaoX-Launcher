@@ -67,6 +67,7 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
+          <c:PawLoader Name="HintPaws" IsVisible="False" VerticalAlignment="Center" Margin="0,0,0,52" />
           <TextBlock Name="HintText" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
                      Text="{c:Tr 正在获取版本列表…}" />
         </Panel>

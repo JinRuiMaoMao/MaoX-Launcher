@@ -7,8 +7,8 @@
     <!-- 主视觉卡片 -->
     <Border Name="Hero" Classes="card" ClipToBounds="True" MinHeight="252">
       <Panel>
-        <c:Logo Name="Watermark" Width="230" Height="230" HorizontalAlignment="Right" VerticalAlignment="Center"
-                Margin="0,0,44,0" BarBrush="{StaticResource WatermarkBar}" CrossBrush="{StaticResource WatermarkCross}" />
+        <c:Logo Name="Watermark" Width="230" Height="260" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Margin="0,0,44,-48" BarBrush="{StaticResource WatermarkBar}" CrossBrush="{StaticResource WatermarkCross}" />
 
         <DockPanel Margin="36,32,36,32">
           <StackPanel DockPanel.Dock="Top" Spacing="2">

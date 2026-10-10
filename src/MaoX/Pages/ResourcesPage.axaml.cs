@@ -324,7 +324,7 @@ public partial class ResourcesPage : UserControl, IPage
             Search(true);
     }
 
-    private TextBlock Status(string text, bool error = false)
+    private Control Status(string text, bool error = false, bool loading = false)
     {
         var block = new TextBlock
         {
@@ -336,8 +336,14 @@ public partial class ResourcesPage : UserControl, IPage
         };
         if (error)
             block.Foreground = (IBrush)Application.Current!.FindResource("Error")!;
-        BrowseList.Children.Add(block);
-        return block;
+        Control status = block;
+        if (loading)
+        {
+            block.Margin = default;
+            status = new StackPanel { Spacing = 8, Margin = new Thickness(0, 30), Children = { new PawLoader(), block } };
+        }
+        BrowseList.Children.Add(status);
+        return status;
     }
 
     private async void Search(bool reset = false)
@@ -355,7 +361,7 @@ public partial class ResourcesPage : UserControl, IPage
         var source = _source;
         var kind = _kind;
         var client = _clients[source];
-        var loading = Status(F("正在搜索 {0}…", client.Name));
+        var loading = Status(F("正在搜索 {0}…", client.Name), loading: true);
         var query = (SearchBox.Text ?? "").Trim();
         var index = Mods.Sorts[Math.Max(SortBox.SelectedIndex, 0)].Key;
         var offset = _offset;

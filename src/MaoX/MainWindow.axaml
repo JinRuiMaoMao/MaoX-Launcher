@@ -20,7 +20,7 @@
               BorderThickness="0,0,1,0">
         <DockPanel Margin="14,0,14,16">
           <StackPanel Name="Brand" DockPanel.Dock="Top" Orientation="Horizontal" Margin="12,52,0,34">
-            <c:Logo Width="34" Height="34" />
+            <c:Logo Width="36" Height="44" Margin="0,-6,0,0" />
             <StackPanel Margin="14,0,0,0" VerticalAlignment="Center" Spacing="1">
               <TextBlock Text="MaoX" FontSize="20" FontWeight="Bold" />
               <TextBlock Text="LAUNCHER" Classes="overline" FontSize="10" LetterSpacing="3.2" />
@@ -40,6 +40,9 @@
               <c:Icon Grid.Column="2" Kind="chevron-right" Size="16" Foreground="{StaticResource Dim}" />
             </Grid>
           </Button>
+
+          <c:PawTrail DockPanel.Dock="Bottom" Width="180" Height="190" HorizontalAlignment="Center"
+                      Margin="0,0,0,14" Opacity="0.08" IsHitTestVisible="False" Foreground="{StaticResource Text}" />
 
           <StackPanel Name="Nav" Spacing="4">
             <RadioButton Classes="nav" GroupName="nav" Tag="launch" Click="OnNavClick">

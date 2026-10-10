@@ -78,11 +78,18 @@ public class Icon : Control
     }
 }
 
-/// <summary>M 与 X 融合的标志：左右两根竖线 + 贯穿的 X。</summary>
+/// <summary>M 与 X 融合的标志：左右两根竖线 + 贯穿的 X，头顶一对狼耳。整体 100×130，耳朵占上面 30。</summary>
 public class Logo : Control
 {
-    private static readonly Geometry Bars = Geometry.Parse("M0,0 H20 V100 H0 Z M80,0 H100 V100 H80 Z");
-    private static readonly Geometry Cross = Geometry.Parse("M0,0 H23 L100,100 H77 Z M77,0 H100 L23,100 H0 Z");
+    private const double DesignWidth = 100;
+    private const double DesignHeight = 130;
+
+    private static readonly Geometry Bars = Geometry.Parse("M0,30 H20 V130 H0 Z M80,30 H100 V130 H80 Z");
+    private static readonly Geometry Cross = Geometry.Parse("M0,30 H23 L100,130 H77 Z M77,30 H100 L23,130 H0 Z");
+    private static readonly Geometry Ears = Geometry.Parse(
+        "M0,32 L6,1.5 Q7,-0.5 9,1 L35,32 Z M100,32 L94,1.5 Q93,-0.5 91,1 L65,32 Z");
+    private static readonly Geometry InnerEars = Geometry.Parse(
+        "M7,28 L9.5,10 L26,28 Z M93,28 L90.5,10 L74,28 Z");
 
     public static readonly StyledProperty<IBrush> BarBrushProperty =
         AvaloniaProperty.Register<Logo, IBrush>(nameof(BarBrush));
@@ -109,11 +116,12 @@ public class Logo : Control
 
     public override void Render(DrawingContext context)
     {
-        var size = Math.Min(Bounds.Width, Bounds.Height);
-        var scale = size / 100.0;
-        var offset = Matrix.CreateTranslation((Bounds.Width - size) / 2, (Bounds.Height - size) / 2);
+        var scale = Math.Min(Bounds.Width / DesignWidth, Bounds.Height / DesignHeight);
+        var offset = Matrix.CreateTranslation((Bounds.Width - DesignWidth * scale) / 2, (Bounds.Height - DesignHeight * scale) / 2);
         using (context.PushTransform(Matrix.CreateScale(scale, scale) * offset))
         {
+            context.DrawGeometry(BarBrush, null, Ears);
+            context.DrawGeometry(CrossBrush, null, InnerEars);
             context.DrawGeometry(BarBrush, null, Bars);
             context.DrawGeometry(CrossBrush, null, Cross);
         }

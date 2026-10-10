@@ -201,7 +201,11 @@ public class ModVersionsDialog : DialogView
         _shown = 0;
         _summary.Text = "";
         _list.Children.Clear();
-        _list.Children.Add(Status(T("正在获取版本列表…")));
+        _list.Children.Add(new StackPanel
+        {
+            Spacing = 8, Margin = new Thickness(0, 30),
+            Children = { new PawLoader(), new TextBlock { Text = T("正在获取版本列表…"), Classes = { "muted" }, HorizontalAlignment = HorizontalAlignment.Center } },
+        });
         _scroll.Offset = default;
         _query = (_games[Math.Max(0, _gameBox.SelectedIndex)], _target.Kind == "mod" ? _loaders[Math.Max(0, _loaderBox.SelectedIndex)] : null);
         var (game, loader) = _query;

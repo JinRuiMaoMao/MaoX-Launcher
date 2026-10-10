@@ -71,7 +71,7 @@
       </ScrollViewer>
       <StackPanel Name="EmptyView" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
                   Margin="0,0,0,60" Spacing="6">
-        <c:Icon Kind="box" Size="46" StrokeWidth="1.4" Foreground="{StaticResource Dim}" />
+        <c:Icon Kind="paw" Filled="True" Size="50" StrokeWidth="0" Foreground="{StaticResource Dim}" />
         <TextBlock Name="EmptyTitle" Classes="h3" HorizontalAlignment="Center" Margin="0,10,0,0" />
         <TextBlock Name="EmptyText" Classes="muted" HorizontalAlignment="Center" TextAlignment="Center"
                    TextWrapping="Wrap" LineHeight="22" />

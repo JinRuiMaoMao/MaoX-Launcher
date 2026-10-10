@@ -285,6 +285,28 @@ internal static class SmokeTest
             }
         }, required: false, timeout: TimeSpan.FromMinutes(3));
 
+        await Check("paw art", async () =>
+        {
+            var view = new Controls.DialogView { DialogWidth = 520 };
+            view.Content = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 36,
+                Children =
+                {
+                    new Controls.Logo { Width = 120, Height = 120 },
+                    new Controls.Logo { Width = 34, Height = 34 },
+                    new Controls.Icon { Kind = "paw", Filled = true, StrokeWidth = 0, Size = 50 },
+                    new Controls.PawLoader(),
+                },
+            };
+            _ = window.ShowDialogAsync(view);
+            await Task.Delay(1200);
+            ScreenshotControl(view, Path.Combine(output, "paw-art.png"));
+            view.Close();
+            await Task.Delay(300);
+            return "paw-art.png";
+        }, required: false);
+
         await Check("resource card click", async () =>
         {
             window.ShowPage("resources");

@@ -39,13 +39,14 @@ public partial class DownloadPage : UserControl, IPage
         var launcher = Main.MakeLauncher();
         launcher.Manifest = null;
         HintText.Text = T("正在获取版本列表…");
-        HintText.IsVisible = Main.Manifest == null;
+        HintText.IsVisible = HintPaws.IsVisible = Main.Manifest == null;
         await Main.RunTask(T("获取版本列表"), launcher.GetManifestAsync, manifest =>
         {
             Main.Manifest = manifest;
             FillList();
             Main.SetStatus(F("共 {0} 个版本", manifest.Arr("versions")?.Count ?? 0));
         });
+        HintPaws.IsVisible = false;
         if (Main.Manifest == null)
             HintText.Text = T("获取版本列表失败，请点击「刷新列表」重试");
     }
