@@ -16,5 +16,10 @@
   "下载太慢，换一个地址": "Download too slow, switching source",
   "请在打开的设置里允许 MaoX Launcher 安装应用，然后回来再点一次「立即更新」": "Allow MaoX Launcher to install apps in the settings that just opened, then come back and tap \"Update now\" again",
   "更新安装失败：{0}": "Failed to install the update: {0}",
-  "可选，留空使用内置的登录方式": "Optional, leave empty to use the built-in sign-in"
+  "可选，留空使用内置的登录方式": "Optional, leave empty to use the built-in sign-in",
+  "联机需要建立 VPN 虚拟网络，请在系统弹窗中允许": "Multiplayer needs to set up a VPN virtual network. Please allow it in the system prompt",
+  "请在游戏中点「暂停」，选择「对局域网开放」并点击「创建局域网世界」。\n检测到之后会自动创建房间。": "In the game, tap \"Pause\", choose \"Open to LAN\" and click \"Start LAN World\".\nThe room will be created automatically once it's detected.",
+  "点「暂停」打开菜单，选择「对局域网开放」，再点「创建局域网世界」": "Tap \"Pause\" to open the menu, choose \"Open to LAN\", then click \"Start LAN World\"",
+  "iPhone / iPad 暂不支持陶瓦联机": "Terracotta multiplayer is not available on iPhone / iPad yet",
+  "陶瓦联机需要 VPN 权限，iOS 上暂时无法使用。可以在上方的“服务器”标签里加入服务器。": "Terracotta needs VPN access, which isn't available on iOS yet. You can join servers from the \"Servers\" tab above."
 }

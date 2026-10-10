@@ -11,5 +11,12 @@
     <activity android:name="io.github.jinruimaomao.maox.GameActivity" android:process=":game" android:exported="false"
               android:theme="@style/MaoX.Theme" android:screenOrientation="sensorLandscape"
               android:configChanges="keyboard|keyboardHidden|navigation|orientation|smallestScreenSize|screenLayout|screenSize|uiMode|density" />
+    <!-- 陶瓦联机的虚拟网卡 -->
+    <service android:name="io.github.jinruimaomao.maox.TerracottaVpnService" android:exported="false"
+             android:permission="android.permission.BIND_VPN_SERVICE">
+      <intent-filter>
+        <action android:name="android.net.VpnService" />
+      </intent-filter>
+    </service>
   </application>
 </manifest>

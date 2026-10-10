@@ -18,6 +18,23 @@ public class TerracottaException : Exception
 /// <summary>某个平台的安装包：整个 tar.gz 的 SHA-512 与包内各文件的 SHA-512。</summary>
 public record TerracottaPackage(string Hash, IReadOnlyDictionary<string, string> Files);
 
+/// <summary>安卓版陶瓦联机是一个 JNI 库（不是独立进程），由宿主加载并转发调用。</summary>
+public interface IMobileTerracotta
+{
+    /// <summary>存放原生库的目录（必须在内部存储，外部存储上的库不能加载）。</summary>
+    string LibraryDir { get; }
+    bool Started { get; }
+    /// <summary>加载库并启动；返回陶瓦版本。</summary>
+    Task<string> StartAsync(string libraryPath);
+    string State();
+    void SetWaiting();
+    void SetScanning(string player);
+    /// <summary>邀请码无效时返回 false。会先请求 VPN 授权。</summary>
+    Task<bool> SetGuestingAsync(string room, string player);
+    /// <summary>创建房间前请求 VPN 授权，用户拒绝时返回 false。</summary>
+    Task<bool> PrepareVpnAsync();
+}
+
 /// <summary>
 /// 多人联机：集成 Terracotta | 陶瓦联机。
 /// 陶瓦联机基于 EasyTier 的 P2P 组网，无需公网 IP，邀请码与 HMCL、PCL 社区版互通。
@@ -84,7 +101,25 @@ public class Terracotta : IDisposable
                 {
                     ["terracotta-0.4.2-linux-arm64"] = "d807744c2041c98686e4b505324713badea7a0f31e8810be49ae053a63fb6dfc474ac58d678fb93eea0dd5cccff7372d9ec6135a1046f4b306cad35cd90ecacd",
                 }),
+            // 安卓版直接发布 .so，没有压缩包
+            ["android-arm64v8a"] = new(
+                "a4b74175cdc5a11841f508a51d048a1aa66462501569af059e1e57a4090beb750ac9ae894944b6f8928cc2550c2454188f6c78695b21eb17fd3562bc70698e95",
+                new Dictionary<string, string>
+                {
+                    ["terracotta-0.4.2-android-arm64v8a.so"] = "a4b74175cdc5a11841f508a51d048a1aa66462501569af059e1e57a4090beb750ac9ae894944b6f8928cc2550c2454188f6c78695b21eb17fd3562bc70698e95",
+                }),
+            ["android-x86_64"] = new(
+                "3b935f4430360749a536c17d9164c2d55839d0d17db2fbf0f797caf1fab2606edf43b2bffa370f463b5c537c82462d06936c2bcf6ce36bbdd11f167b1bf39060",
+                new Dictionary<string, string>
+                {
+                    ["terracotta-0.4.2-android-x86_64.so"] = "3b935f4430360749a536c17d9164c2d55839d0d17db2fbf0f797caf1fab2606edf43b2bffa370f463b5c537c82462d06936c2bcf6ce36bbdd11f167b1bf39060",
+                }),
         };
+
+    /// <summary>安卓宿主设置；为 null 时手机上不支持联机。</summary>
+    public static IMobileTerracotta Mobile { get; set; }
+
+    private static bool IsAndroidClassifier(string classifier) => classifier?.StartsWith("android-", StringComparison.Ordinal) == true;
 
     /// <summary>state == "exception" 时，按 type 字段取对应的说明。</summary>
     public static readonly IReadOnlyList<string> Exceptions =
@@ -131,7 +166,8 @@ public class Terracotta : IDisposable
     public Terracotta(string root, Downloader downloader, Action<string> log = null)
     {
         Classifier = CurrentClassifier();
-        Dir = Path.Combine(root ?? Path.Combine(AppPaths.ToolsDir, "terracotta"), Version);
+        root ??= Platform.IsMobile && Mobile != null ? Mobile.LibraryDir : Path.Combine(AppPaths.ToolsDir, "terracotta");
+        Dir = Path.Combine(root, Version);
         Dl = downloader;
         Log = log ?? (_ => { });
     }
@@ -155,16 +191,23 @@ public class Terracotta : IDisposable
     /// <summary>当前系统的分类名；Windows 10 以下不支持。</summary>
     public static string CurrentClassifier()
     {
+        if (Platform.IsAndroid)
+            return Mobile == null ? null : Platform.IsArm ? "android-arm64v8a" : Platform.Arch == "x86_64" ? "android-x86_64" : null;
         if (Platform.IsWindows && !OperatingSystem.IsWindowsVersionAtLeast(10) || Platform.IsMobile)
             return null;
         return ClassifierFor(Platform.OsName, Platform.Arch);
     }
 
-    public static string PackageName(string classifier) => $"terracotta-{Version}-{classifier}-pkg.tar.gz";
+    public static string PackageName(string classifier) =>
+        IsAndroidClassifier(classifier) ? $"terracotta-{Version}-{classifier}.so" : $"terracotta-{Version}-{classifier}-pkg.tar.gz";
 
     /// <summary>安装包的下载地址（官方 GitHub 优先，其后为镜像）。</summary>
-    public static List<string> PackageUrls(string classifier) =>
-        Downloads.Select(u => u.Replace("{version}", Version).Replace("{name}", PackageName(classifier))).ToList();
+    public static List<string> PackageUrls(string classifier)
+    {
+        var urls = Downloads.Select(u => u.Replace("{version}", Version).Replace("{name}", PackageName(classifier))).ToList();
+        urls.AddRange(Downloader.GithubMirrors.Select(m => m + urls[0]));
+        return urls;
+    }
 
     /// <summary>包内主程序的文件名。</summary>
     public static string ExecutableName(string classifier) =>
@@ -211,6 +254,20 @@ public class Terracotta : IDisposable
     {
         var name = PackageName(Classifier);
         var urls = PackageUrls(Classifier);
+        if (IsAndroidClassifier(Classifier))
+        {
+            Directory.CreateDirectory(Dir);
+            var library = Path.Combine(Dir, name);
+            Log(F("正在下载陶瓦联机 {0}...", Version));
+            await Dl.DownloadManyAsync([new DownloadTask(urls[0], library, alternates: urls.Skip(1))], progress, cancel);
+            if (await Task.Run(() => Http.FileSha512(library), cancel) != Packages[Classifier].Hash)
+            {
+                File.Delete(library);
+                throw new TerracottaException(T("陶瓦联机安装包校验失败，请重试"));
+            }
+            _verified = true;
+            return;
+        }
         var archive = Path.Combine(Path.GetTempPath(), "maox-" + name);
         var packageHash = Packages[Classifier].Hash;
         if (!(File.Exists(archive) && await Task.Run(() => Http.FileSha512(archive), cancel) == packageHash))
@@ -355,8 +412,12 @@ public class Terracotta : IDisposable
         }
     }
 
+    private bool IsMobile => IsAndroidClassifier(Classifier) && Mobile != null;
+
     public async Task<bool> AliveAsync()
     {
+        if (IsMobile)
+            return Mobile.Started;
         try
         {
             return (await RequestAsync("/meta", timeout: 2)).Status == 200;
@@ -370,6 +431,15 @@ public class Terracotta : IDisposable
     /// <summary>启动（或接管本对象已启动的）陶瓦联机后台进程，记录它的 HTTP 端口。</summary>
     public async Task StartAsync(int timeout = 20)
     {
+        if (IsMobile)
+        {
+            if (!Mobile.Started)
+            {
+                var version = await Mobile.StartAsync(Path.Combine(Dir, PackageName(Classifier)));
+                Log(F("陶瓦联机已启动（{0}）", version));
+            }
+            return;
+        }
         if (Port != null && await AliveAsync())
             return;
         var portDir = Directory.CreateTempSubdirectory("maox-terracotta-");
@@ -464,6 +534,8 @@ public class Terracotta : IDisposable
     /// </summary>
     public async Task<JsonNode> StateAsync()
     {
+        if (IsMobile)
+            return await Task.Run(() => Json.Parse(Mobile.State()));
         var (status, body) = await RequestAsync("/state");
         if (status != 200)
             throw new TerracottaException(F("获取联机状态失败（HTTP {0}）", status));
@@ -514,12 +586,27 @@ public class Terracotta : IDisposable
     /// <summary>创建房间：开始扫描对局域网开放的世界。</summary>
     public async Task HostAsync(string player)
     {
+        if (IsMobile)
+        {
+            if (!await Mobile.PrepareVpnAsync())
+                throw new TerracottaException(T("联机需要建立 VPN 虚拟网络，请在系统弹窗中允许"));
+            await Task.Run(() => Mobile.SetScanning(player));
+            return;
+        }
         var nodes = await PublicNodesAsync();
         await RequestAsync("/state/scanning", new[] { ("player", player) }.Concat(Nodes(nodes)));
     }
 
     public async Task JoinAsync(string room, string player)
     {
+        if (IsMobile)
+        {
+            if (!await Mobile.PrepareVpnAsync())
+                throw new TerracottaException(T("联机需要建立 VPN 虚拟网络，请在系统弹窗中允许"));
+            if (!await Mobile.SetGuestingAsync(room, player))
+                throw new TerracottaException(T("邀请码无效，请检查后重试"));
+            return;
+        }
         var nodes = await PublicNodesAsync();
         var (status, _) = await RequestAsync("/state/guesting",
                                              new[] { ("room", room), ("player", player) }.Concat(Nodes(nodes)));
@@ -530,11 +617,18 @@ public class Terracotta : IDisposable
     }
 
     /// <summary>退出房间 / 关闭房间 / 取消，回到等待状态。</summary>
-    public Task LeaveAsync() => RequestAsync("/state/ide");
+    public Task LeaveAsync() => IsMobile ? Task.Run(Mobile.SetWaiting) : RequestAsync("/state/ide");
 
     /// <summary>让陶瓦联机退出；若由本对象启动的进程几秒内没有退出则强制结束。</summary>
     public async Task ShutdownAsync()
     {
+        // 安卓版的库加载后不能卸载，只能回到等待状态
+        if (IsMobile)
+        {
+            if (Mobile.Started)
+                Mobile.SetWaiting();
+            return;
+        }
         if (Port != null)
         {
             try

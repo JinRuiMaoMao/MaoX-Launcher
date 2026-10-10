@@ -247,6 +247,8 @@ public partial class MultiplayerPage : UserControl, IPage
         _signature = signature;
         Body.Content = (state != null ? state.Str("state", "unknown") : _phase) switch
         {
+            "unsupported" when Platform.IsIOS => CenterCard("error", T("iPhone / iPad 暂不支持陶瓦联机"),
+                                                            T("陶瓦联机需要 VPN 权限，iOS 上暂时无法使用。可以在上方的“服务器”标签里加入服务器。"), "Warn"),
             "unsupported" when Platform.IsMobile => CenterCard("error", T("手机版联机还在开发中"),
                                                                T("暂时可以在上方的“服务器”标签里加入服务器。"), "Warn"),
             "unsupported" => CenterCard("error", T("当前系统暂不支持联机"),
@@ -255,7 +257,9 @@ public partial class MultiplayerPage : UserControl, IPage
             "fatal" => CenterCard("error", T("联机服务出现问题"), _error, "Error", MakeButton(T("重试"), "primary", "refresh", Retry)),
             "waiting" => WaitingView(),
             "host-scanning" => CenterCard("game", T("正在寻找对局域网开放的世界…"),
-                                          T("请在游戏中按 Esc，选择「对局域网开放」并点击「创建局域网世界」。\n检测到之后会自动创建房间。"),
+                                          Platform.IsMobile
+                                              ? T("请在游戏中点「暂停」，选择「对局域网开放」并点击「创建局域网世界」。\n检测到之后会自动创建房间。")
+                                              : T("请在游戏中按 Esc，选择「对局域网开放」并点击「创建局域网世界」。\n检测到之后会自动创建房间。"),
                                           "Accent", MakeButton(T("取消"), null, null, LeaveRoom), true),
             "host-starting" => CenterCard("people", T("正在创建房间…"), T("正在连接公共节点，通常只需要几秒钟。"), "Accent",
                                           MakeButton(T("取消"), null, null, LeaveRoom), true),
@@ -370,7 +374,9 @@ public partial class MultiplayerPage : UserControl, IPage
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,20,*") };
         var host = Column("game", T("创建房间"), T("我是房主，邀请好友来我的世界"),
                           Steps(T("启动游戏，进入一个单人世界"),
-                                T("按 Esc 打开菜单，选择「对局域网开放」，再点「创建局域网世界」"),
+                                Platform.IsMobile
+                                    ? T("点「暂停」打开菜单，选择「对局域网开放」，再点「创建局域网世界」")
+                                    : T("按 Esc 打开菜单，选择「对局域网开放」，再点「创建局域网世界」"),
                                 T("回到这里点击「创建房间」，把邀请码发给好友")),
                           MakeButton(T("创建房间"), "primary", "people", CreateRoom));
         grid.Children.Add(host);

@@ -16,6 +16,14 @@ namespace MaoX.Android;
                                  | ConfigChanges.KeyboardHidden | ConfigChanges.Navigation)]
 public class MainActivity : AvaloniaMainActivity<App>
 {
+    private AndroidTerracotta _terracotta;
+
+    protected override void OnActivityResult(int requestCode, Result resultCode, global::Android.Content.Intent data)
+    {
+        base.OnActivityResult(requestCode, resultCode, data);
+        _terracotta?.OnActivityResult(requestCode, resultCode);
+    }
+
     protected override void OnCreate(Bundle savedInstanceState)
     {
         // 数据放在 Android/data/<包名>/files 下：卸载时一起删除，也能用文件管理器或电脑访问
@@ -25,6 +33,7 @@ public class MainActivity : AvaloniaMainActivity<App>
         AppDomain.CurrentDomain.UnhandledException += (_, e) => App.WriteCrashLog(e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
         GameHost.Install(this);
+        Terracotta.Mobile = _terracotta = new AndroidTerracotta(this);
 #if !DEBUG
         // 调试版的签名和发布版不同，不能覆盖安装
         Updater.MobileInstaller = ApkInstaller.Install;
