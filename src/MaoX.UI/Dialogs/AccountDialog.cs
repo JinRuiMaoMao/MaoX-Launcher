@@ -162,27 +162,7 @@ public class AccountDialog : DialogView
 
     private async void AddMsa()
     {
-        var clientId = (Main.Cfg.MsaClientId ?? "").Trim();
-        if (clientId.Length == 0)
-        {
-            var choice = await Main.Dialog(
-                T("需要先设置 Client ID"),
-                T("微软登录需要一个在 Azure 注册的应用 Client ID。\n\n" +
-                  "1. 在 Azure 门户注册应用，账户类型选「个人 Microsoft 帐户」，并开启「允许公共客户端流」\n" +
-                  "2. 向微软提交 Minecraft 接口权限申请（aka.ms/mce-reviewappid），审核通过后即可使用\n" +
-                  "3. 把 Client ID 填到「设置 → 账号」中"),
-                "info", (T("查看注册教程"), "guide", ""), (T("前往设置"), "settings", "primary"));
-            if (choice is "guide")
-            {
-                Platform.OpenUrl(Accounts.MsaAppGuide);
-            }
-            else if (choice is "settings")
-            {
-                Close();
-                Main.ShowPage("settings");
-            }
-            return;
-        }
+        var clientId = Accounts.EffectiveClientId(Main.Cfg.MsaClientId);
         if (await Main.ShowDialogAsync(new MsaLoginDialog(clientId)) is Account account)
             Main.AddAccount(account);
     }
@@ -333,7 +313,7 @@ public class MsaLoginDialog : DialogView
             _open.IsEnabled = true;
             var tokens = await Task.Run(() => Accounts.MsaWaitAsync(_clientId, _device, _cancel.Token));
             SetStatus(T("已授权，正在登录 Minecraft…"), false);
-            var account = await Task.Run(() => Accounts.MsaAccountAsync(tokens));
+            var account = await Task.Run(() => Accounts.MsaAccountAsync(tokens, _clientId));
             if (!_cancel.IsCancellationRequested)
                 Close(account);
         }
@@ -354,6 +334,10 @@ public class MsaLoginDialog : DialogView
         var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
         if (clipboard != null)
             await clipboard.SetTextAsync(_device.UserCode);
-        Platform.OpenUrl(_device.VerificationUri);
+        var url = _device.VerificationUri;
+        // microsoft.com/link 支持 otc 参数自动填好代码
+        if (url?.Contains("microsoft.com/link", StringComparison.OrdinalIgnoreCase) == true && !url.Contains('?'))
+            url += "?otc=" + Uri.EscapeDataString(_device.UserCode);
+        Platform.OpenUrl(url);
     }
 }

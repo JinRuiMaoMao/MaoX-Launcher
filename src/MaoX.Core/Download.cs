@@ -153,6 +153,8 @@ public class Downloader
     public const string Bmclapi = "https://bmclapi2.bangbang93.com";
     public const string Mcim = "https://mod.mcimirror.top";
     private const string ProbeUrl = "https://libraries.minecraft.net/com/mojang/logging/1.1.1/logging-1.1.1.jar";
+    /// <summary>GitHub 下载加速前缀，直接拼在完整的 github.com 地址前面。</summary>
+    public static readonly string[] GithubMirrors = ["https://ghfast.top/", "https://gh-proxy.com/"];
 
     private static readonly (string Prefix, string Replacement)[] BmclapiRules =
     [

@@ -66,6 +66,11 @@ public static class Accounts
     public const string MsDeviceCodeUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
     public const string MsTokenUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
     public const string MsScope = "XboxLive.signin offline_access";
+    /// <summary>官方启动器的公共应用 ID，走 login.live.com，不需要自己在 Azure 注册应用。</summary>
+    public const string BuiltinMsaClientId = "00000000402b5328";
+    public const string LiveDeviceCodeUrl = "https://login.live.com/oauth20_connect.srf";
+    public const string LiveTokenUrl = "https://login.live.com/oauth20_token.srf";
+    public const string LiveScope = "service::user.auth.xboxlive.com::MBI_SSL";
     public const string XblAuthUrl = "https://user.auth.xboxlive.com/user/authenticate";
     public const string XstsAuthUrl = "https://xsts.auth.xboxlive.com/xsts/authorize";
     public const string McLoginUrl = "https://api.minecraftservices.com/authentication/login_with_xbox";
@@ -312,13 +317,22 @@ public static class Accounts
 
     // ------------------------------------------------------------------ 微软登录
 
+    /// <summary>没填 Client ID 时使用内置的。</summary>
+    public static string EffectiveClientId(string clientId) => Or(clientId?.Trim()) ?? BuiltinMsaClientId;
+
+    private static bool IsLive(string clientId) => clientId == BuiltinMsaClientId;
+
     public static async Task<MsaDeviceCode> MsaDeviceCodeAsync(string clientId)
     {
-        var (status, data) = await JsonRequestAsync(MsDeviceCodeUrl, form: new Dictionary<string, string>
+        var live = IsLive(clientId);
+        var form = new Dictionary<string, string>
         {
             ["client_id"] = clientId,
-            ["scope"] = MsScope,
-        });
+            ["scope"] = live ? LiveScope : MsScope,
+        };
+        if (live)
+            form["response_type"] = "device_code";
+        var (status, data) = await JsonRequestAsync(live ? LiveDeviceCodeUrl : MsDeviceCodeUrl, form: form);
         if (status != 200)
             throw new AccountException(F("无法发起微软登录：{0}",
                                          Or(data.Str("error_description"), data.Str("error")) ?? $"HTTP {status}"));
@@ -344,7 +358,7 @@ public static class Accounts
     /// <summary>轮询一次设备码登录结果：成功返回令牌，用户还没完成时返回 null。</summary>
     public static async Task<MsaTokens> MsaPollAsync(string clientId, string deviceCode)
     {
-        var (status, data) = await JsonRequestAsync(MsTokenUrl, form: new Dictionary<string, string>
+        var (status, data) = await JsonRequestAsync(IsLive(clientId) ? LiveTokenUrl : MsTokenUrl, form: new Dictionary<string, string>
         {
             ["client_id"] = clientId,
             ["grant_type"] = "urn:ietf:params:oauth:grant-type:device_code",
@@ -380,12 +394,13 @@ public static class Accounts
 
     private static async Task<MsaTokens> MsaRefreshTokenAsync(string clientId, string refreshToken)
     {
-        var (status, data) = await JsonRequestAsync(MsTokenUrl, form: new Dictionary<string, string>
+        var live = IsLive(clientId);
+        var (status, data) = await JsonRequestAsync(live ? LiveTokenUrl : MsTokenUrl, form: new Dictionary<string, string>
         {
             ["client_id"] = clientId,
             ["grant_type"] = "refresh_token",
             ["refresh_token"] = refreshToken ?? "",
-            ["scope"] = MsScope,
+            ["scope"] = live ? LiveScope : MsScope,
         });
         if (status != 200)
             throw new AccountException(T("微软账号登录已过期，请删除账号后重新登录"));
@@ -393,7 +408,7 @@ public static class Accounts
     }
 
     /// <summary>微软令牌 -> Xbox Live -> XSTS -> Minecraft，返回账号（不含 RefreshToken）。</summary>
-    public static async Task<Account> MinecraftLoginAsync(string msToken)
+    public static async Task<Account> MinecraftLoginAsync(string msToken, bool live = false)
     {
         var (status, xbl) = await JsonRequestAsync(XblAuthUrl, new JsonObject
         {
@@ -401,7 +416,7 @@ public static class Accounts
             {
                 ["AuthMethod"] = "RPS",
                 ["SiteName"] = "user.auth.xboxlive.com",
-                ["RpsTicket"] = "d=" + msToken,
+                ["RpsTicket"] = (live ? "t=" : "d=") + msToken,
             },
             ["RelyingParty"] = "http://auth.xboxlive.com",
             ["TokenType"] = "JWT",
@@ -457,21 +472,24 @@ public static class Accounts
     }
 
     /// <summary>设备码登录成功后，用令牌完成 Minecraft 登录并得到完整的微软账号。</summary>
-    public static async Task<Account> MsaAccountAsync(MsaTokens tokens)
+    public static async Task<Account> MsaAccountAsync(MsaTokens tokens, string clientId)
     {
-        var account = await MinecraftLoginAsync(tokens.AccessToken);
+        var account = await MinecraftLoginAsync(tokens.AccessToken, IsLive(clientId));
         account.RefreshToken = tokens.RefreshToken ?? "";
+        account.MsaClientId = clientId;
         return account;
     }
 
-    private static async Task<bool> MsaRefreshAsync(Account account, string clientId)
+    private static async Task<bool> MsaRefreshAsync(Account account, string configClientId)
     {
         if (account.ExpiresAt - 600 > Now)
             return false;
+        // 续期必须用登录时的 Client ID；旧账号没记录，用设置里的
+        var clientId = Or(account.MsaClientId) ?? Or(configClientId);
         if (string.IsNullOrEmpty(clientId))
-            throw new AccountException(T("微软账号登录已过期，需要在设置中填写 Client ID 才能自动续期"));
+            throw new AccountException(T("微软账号登录已过期，请删除账号后重新登录"));
         var tokens = await MsaRefreshTokenAsync(clientId, account.RefreshToken);
-        var fresh = await MinecraftLoginAsync(tokens.AccessToken);
+        var fresh = await MinecraftLoginAsync(tokens.AccessToken, IsLive(clientId));
         account.Type = fresh.Type;
         account.Name = fresh.Name;
         account.Uuid = fresh.Uuid;

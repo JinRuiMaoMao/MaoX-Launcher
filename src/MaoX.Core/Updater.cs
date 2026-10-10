@@ -106,39 +106,117 @@ public static class Updater
         Directory.CreateDirectory(dir);
         var target = Path.Combine(dir, info.AssetName);
         var part = target + ".part";
-        using (var request = new HttpRequestMessage(HttpMethod.Get, info.Url))
+        File.Delete(part);
+        var urls = await RankSourcesAsync(info.Url, cancel);
+        Exception last = null;
+        // 一个地址断了就换下一个，从已下载的位置续传
+        for (var round = 0; round < 2; round++)
         {
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
-            using var response = await Http.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel);
-            if (!response.IsSuccessStatusCode)
-                throw new HttpStatusException((int)response.StatusCode, info.Url);
-            var total = response.Content.Headers.ContentLength ?? info.Size;
-            await using var input = await response.Content.ReadAsStreamAsync(cancel);
-            await using var output = File.Create(part);
-            var buffer = new byte[81920];
-            long done = 0;
-            var last = DateTime.MinValue;
-            while (true)
+            foreach (var url in urls)
             {
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
-                timeout.CancelAfter(TimeSpan.FromSeconds(30));
-                var read = await input.ReadAsync(buffer, timeout.Token);
-                if (read == 0)
-                    break;
-                await output.WriteAsync(buffer.AsMemory(0, read), cancel);
-                done += read;
-                if ((DateTime.UtcNow - last).TotalMilliseconds > 100)
+                try
                 {
-                    last = DateTime.UtcNow;
-                    progress?.Invoke(done, total);
+                    await DownloadFromAsync(url, part, info.Size, progress, round == 0 && urls.Count > 1, cancel);
+                    if (info.Size <= 0 || new FileInfo(part).Length == info.Size)
+                    {
+                        File.Move(part, target, true);
+                        return target;
+                    }
+                    File.Delete(part);
+                    last = new DownloadException(T("更新文件下载不完整，请重试"));
+                }
+                catch (Exception e) when (e is HttpRequestException or IOException or DownloadException
+                                              || (e is OperationCanceledException && !cancel.IsCancellationRequested))
+                {
+                    last = e;
                 }
             }
-            progress?.Invoke(done, total);
-            if (info.Size > 0 && done != info.Size)
-                throw new DownloadException(T("更新文件下载不完整，请重试"));
         }
-        File.Move(part, target, true);
-        return target;
+        throw last is DownloadException ? last : new DownloadException(F("下载更新失败：{0}", last?.Message), last);
+    }
+
+    /// <summary>GitHub 直连和加速镜像各试下载一小段，按速度排序（都失败的排在最后，仍会尝试）。</summary>
+    private static async Task<List<string>> RankSourcesAsync(string url, CancellationToken cancel)
+    {
+        var candidates = new List<string> { url };
+        if (url.StartsWith("https://github.com/", StringComparison.OrdinalIgnoreCase))
+            candidates.AddRange(Downloader.GithubMirrors.Select(m => m + url));
+        var probes = candidates.Select(async candidate =>
+        {
+            var watch = Stopwatch.StartNew();
+            try
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+                timeout.CancelAfter(TimeSpan.FromSeconds(8));
+                using var request = new HttpRequestMessage(HttpMethod.Get, candidate);
+                request.Headers.Range = new RangeHeaderValue(0, 256 * 1024 - 1);
+                using var response = await Http.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+                if (!response.IsSuccessStatusCode)
+                    return (candidate, double.MaxValue);
+                await using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
+                var buffer = new byte[81920];
+                long read = 0;
+                int n;
+                while (read < 256 * 1024 && (n = await input.ReadAsync(buffer, timeout.Token)) > 0)
+                    read += n;
+                return (candidate, watch.Elapsed.TotalSeconds);
+            }
+            catch (Exception e) when (e is HttpRequestException or IOException or OperationCanceledException)
+            {
+                return (candidate, double.MaxValue);
+            }
+        });
+        var results = await Task.WhenAll(probes);
+        cancel.ThrowIfCancellationRequested();
+        return results.OrderBy(r => r.Item2).Select(r => r.candidate).ToList();
+    }
+
+    private const long SlowBytesPer10s = 1536 * 1024;
+
+    private static async Task DownloadFromAsync(string url, string part, long size, Action<long, long> progress,
+                                                bool switchIfSlow, CancellationToken cancel)
+    {
+        long done = File.Exists(part) ? new FileInfo(part).Length : 0;
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
+        if (done > 0)
+            request.Headers.Range = new RangeHeaderValue(done, null);
+        using var response = await Http.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpStatusException((int)response.StatusCode, url);
+        // 不支持续传的地址会返回整个文件
+        if (done > 0 && response.StatusCode != System.Net.HttpStatusCode.PartialContent)
+            done = 0;
+        var total = size > 0 ? size : done + (response.Content.Headers.ContentLength ?? 0);
+        await using var input = await response.Content.ReadAsStreamAsync(cancel);
+        await using var output = new FileStream(part, done > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write);
+        var buffer = new byte[81920];
+        var last = DateTime.MinValue;
+        var window = Stopwatch.StartNew();
+        var windowStart = done;
+        while (true)
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            var read = await input.ReadAsync(buffer, timeout.Token);
+            if (read == 0)
+                break;
+            await output.WriteAsync(buffer.AsMemory(0, read), cancel);
+            done += read;
+            if (window.Elapsed.TotalSeconds >= 10)
+            {
+                if (switchIfSlow && done - windowStart < SlowBytesPer10s)
+                    throw new DownloadException(T("下载太慢，换一个地址"));
+                window.Restart();
+                windowStart = done;
+            }
+            if ((DateTime.UtcNow - last).TotalMilliseconds > 100)
+            {
+                last = DateTime.UtcNow;
+                progress?.Invoke(done, total);
+            }
+        }
+        progress?.Invoke(done, total);
     }
 
     /// <summary>用下载好的文件替换当前程序并启动新版本。调用成功后应立即退出当前进程。</summary>

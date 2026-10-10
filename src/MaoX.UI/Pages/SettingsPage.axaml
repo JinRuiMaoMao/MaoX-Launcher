@@ -114,7 +114,7 @@
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="Auto,*,Auto">
                 <TextBlock Text="{c:Tr '微软登录 Client ID'}" />
-                <TextBlock Grid.Column="1" Text="{c:Tr '在 Azure 注册的应用 ID'}" Classes="small dim" Margin="10,0,0,0"
+                <TextBlock Grid.Column="1" Text="{c:Tr '可选，留空使用内置的登录方式'}" Classes="small dim" Margin="10,0,0,0"
                            VerticalAlignment="Center" />
                 <Button Grid.Column="2" Classes="link" Content="{c:Tr 如何获取？}" Click="OnClientIdGuide" />
               </Grid>

@@ -21,8 +21,6 @@ internal static class GameHost
     public const string GameProcess = "io.github.jinruimaomao.maox:game";
     private const string JreUrl =
         "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/download_jre{0}/jre{0}-android-{1}.tar.xz";
-    private static readonly string[] GithubMirrors = ["https://ghfast.top/", "https://gh-proxy.com/"];
-
     private static Activity _activity;
 
     private static Context Ctx => Application.Context;
@@ -106,7 +104,7 @@ internal static class GameHost
 
         launcher.Log(F("正在下载手机版 Java {0}...", version));
         var url = string.Format(JreUrl, version, Platform.IsArm ? "arm64" : "x86_64");
-        var mirrors = GithubMirrors.Select(m => m + url).ToList();
+        var mirrors = Downloader.GithubMirrors.Select(m => m + url).ToList();
         var china = await launcher.Dl.ResolvedSourceAsync() == "bmclapi";
         var primary = china ? mirrors[0] : url;
         var alternates = china ? mirrors.Skip(1).Append(url) : mirrors;

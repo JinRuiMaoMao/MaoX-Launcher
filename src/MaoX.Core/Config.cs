@@ -51,6 +51,8 @@ public class Account
     public string RefreshToken { get; set; }
     public double ExpiresAt { get; set; }
     public string Xuid { get; set; }
+    /// <summary>微软账号登录时用的 Client ID（续期要用同一个）。</summary>
+    public string MsaClientId { get; set; }
     /// <summary>离线账号自定义皮肤 / 披风：skins 目录下 PNG 的 SHA-256。</summary>
     public string Skin { get; set; }
     public bool SkinSlim { get; set; }
