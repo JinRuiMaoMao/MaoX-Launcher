@@ -177,8 +177,10 @@ jobs:
       - name: Select Xcode
         run: |
           ls -d /Applications/Xcode*.app
-          xcode=$(ls -d /Applications/Xcode_26.5*.app 2>/dev/null | grep -vi beta | sort -V | tail -1)
-          [ -n "$xcode" ] || xcode=$(ls -d /Applications/Xcode_26*.app | grep -vi beta | sort -V | tail -1)
+          xcode=/Applications/Xcode_26.5.app
+          [ -d "$xcode" ] || xcode=$(ls -d /Applications/Xcode_26*.app | grep -vi beta | sort -V | tail -1)
+          xcode=$(cd "$xcode" && pwd -P)
+          echo "Using $xcode"
           sudo xcode-select -s "$xcode/Contents/Developer"
           xcodebuild -version
 
