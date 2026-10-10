@@ -17,7 +17,8 @@
             <TextBlock Name="HeroMeta" Classes="muted" />
           </StackPanel>
 
-          <StackPanel Name="HeroControls" Orientation="Horizontal" Spacing="14" VerticalAlignment="Bottom">
+          <!-- 放不下时（平板竖屏等）启动按钮换到下一行 -->
+          <WrapPanel Name="HeroControls" ItemSpacing="14" LineSpacing="12" VerticalAlignment="Bottom">
             <StackPanel Spacing="7" VerticalAlignment="Bottom">
               <TextBlock Text="{c:Tr 账号}" Classes="label" />
               <Button Name="AccountPicker" Height="38" Padding="8,0,12,0" Background="{StaticResource Input}"
@@ -56,7 +57,7 @@
                 <c:Icon Kind="stop" Size="18" />
               </Button>
             </StackPanel>
-          </StackPanel>
+          </WrapPanel>
         </DockPanel>
       </Panel>
     </Border>
