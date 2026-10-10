@@ -173,20 +173,23 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      # .NET for iOS 的每个版本只认对应的 Xcode：工作负载固定在 10.0.401（iOS 26.5），Xcode 选 26.5
       - name: Select Xcode
         run: |
-          xcode=$(ls -d /Applications/Xcode*.app | grep -vi beta | sort -V | tail -1)
+          ls -d /Applications/Xcode*.app
+          xcode=$(ls -d /Applications/Xcode_26.5*.app 2>/dev/null | grep -vi beta | sort -V | tail -1)
+          [ -n "$xcode" ] || xcode=$(ls -d /Applications/Xcode_26*.app | grep -vi beta | sort -V | tail -1)
           sudo xcode-select -s "$xcode/Contents/Developer"
           xcodebuild -version
 
       - name: Install iOS workload
-        run: dotnet workload install ios
+        run: dotnet workload install ios --version 10.0.401
 
       # 没有苹果开发者证书：打包未签名的 IPA，由用户用 AltStore / SideStore / TrollStore 等工具签名安装
       - name: Build IPA
         run: |
           dotnet build src/MaoX.iOS/MaoX.iOS.csproj -c Release -f net10.0-ios -r ios-arm64 -nologo \
-            -p:EnableCodeSigning=false
+            -p:EnableCodeSigning=false -p:ValidateXcodeVersion=false
           app=$(find src/MaoX.iOS/bin/Release -maxdepth 4 -type d -name "*.app" | head -1)
           echo "App bundle: $app"
           mkdir -p dist/ipa/Payload
@@ -203,7 +206,8 @@ jobs:
       - name: Simulator smoke test
         timeout-minutes: 25
         run: |
-          dotnet build src/MaoX.iOS/MaoX.iOS.csproj -c Debug -f net10.0-ios -r iossimulator-arm64 -nologo
+          dotnet build src/MaoX.iOS/MaoX.iOS.csproj -c Debug -f net10.0-ios -r iossimulator-arm64 -nologo \
+            -p:ValidateXcodeVersion=false
           app=$(find src/MaoX.iOS/bin/Debug -maxdepth 4 -type d -name "*.app" | head -1)
           out="$RUNNER_TEMP/smoke-ios"
           mkdir -p "$out"

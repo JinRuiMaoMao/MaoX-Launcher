@@ -190,6 +190,7 @@
               <Button Click="OnOpenRepo">
                 <c:IconLabel Icon="link" Text="GitHub" />
               </Button>
+              <Button Click="OnLicenses" Content="{c:Tr 开源许可}" />
               <Button Name="CheckUpdateButton" Classes="primary" Click="OnCheckUpdate">
                 <c:IconLabel Icon="refresh" Text="{c:Tr 检查更新}" />
               </Button>

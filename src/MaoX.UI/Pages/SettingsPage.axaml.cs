@@ -376,6 +376,30 @@ public partial class SettingsPage : UserControl, IPage
 
     private void OnOpenRepo(object sender, RoutedEventArgs e) => Platform.OpenUrl(Updater.RepoUrl);
 
+    private async void OnLicenses(object sender, RoutedEventArgs e)
+    {
+        var lines = new List<string>
+        {
+            "Avalonia — MIT",
+            "SharpCompress — MIT",
+            F("陶瓦联机 Terracotta（{0}）— AGPL-3.0", T("使用时下载的独立程序")),
+        };
+        if (Platform.IsAndroid)
+        {
+            lines.AddRange([
+                F("Amethyst-Android（{0}）— LGPL-3.0", T("游戏启动层")),
+                F("OpenJDK（{0}）— GPL-2.0 with Classpath Exception", T("手机版 Java，来自 AngelAuraMC")),
+                F("MobileGlues（{0}）— LGPL-2.1", T("渲染器")),
+                "LWJGL — BSD-3-Clause",
+                "OpenAL Soft — LGPL-2.0",
+                "ByteHook — MIT",
+            ]);
+        }
+        await Main.Dialog(T("开源许可"),
+                          T("MaoX Launcher 使用了以下开源项目，感谢它们的作者：") + "\n\n"
+                          + string.Join("\n", lines.Select(l => "• " + l)));
+    }
+
     private async void OnCheckUpdate(object sender, RoutedEventArgs e)
     {
         CheckUpdateButton.IsEnabled = false;
