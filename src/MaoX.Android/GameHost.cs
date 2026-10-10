@@ -252,6 +252,8 @@ internal static class GameHost
             "-Dnet.minecraft.clientmodname=MaoX",
             "-Dfml.earlyprogresswindow=false",
             "-Dloader.disable_forked_guis=true",
+            // 手机上的 LWJGL 是 3.3.3，Sodium 会因为“版本不是 3.3.1”拒绝启动
+            "-Dsodium.checks.issue2561=false",
             "-Djdk.lang.Process.launchMechanism=FORK",
             "-Djava.awt.headless=true",
             "-Dorg.lwjgl.opengl.libname=libSimpleFPEWrapper.so",
