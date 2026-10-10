@@ -954,7 +954,9 @@ public class GameLauncher
     {
         if (!Platform.IsMobile)
             return RunningGame.Of(await LaunchAsync(versionId, server, auth));
-        var starter = MobileStarter ?? throw new PlatformNotSupportedException(T("这个平台还不能启动游戏"));
+        var starter = MobileStarter ?? throw new PlatformNotSupportedException(Platform.IsIOS
+            ? T("iPhone / iPad 版暂时还不能启动游戏：iOS 不允许普通应用使用 Java 运行需要的 JIT。现在可以先管理账号、版本和模组。")
+            : T("这个平台还不能启动游戏"));
         Cfg = EffectiveConfig(versionId);
         var info = await PrepareAsync(versionId);
         Log(F("正在启动 {0}（玩家 {1}，最大内存 {2} MB）...", versionId, auth?.Name ?? Cfg.Username, Cfg.MaxMemory));

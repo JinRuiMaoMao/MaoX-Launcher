@@ -76,7 +76,7 @@ public static partial class JavaManager
             return m.Success ? ParseMajor(m.Groups[1].Value) : null;
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or IOException
-                                      or InvalidOperationException)
+                                      or InvalidOperationException or PlatformNotSupportedException)
         {
             return null;
         }

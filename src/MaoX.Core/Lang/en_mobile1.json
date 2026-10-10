@@ -20,6 +20,7 @@
   "联机需要建立 VPN 虚拟网络，请在系统弹窗中允许": "Multiplayer needs to set up a VPN virtual network. Please allow it in the system prompt",
   "请在游戏中点「暂停」，选择「对局域网开放」并点击「创建局域网世界」。\n检测到之后会自动创建房间。": "In the game, tap \"Pause\", choose \"Open to LAN\" and click \"Start LAN World\".\nThe room will be created automatically once it's detected.",
   "点「暂停」打开菜单，选择「对局域网开放」，再点「创建局域网世界」": "Tap \"Pause\" to open the menu, choose \"Open to LAN\", then click \"Start LAN World\"",
+  "iPhone / iPad 版暂时还不能启动游戏：iOS 不允许普通应用使用 Java 运行需要的 JIT。现在可以先管理账号、版本和模组。": "The iPhone / iPad version can't launch the game yet: iOS doesn't allow regular apps to use the JIT that Java needs. For now you can manage accounts, versions and mods.",
   "这个平台还不能运行 Java 安装程序": "Running Java installers is not supported on this platform yet",
   "请先退出游戏再安装": "Please quit the game before installing",
   "iPhone / iPad 暂不支持陶瓦联机": "Terracotta multiplayer is not available on iPhone / iPad yet",
