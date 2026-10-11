@@ -26,6 +26,7 @@ internal static class GameHost
     public static void Install()
     {
         GameLauncher.MobileStarter = StartAsync;
+        GameLauncher.MobilePreparing = RequestJitEarly;
         Terracotta.Mobile = IosTerracotta.Instance;
         GameLauncher.MobileJavaRunner = (_, _, _, _) => throw new PlatformNotSupportedException(
             T("iPhone / iPad 上不能运行 Forge / NeoForge / OptiFine 的安装程序：请在电脑上安装好，再把版本文件夹复制到“文件”App 里 MaoX Launcher 的 .minecraft/versions 中"));
@@ -74,6 +75,17 @@ internal static class GameHost
         if (!Directory.Exists(javaHome))
             throw new InvalidOperationException(F("安装包里缺少 Java {0}", javaVersion));
 
+        if (_jitRequest is { } early)
+        {
+            try
+            {
+                await early;
+            }
+            catch (InvalidOperationException)
+            {
+                // 下载时的请求超时或没打开 StikDebug，下面再请求一次
+            }
+        }
         await EnsureJitAsync(launcher);
 
         var screen = await OnMain(GameViewController.InitialSize);
@@ -98,32 +110,81 @@ internal static class GameHost
 
     // ------------------------------------------------------------------ JIT
 
+    private static readonly object JitLock = new();
+    private static Task _jitRequest;
+
+    /// <summary>下载游戏文件的同时请求 JIT，下载完就能直接启动。</summary>
+    private static void RequestJitEarly(GameLauncher launcher)
+    {
+        if (!GameNative.Available || GameNative.JitEnabled())
+            return;
+        Task request;
+        lock (JitLock)
+        {
+            if (_jitRequest is { IsCompleted: false })
+                return;
+            _jitRequest = request = EnsureJitAsync(launcher);
+        }
+        request.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+    }
+
     /// <summary>没有 JIT 时请 StikDebug（iOS 17.4+）或 SideStore 给当前进程开启，最多等两分钟。</summary>
     private static async Task EnsureJitAsync(GameLauncher launcher)
     {
         if (GameNative.JitEnabled())
             return;
         launcher.Log(T("正在请求开启 JIT，请在弹出的 StikDebug 中确认..."));
-        var opened = await OnMain(() =>
+        // 切到 StikDebug 后 iOS 很快会挂起启动器，申请一段后台运行时间，让同时进行的下载不中断
+        var background = new BackgroundTime();
+        await OnMain(background.Begin);
+        try
         {
-            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            UIApplication.SharedApplication.OpenUrl(new NSUrl(JitRequestUrl()), new UIApplicationOpenUrlOptions(),
-                                                    ok => tcs.TrySetResult(ok));
-            return tcs.Task;
-        }).Unwrap();
-        if (!opened)
-            throw new InvalidOperationException(
-                T("Java 需要 JIT 才能运行：请先安装 StikDebug（或用 SideStore 开启 JIT），再回来点启动"));
-
-        var deadline = DateTime.UtcNow.AddMinutes(2);
-        while (!GameNative.JitEnabled())
-        {
-            if (DateTime.UtcNow > deadline)
+            var opened = await OnMain(() =>
+            {
+                var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                UIApplication.SharedApplication.OpenUrl(new NSUrl(JitRequestUrl()), new UIApplicationOpenUrlOptions(),
+                                                        ok => tcs.TrySetResult(ok));
+                return tcs.Task;
+            }).Unwrap();
+            if (!opened)
                 throw new InvalidOperationException(
-                    T("等待 JIT 超时：请在 StikDebug 里给 MaoX Launcher 开启 JIT 后再点启动"));
-            await Task.Delay(300);
+                    T("Java 需要 JIT 才能运行：请先安装 StikDebug（或用 SideStore 开启 JIT），再回来点启动"));
+
+            var deadline = DateTime.UtcNow.AddMinutes(2);
+            while (!GameNative.JitEnabled())
+            {
+                if (DateTime.UtcNow > deadline)
+                    throw new InvalidOperationException(
+                        T("等待 JIT 超时：请在 StikDebug 里给 MaoX Launcher 开启 JIT 后再点启动"));
+                await Task.Delay(300);
+            }
+        }
+        finally
+        {
+            await OnMain(background.End);
         }
         launcher.Log(T("JIT 已开启"));
+    }
+
+    private sealed class BackgroundTime
+    {
+        private nint _id = UIApplication.BackgroundTaskInvalid;
+
+        public bool Begin()
+        {
+            _id = UIApplication.SharedApplication.BeginBackgroundTask("MaoX JIT", () => End());
+            return true;
+        }
+
+        public bool End()
+        {
+            if (_id != UIApplication.BackgroundTaskInvalid)
+            {
+                UIApplication.SharedApplication.EndBackgroundTask(_id);
+                _id = UIApplication.BackgroundTaskInvalid;
+            }
+            return true;
+        }
     }
 
     private static string JitRequestUrl()

@@ -656,6 +656,7 @@ public class GameLauncher
     /// <summary>确保某个版本的所有文件都已下载并校验，返回启动所需信息。</summary>
     public async Task<PreparedGame> PrepareAsync(string versionId)
     {
+        MobilePreparing?.Invoke(this);
         Directory.CreateDirectory(McDir);
         await EnsureVersionJsonAsync(versionId);
         var vjson = LoadVersion(versionId);
@@ -930,6 +931,9 @@ public class GameLauncher
         process.StandardInput.Close();
         return process;
     }
+
+    /// <summary>开始下载、检查游戏文件时调用：iOS 趁这段时间去开启 JIT，不用等下载完。</summary>
+    public static Action<GameLauncher> MobilePreparing { get; set; }
 
     /// <summary>手机上由平台层实现：用准备好的文件在游戏进程里启动游戏。</summary>
     public static Func<GameLauncher, PreparedGame, string, LaunchAuth, Task<RunningGame>> MobileStarter { get; set; }

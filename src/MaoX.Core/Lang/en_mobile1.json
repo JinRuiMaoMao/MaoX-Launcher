@@ -60,5 +60,10 @@
   "JIT 已开启": "JIT enabled",
   "版本文件里缺少主类：{0}": "The version file is missing the main class: {0}",
   "找不到启动器窗口": "Can't find the launcher window",
-  "游戏已退出（代码 {0}）": "The game exited (code {0})"
+  "游戏已退出（代码 {0}）": "The game exited (code {0})",
+  "安装新版本时启动器会被关闭，当前的联机房间会断开。": "The launcher will be closed while the new version installs, and the current multiplayer room will be disconnected.",
+  "准备更新": "Prepare update",
+  "已交给安装工具下载新版本，安装完成后重新打开启动器即可": "The installer app is downloading the new version. Reopen the launcher when it's done",
+  "没有找到安装工具": "No installer app found",
+  "iPhone / iPad 上要用 TrollStore、SideStore 或 AltStore 安装新版本。可以到发布页下载 MaoX-Launcher-iOS.ipa，再用安装启动器时的工具重新安装（数据会保留）。": "On iPhone / iPad, new versions are installed with TrollStore, SideStore or AltStore. Download MaoX-Launcher-iOS.ipa from the releases page and install it with the same tool you used before (your data is kept)."
 }

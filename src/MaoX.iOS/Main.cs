@@ -30,6 +30,34 @@ public static class Program
             UIApplication.SharedApplication.OpenUrl(new NSUrl(scheme), new UIApplicationOpenUrlOptions(), null);
             return true;
         };
+        Updater.UrlInstaller = InstallUpdate;
         UIApplication.Main(args, null, typeof(AppDelegate));
+    }
+
+    private static readonly NSObject MainInvoker = new();
+
+    /// <summary>
+    /// TrollStore 安装的用 TrollStore 的链接直接安装；侧载的交给 SideStore / AltStore 下载、重新签名并覆盖安装，数据保留。
+    /// </summary>
+    private static Task<bool> InstallUpdate(string ipaUrl)
+    {
+        var trollStore = Game.GameNative.Available && Game.GameNative.HasEntitlement("jb.pmap_cs.custom_trust");
+        string[] tools = trollStore
+            ? ["apple-magnifier://install?url="]
+            : ["sidestore://install?url=", "altstore://install?url="];
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        MainInvoker.BeginInvokeOnMainThread(() =>
+        {
+            var app = UIApplication.SharedApplication;
+            var tool = tools.FirstOrDefault(t => app.CanOpenUrl(new NSUrl(t[..(t.IndexOf(':') + 3)])));
+            if (tool == null)
+            {
+                tcs.SetResult(false);
+                return;
+            }
+            app.OpenUrl(new NSUrl(tool + Uri.EscapeDataString(ipaUrl)), new UIApplicationOpenUrlOptions(),
+                        ok => tcs.TrySetResult(ok));
+        });
+        return tcs.Task;
     }
 }

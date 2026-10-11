@@ -22,10 +22,17 @@ public static class Updater
         Platform.IsWindows ? "MaoX-Launcher-Windows-x64.exe"
         : Platform.IsMac ? $"MaoX-Launcher-macOS-{(Platform.IsArm ? "arm64" : "x64")}.zip"
         : Platform.IsAndroid ? "MaoX-Launcher-Android.apk"
+        : Platform.IsIOS ? "MaoX-Launcher-iOS.ipa"
         : null;
 
     /// <summary>安卓发布版由宿主设置：把下载好的 APK 交给系统安装程序。</summary>
     public static Action<string> MobileInstaller { get; set; }
+
+    /// <summary>
+    /// iOS 由宿主设置：应用不能替换自己，把安装包地址交给 TrollStore / SideStore / AltStore 下载并覆盖安装。
+    /// 没有装这些工具时返回 false。
+    /// </summary>
+    public static Func<string, Task<bool>> UrlInstaller { get; set; }
 
     /// <summary>运行中的 .app 包路径（不是从 .app 启动时为 null）。</summary>
     public static string AppBundle
@@ -50,7 +57,7 @@ public static class Updater
 #pragma warning disable IL3000
     public static bool CanSelfUpdate =>
         Platform.IsMobile
-            ? AssetName != null && MobileInstaller != null
+            ? AssetName != null && (MobileInstaller != null || UrlInstaller != null)
             : AssetName != null && !string.IsNullOrEmpty(Environment.ProcessPath)
               && (Platform.IsWindows ? string.IsNullOrEmpty(typeof(Updater).Assembly.Location) : AppBundle != null);
 #pragma warning restore IL3000
@@ -139,6 +146,15 @@ public static class Updater
             }
         }
         throw last is DownloadException ? last : new DownloadException(F("下载更新失败：{0}", last?.Message), last);
+    }
+
+    /// <summary>选出最快的下载地址交给 <see cref="UrlInstaller"/>，返回是否成功打开了安装工具。</summary>
+    public static async Task<bool> InstallFromUrlAsync(UpdateInfo info, CancellationToken cancel = default)
+    {
+        if (string.IsNullOrEmpty(info.Url))
+            throw new DownloadException(F("这个版本没有提供 {0}，请到发布页手动下载", info.AssetName));
+        var urls = await RankSourcesAsync(info.Url, cancel);
+        return await UrlInstaller(urls[0]);
     }
 
     /// <summary>GitHub 直连和加速镜像各试下载一小段，按速度排序（都失败的排在最后，仍会尝试）。</summary>

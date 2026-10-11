@@ -43,6 +43,9 @@
   <key>LSApplicationQueriesSchemes</key>
   <array>
     <string>minecraft</string>
+    <string>sidestore</string>
+    <string>altstore</string>
+    <string>apple-magnifier</string>
   </array>
   <!-- 陶瓦联机和同一局域网里的好友直连 -->
   <key>NSLocalNetworkUsageDescription</key>

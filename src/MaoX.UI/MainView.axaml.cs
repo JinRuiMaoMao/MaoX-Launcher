@@ -245,6 +245,11 @@ public partial class MainView : UserControl
 
     private async Task InstallUpdate(UpdateInfo info)
     {
+        if (Updater.UrlInstaller != null)
+        {
+            await InstallUpdateWithTool(info);
+            return;
+        }
         string file = null;
         await RunTask(T("下载更新"), () => Updater.DownloadAsync(info, (done, total) =>
             Progress((int)(done / 1024), (int)Math.Max(1, total / 1024), F("下载新版本 v{0}", info.Version))), path => file = path);
@@ -267,6 +272,27 @@ public partial class MainView : UserControl
         // 手机上由系统安装程序接手，安装时会自动结束启动器
         if (!Platform.IsMobile)
             ExitApp();
+    }
+
+    /// <summary>iOS：由 TrollStore / SideStore / AltStore 下载安装包并覆盖安装，启动器的数据会保留。</summary>
+    private async Task InstallUpdateWithTool(UpdateInfo info)
+    {
+        if (MultiplayerPage.InRoom
+            && !await Confirm(T("更新启动器"), T("安装新版本时启动器会被关闭，当前的联机房间会断开。"), T("继续更新")))
+            return;
+        SaveSettings();
+        Cfg.Save();
+        var opened = false;
+        await RunTask(T("准备更新"), () => Updater.InstallFromUrlAsync(info), ok => opened = ok);
+        if (opened)
+        {
+            Toast(T("已交给安装工具下载新版本，安装完成后重新打开启动器即可"));
+            return;
+        }
+        if (await Dialog(T("没有找到安装工具"),
+                         T("iPhone / iPad 上要用 TrollStore、SideStore 或 AltStore 安装新版本。可以到发布页下载 MaoX-Launcher-iOS.ipa，再用安装启动器时的工具重新安装（数据会保留）。"),
+                         "warn", (T("打开发布页"), "page", "primary"), (T("关闭"), "close", "")) is "page")
+            Platform.OpenUrl(info.PageUrl);
     }
 
     private static string PlatformLabel() =>
