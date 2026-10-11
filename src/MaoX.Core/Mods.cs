@@ -407,6 +407,74 @@ public static partial class Mods
         return (name, version);
     }
 
+    /// <summary>读取模组、资源包或光影包的图标 PNG（jar / zip / 文件夹），没有时返回 null。</summary>
+    public static byte[] ReadIcon(string path)
+    {
+        const int maxBytes = 1 << 20;
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                var png = System.IO.Path.Combine(path, "pack.png");
+                return File.Exists(png) && new FileInfo(png).Length < maxBytes ? File.ReadAllBytes(png) : null;
+            }
+            using var zip = ZipFile.OpenRead(path);
+
+            string Read(string member)
+            {
+                var entry = zip.GetEntry(member);
+                if (entry == null)
+                    return null;
+                using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
+                return reader.ReadToEnd();
+            }
+
+            // fabric / quilt 的 icon 可以是路径，也可以是 {"尺寸": 路径}，取不超过 128 的最大尺寸
+            static string PickIcon(JsonNode icon)
+            {
+                if (icon is JsonValue value && value.TryGetValue<string>(out var single))
+                    return single;
+                if (icon is not JsonObject sizes || sizes.Count == 0)
+                    return null;
+                var ordered = sizes.Select(p => (Size: int.TryParse(p.Key, out var n) ? n : 0, Path: p.Value?.ToString()))
+                                   .OrderBy(p => p.Size).ToList();
+                return (ordered.LastOrDefault(p => p.Size <= 128).Path ?? ordered[0].Path);
+            }
+
+            var candidates = new List<string>();
+            if (Read("fabric.mod.json") is { } fabric)
+                candidates.Add(PickIcon(ParseLenient(fabric)?["icon"]));
+            if (Read("quilt.mod.json") is { } quilt)
+                candidates.Add(PickIcon(ParseLenient(quilt)?["quilt_loader"]?["metadata"]?["icon"]));
+            foreach (var toml in new[] { "META-INF/neoforge.mods.toml", "META-INF/mods.toml" })
+                if (Read(toml) is { } text)
+                    candidates.Add(TomlValue(text, "logoFile"));
+            if (Read("mcmod.info") is { } info)
+            {
+                var data = ParseLenient(info);
+                var entries = data is JsonObject ? data.Arr("modList") : data as JsonArray;
+                if (entries?.Count > 0)
+                    candidates.Add(entries[0].Str("logoFile"));
+            }
+            candidates.Add("pack.png");
+            foreach (var name in candidates.Where(c => !string.IsNullOrWhiteSpace(c)))
+            {
+                var entry = zip.GetEntry(name.TrimStart('/', '.').TrimStart('/'));
+                if (entry == null || entry.Length == 0 || entry.Length > maxBytes)
+                    continue;
+                using var stream = entry.Open();
+                using var buffer = new MemoryStream();
+                stream.CopyTo(buffer);
+                return buffer.ToArray();
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException
+                                      or JsonException or InvalidOperationException or ArgumentException)
+        {
+        }
+        return null;
+    }
+
     private static List<string> SortedEntries(string folder) =>
         Directory.EnumerateFileSystemEntries(folder).Select(Path.GetFileName)
             .OrderBy(f => f.ToLowerInvariant(), StringComparer.Ordinal).ToList();

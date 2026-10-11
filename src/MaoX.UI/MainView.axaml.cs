@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -81,7 +82,14 @@ public partial class MainView : UserControl
         InitAccounts();
         VersionText.Text = "v" + Mc.LauncherVersion + "  ·  " + PlatformLabel();
         ApplyLayout(false);
-        SizeChanged += (_, e) => ApplyLayout(e.NewSize.Width < 960 || e.NewSize.Height < 560);
+        SizeChanged += (_, e) =>
+        {
+            ApplyLayout(e.NewSize.Width < 960 || e.NewSize.Height < 560);
+            // 手机横屏高度不够放下 Logo + 五个导航按钮 + 头像，先收起 Logo
+            Brand.IsVisible = !(Compact && e.NewSize.Height < 440);
+            NavScroll.Margin = new Thickness(0, Brand.IsVisible ? 0 : 12, 0, 0);
+        };
+        PageScroll.SizeChanged += (_, _) => UpdatePageScroll();
         AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
         if (Platform.IsMobile)
         {
@@ -348,6 +356,24 @@ public partial class MainView : UserControl
         var side = compact ? 14 : Platform.IsMobile ? 28 : 36;
         PageHost.Margin = new Thickness(side, compact ? 10 : Platform.IsMobile ? 24 : 46, side, compact ? 4 : 8);
         StatusBar.Margin = new Thickness(side, compact ? 2 : 4, side - 6, compact ? 4 : 8);
+        UpdatePageScroll();
+    }
+
+    /// <summary>列表类页面放不下时的最小高度（设置页和启动页自己能滚动/能放下，不需要）。</summary>
+    private static readonly Dictionary<string, double> MinPageHeight = new()
+    {
+        ["download"] = 470, ["resources"] = 520, ["multiplayer"] = 470,
+    };
+
+    private void UpdatePageScroll()
+    {
+        var viewport = PageScroll.Bounds.Height - PageHost.Margin.Top - PageHost.Margin.Bottom;
+        var need = _currentPage != null && MinPageHeight.TryGetValue(_currentPage, out var h) ? h : 0;
+        var scroll = viewport > 0 && viewport < need;
+        PageScroll.VerticalScrollBarVisibility = scroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+        PageHost.Height = scroll ? need : double.NaN;
+        if (!scroll)
+            PageScroll.Offset = default;
     }
 
     // ------------------------------------------------------------------ 页面
@@ -363,6 +389,8 @@ public partial class MainView : UserControl
             child.IsChecked = (string)child.Tag == key;
         var page = _pages[key];
         PageHost.Content = page;
+        PageScroll.Offset = default;
+        UpdatePageScroll();
         (page as IPage)?.OnShow();
     }
 
@@ -551,7 +579,10 @@ public partial class MainView : UserControl
         {
             Classes = { "dialog" },
             Width = view.DialogWidth,
-            Child = view,
+            // 内容超出屏幕高度时（手机横屏）可以滚动；自己管理滚动的对话框不再套一层
+            Child = view.ScrollsItself || view.Content is ScrollViewer
+                ? view
+                : new ScrollViewer { Content = view, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled },
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             Opacity = 0,
@@ -569,7 +600,12 @@ public partial class MainView : UserControl
         card[!MaxHeightProperty] = new Avalonia.Data.Binding("Bounds.Height")
         {
             Source = this,
-            Converter = new Avalonia.Data.Converters.FuncValueConverter<double, double>(h => Math.Max(200, h - 80)),
+            Converter = new Avalonia.Data.Converters.FuncValueConverter<double, double>(h => Math.Max(200, h - (Compact ? 20 : 80))),
+        };
+        card[!MaxWidthProperty] = new Avalonia.Data.Binding("Bounds.Width")
+        {
+            Source = this,
+            Converter = new Avalonia.Data.Converters.FuncValueConverter<double, double>(w => Math.Max(280, w - 24)),
         };
         var backdrop = new Border
         {
@@ -589,7 +625,8 @@ public partial class MainView : UserControl
             card.RenderTransform = TransformOperations.Parse("scale(1)");
             var inputs = view.GetVisualDescendants().OfType<InputElement>()
                              .Where(c => c.Focusable && c.IsEffectivelyEnabled && c.IsEffectivelyVisible).ToList();
-            var focus = inputs.FirstOrDefault(c => c is TextBox) ?? inputs.FirstOrDefault();
+            var focus = (view.AutoFocusText ? inputs.FirstOrDefault(c => c is TextBox) : null)
+                        ?? inputs.FirstOrDefault(c => c is not TextBox);
             focus?.Focus();
             view.OnOpened();
         }, DispatcherPriority.Background);

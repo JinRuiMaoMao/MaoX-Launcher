@@ -59,6 +59,7 @@ public class ModVersionsDialog : DialogView
         _changed = changed;
         DialogWidth = 780;
         MaxHeight = 760;
+        ScrollsItself = true;
 
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
         root.Children.Add(Header(icon));
@@ -69,7 +70,7 @@ public class ModVersionsDialog : DialogView
 
         _scroll = new ScrollViewer
         {
-            Content = _list, MinHeight = 300, Margin = new Thickness(0, 12, -14, 0), Padding = new Thickness(0, 0, 14, 0),
+            Content = _list, MinHeight = MainView.Current?.Compact == true ? 120 : 300, Margin = new Thickness(0, 12, -14, 0), Padding = new Thickness(0, 0, 14, 0),
         };
         Grid.SetRow(_scroll, 2);
         root.Children.Add(_scroll);

@@ -41,6 +41,7 @@ public class VersionDialog : DialogView
     public VersionDialog(string version)
     {
         _version = version;
+        AutoFocusText = false;
         _gl = Main.MakeLauncher();
         _settings = _gl.VersionSettings(version);
         DialogWidth = 780;
@@ -125,6 +126,12 @@ public class VersionDialog : DialogView
         Grid.SetColumn(folderCard, 2);
         top.Children.Add(folderCard);
         root.Children.Add(top);
+
+        // 模组 / 资源包 / 光影包
+        var modded = Mods.ModLoaders.Contains(_gl.DetectLoader(version).Loader);
+        var files = new VersionFilesCard(GameDir, modded) { Margin = new Thickness(0, 14, 0, 0) };
+        _isolation.IsCheckedChanged += (_, _) => files.Reload();
+        root.Children.Add(files);
 
         // 存档
         var worldScroll = new ScrollViewer { Content = _worlds, MaxHeight = 200, Padding = new Thickness(0, 0, 8, 0) };

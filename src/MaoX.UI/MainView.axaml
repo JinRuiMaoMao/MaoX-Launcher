@@ -38,6 +38,7 @@
           <c:PawTrail Name="SidebarPaws" DockPanel.Dock="Bottom" Width="180" Height="190" HorizontalAlignment="Center"
                       Margin="0,0,0,14" Opacity="0.08" IsHitTestVisible="False" Foreground="{StaticResource Text}" />
 
+          <ScrollViewer Name="NavScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Name="Nav" Spacing="4">
             <RadioButton Classes="nav" GroupName="nav" Tag="launch" Click="OnNavClick">
               <c:IconLabel Icon="play" Text="{c:Tr 启动}" Spacing="14" HorizontalAlignment="Left" />
@@ -55,11 +56,14 @@
               <c:IconLabel Icon="settings" Text="{c:Tr 设置}" Spacing="14" HorizontalAlignment="Left" />
             </RadioButton>
           </StackPanel>
+          </ScrollViewer>
         </DockPanel>
       </Border>
 
       <!-- 内容区 -->
       <Grid Grid.Column="1" RowDefinitions="*,Auto">
+        <!-- 屏幕太矮（手机横屏）时页面按最小高度排版，可以上下滑动 -->
+        <ScrollViewer Name="PageScroll" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled">
         <TransitioningContentControl Name="PageHost" Margin="36,46,36,8">
           <TransitioningContentControl.PageTransition>
             <CompositePageTransition>
@@ -69,6 +73,7 @@
             </CompositePageTransition>
           </TransitioningContentControl.PageTransition>
         </TransitioningContentControl>
+        </ScrollViewer>
 
         <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
           <c:ProgressLine Name="ProgressBar" Height="2" />

@@ -34,5 +34,14 @@
   "这个平台还不能运行 Java 安装程序": "Running Java installers is not supported on this platform yet",
   "请先退出游戏再安装": "Please quit the game before installing",
   "iPhone / iPad 暂不支持陶瓦联机": "Terracotta multiplayer is not available on iPhone / iPad yet",
-  "陶瓦联机需要 VPN 权限，iOS 上暂时无法使用。可以在上方的“服务器”标签里加入服务器。": "Terracotta needs VPN access, which isn't available on iOS yet. You can join servers from the \"Servers\" tab above."
+  "陶瓦联机需要 VPN 权限，iOS 上暂时无法使用。可以在上方的“服务器”标签里加入服务器。": "Terracotta needs VPN access, which isn't available on iOS yet. You can join servers from the \"Servers\" tab above.",
+  "导入": "Import",
+  "模组与资源": "Mods & resources",
+  "资源包与光影": "Resource packs & shaders",
+  "没有找到匹配的内容": "Nothing matches your search",
+  "还没有{0}。可以在「资源」页下载，或者点「导入」添加文件": "No {0} yet. Download some on the Resources page, or tap Import to add files",
+  "已禁用": "Disabled",
+  "导入{0}": "Import {0}",
+  "导入 {0} 失败：{1}": "Failed to import {0}: {1}",
+  "已导入 {0} 个文件": "Imported {0} file(s)"
 }

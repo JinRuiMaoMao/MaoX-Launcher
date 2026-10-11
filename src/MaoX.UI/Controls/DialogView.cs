@@ -14,6 +14,12 @@ public class DialogView : UserControl
     /// <summary>对话框卡片的宽度。</summary>
     public double DialogWidth { get; set; } = 480;
 
+    /// <summary>内容里自带填满高度的滚动列表时设为 true，显示时就不再外套滚动容器。</summary>
+    public bool ScrollsItself { get; set; }
+
+    /// <summary>打开时是否自动聚焦第一个输入框（手机上会弹出软键盘）。</summary>
+    public bool AutoFocusText { get; set; } = true;
+
     /// <summary>按 Esc 或点击遮罩时是否允许关闭（返回 null）。</summary>
     public bool Dismissible { get; set; } = true;
 

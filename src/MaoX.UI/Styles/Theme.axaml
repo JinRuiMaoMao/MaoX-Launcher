@@ -242,6 +242,9 @@
     <Setter Property="Padding" Value="28,26" />
     <Setter Property="BoxShadow" Value="0 24 64 0 #A0000000" />
   </Style>
+  <Style Selector=".compact Border.dialog">
+    <Setter Property="Padding" Value="20,16" />
+  </Style>
   <Style Selector="Border.toast">
     <Setter Property="Background" Value="{StaticResource ToastBg}" />
     <Setter Property="BorderBrush" Value="{StaticResource ToastBorder}" />
