@@ -1,0 +1,21 @@
+{
+  "Java 版": "Java Edition",
+  "Minecraft 基岩版": "Minecraft: Bedrock Edition",
+  "基岩版": "Bedrock",
+  "Minecraft 预览版": "Minecraft Preview",
+  "预览版": "Preview",
+  "地下城": "Dungeons",
+  "地下城 II": "Dungeons II",
+  "传奇": "Legends",
+  "Minecraft 教育版": "Minecraft Education",
+  "教育版": "Education",
+  "安装来源": "Installed from",
+  "打开存档文件夹": "Open save folder",
+  "获取游戏": "Get game",
+  "这台设备上还没有安装，点「获取游戏」前往应用商店": "Not installed on this device. Tap \"Get game\" to open the app store.",
+  "这台电脑上还没有安装，点「获取游戏」前往商店": "Not installed on this computer. Click \"Get game\" to open the store.",
+  "启动 {0} 失败：{1}": "Failed to launch {0}: {1}",
+  "已启动 {0}（{1}）": "Launched {0} ({1})",
+  "正在启动 {0}": "Launching {0}",
+  "无法打开这个应用": "Couldn't open this app"
+}

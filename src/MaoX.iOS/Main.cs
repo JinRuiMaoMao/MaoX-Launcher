@@ -22,6 +22,13 @@ public static class Program
         I18n.SetLanguage(LauncherConfig.Load().Language);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => App.WriteCrashLog(e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
+        // 基岩版注册了 minecraft:// 链接，能打开就说明装了（Info.plist 里要声明 LSApplicationQueriesSchemes）
+        MojangGames.MobileProbe = scheme => UIApplication.SharedApplication.CanOpenUrl(new NSUrl(scheme)) ? "" : null;
+        MojangGames.MobileLaunch = scheme =>
+        {
+            UIApplication.SharedApplication.OpenUrl(new NSUrl(scheme), new UIApplicationOpenUrlOptions(), null);
+            return true;
+        };
         UIApplication.Main(args, null, typeof(AppDelegate));
     }
 }

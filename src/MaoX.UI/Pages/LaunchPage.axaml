@@ -11,15 +11,25 @@
                 BarBrush="{StaticResource WatermarkBar}" CrossBrush="{StaticResource WatermarkCross}" />
 
         <DockPanel Name="HeroDock">
-          <StackPanel DockPanel.Dock="Top" Spacing="2">
-            <TextBlock Text="READY  TO  PLAY" Classes="overline" />
-            <TextBlock Name="HeroTitle" Classes="hero" Margin="0,4,0,0" />
-            <TextBlock Name="HeroMeta" Classes="muted" />
-          </StackPanel>
+          <!-- Java 版 / 基岩版 / 地下城 / 传奇… -->
+          <ScrollViewer Name="GameTabsScroll" DockPanel.Dock="Top" IsVisible="False"
+                        HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+            <StackPanel Name="GameTabs" Orientation="Horizontal" Spacing="8" />
+          </ScrollViewer>
+
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*">
+            <Image Name="GameLogo" Width="72" Height="72" Margin="0,0,18,0" IsVisible="False"
+                   VerticalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality" />
+            <StackPanel Grid.Column="1" Spacing="2">
+              <TextBlock Name="HeroOverline" Text="READY  TO  PLAY" Classes="overline" />
+              <TextBlock Name="HeroTitle" Classes="hero" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+              <TextBlock Name="HeroMeta" Classes="muted" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Grid>
 
           <!-- 放不下时（平板竖屏等）启动按钮换到下一行 -->
           <WrapPanel Name="HeroControls" ItemSpacing="14" LineSpacing="12" VerticalAlignment="Bottom">
-            <StackPanel Spacing="7" VerticalAlignment="Bottom">
+            <StackPanel Name="AccountPanel" Spacing="7" VerticalAlignment="Bottom">
               <TextBlock Text="{c:Tr 账号}" Classes="label" />
               <Button Name="AccountPicker" Height="38" Padding="8,0,12,0" Background="{StaticResource Input}"
                       BorderBrush="{StaticResource InputBorder}" HorizontalContentAlignment="Stretch"
@@ -37,7 +47,12 @@
               </Button>
             </StackPanel>
 
-            <StackPanel Spacing="7" VerticalAlignment="Bottom">
+            <StackPanel Name="SourcePanel" Spacing="7" VerticalAlignment="Bottom" IsVisible="False">
+              <TextBlock Text="{c:Tr 安装来源}" Classes="label" />
+              <ComboBox Name="SourceBox" Height="38" MinWidth="200" />
+            </StackPanel>
+
+            <StackPanel Name="VersionPanel" Spacing="7" VerticalAlignment="Bottom">
               <TextBlock Text="{c:Tr 游戏版本}" Classes="label" />
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <ComboBox Name="VersionBox" Height="38" PlaceholderText="{c:Tr 未安装任何版本}"
@@ -55,6 +70,10 @@
               <Button Name="StopButton" Classes="icon danger" Width="46" Height="46" IsVisible="False"
                       ToolTip.Tip="{c:Tr 结束游戏进程}" Click="OnStopClick">
                 <c:Icon Kind="stop" Size="18" />
+              </Button>
+              <Button Name="DataButton" Classes="icon" Width="46" Height="46" IsVisible="False"
+                      ToolTip.Tip="{c:Tr 打开存档文件夹}" Click="OnOpenGameData">
+                <c:Icon Kind="folder" Size="18" />
               </Button>
             </StackPanel>
           </WrapPanel>

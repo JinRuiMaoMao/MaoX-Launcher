@@ -2,10 +2,13 @@ using System.Collections.Concurrent;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using MaoX.Controls;
 using MaoX.Core;
 using static MaoX.Core.I18n;
 
@@ -29,6 +32,14 @@ public partial class LaunchPage : UserControl, IPage
     private readonly ConcurrentQueue<LogLine> _pending = new();
     private bool _updatingVersions;
 
+    // 其他 Mojang 游戏
+    private string _game;
+    private Dictionary<string, List<GameInstall>> _installs = [];
+    private readonly Dictionary<string, Bitmap> _logos = [];
+    private int _detectId;
+    private bool _detected;
+    private bool _otherLaunching;
+
     private static MainView Main => MainView.Current;
 
     public LaunchPage()
@@ -38,16 +49,166 @@ public partial class LaunchPage : UserControl, IPage
         LogList.ItemsSource = _lines;
         new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Background, (_, _) => FlushLog()).Start();
 
+        _game = Main.Cfg.SelectedGame;
         Main.AccountChanged += UpdateAccount;
         Main.VersionsChanged += UpdateVersions;
         Main.SelectedVersionChanged += UpdateHero;
         Main.BusyChanged += _ => UpdateLaunchButton();
         UpdateAccount();
+        BuildGameTabs();
     }
 
     public void OnShow()
     {
         UpdateHero();
+        DetectGames();
+    }
+
+    // ------------------------------------------------------------------ 其他 Mojang 游戏
+
+    private List<GameInstall> Installs(string id) => _installs.GetValueOrDefault(id) ?? [];
+
+    /// <summary>当前选中的非 Java 游戏，选的是 Java 版时为 null。</summary>
+    public MojangGame OtherGame => MojangGames.Find(_game);
+
+    /// <summary>重新检测本机装了哪些游戏（切回启动页、点切换按钮时调用）。</summary>
+    public async void DetectGames()
+    {
+        var id = ++_detectId;
+        // 手机上查询其他应用要在主线程
+        var result = Platform.IsMobile ? MojangGames.DetectAll() : await Task.Run(MojangGames.DetectAll);
+        if (id != _detectId)
+            return;
+        _installs = result;
+        _detected = true;
+        BuildGameTabs();
+        UpdateHero();
+    }
+
+    private void BuildGameTabs()
+    {
+        var games = new List<(string Id, string Name, string Icon)> { ("java", T("Java 版"), "java") };
+        foreach (var game in MojangGames.All.Where(MojangGames.Supported))
+        {
+            // 电脑上 Steam 版只在装了的时候显示（macOS / Linux 没有这些游戏的原生版本）
+            var listed = Platform.IsWindows || Platform.IsMobile;
+            if (Installs(game.Id).Count > 0 || (listed && !game.HiddenUnlessInstalled))
+                games.Add((game.Id, game.ShortName, game.Icon));
+        }
+        if (games.All(g => g.Id != _game))
+        {
+            // 检测完成前先保留上次选的游戏（比如预览版），检测完还没有才退回 Java 版
+            if (_detected || MojangGames.Find(_game) is not { } kept || !MojangGames.Supported(kept))
+                _game = "java";
+            else
+                games.Add((kept.Id, kept.ShortName, kept.Icon));
+        }
+
+        GameTabs.Children.Clear();
+        foreach (var (id, name, icon) in games)
+        {
+            var tab = new ToggleButton
+            {
+                Classes = { "chip" },
+                Tag = id,
+                IsChecked = id == _game,
+                Content = new IconLabel { Icon = icon, Text = name, IconSize = 15, Spacing = 7 },
+            };
+            tab.Click += (_, _) => SelectGame(id);
+            GameTabs.Children.Add(tab);
+        }
+        GameTabsScroll.IsVisible = games.Count > 1;
+    }
+
+    public void SelectGame(string id, bool remember = true)
+    {
+        _game = id;
+        foreach (var tab in GameTabs.Children.OfType<ToggleButton>())
+            tab.IsChecked = (string)tab.Tag == id;
+        if (remember)
+        {
+            Main.Cfg.SelectedGame = id;
+            Main.Cfg.Save();
+        }
+        UpdateHero();
+        DetectGames();
+    }
+
+    private void UpdateOtherHero(MojangGame game)
+    {
+        var installs = Installs(game.Id);
+        HeroOverline.Text = installs.Count > 0 ? "READY  TO  PLAY" : "NOT  INSTALLED";
+        HeroTitle.Text = game.Name;
+        HeroMeta.Text = installs.Count > 0
+            ? string.Join("  ·  ", installs.Select(i => i.ToString()))
+            : Platform.IsMobile ? T("这台设备上还没有安装，点「获取游戏」前往应用商店")
+            : T("这台电脑上还没有安装，点「获取游戏」前往商店");
+
+        var previous = SourceBox.SelectedItem as GameInstall;
+        SourceBox.ItemsSource = installs;
+        SourceBox.SelectedItem = installs.FirstOrDefault(i => i.Game == previous?.Game && i.Source == previous?.Source)
+                                 ?? installs.FirstOrDefault();
+        SourcePanel.IsVisible = installs.Count > 1;
+        DataButton.IsVisible = game.DataDir != null;
+
+        var logo = installs.Select(i => i.IconPath).FirstOrDefault(p => p != null);
+        GameLogo.Source = LoadLogo(logo);
+        GameLogo.IsVisible = GameLogo.Source != null;
+    }
+
+    private Bitmap LoadLogo(string path)
+    {
+        if (path == null)
+            return null;
+        if (_logos.TryGetValue(path, out var cached))
+            return cached;
+        try
+        {
+            return _logos[path] = new Bitmap(path);
+        }
+        catch (Exception)
+        {
+            return _logos[path] = null;
+        }
+    }
+
+    private void LaunchOther(MojangGame game)
+    {
+        var installs = Installs(game.Id);
+        if (installs.Count == 0)
+        {
+            Platform.OpenUrl(game.GetUrl);
+            return;
+        }
+        var install = SourceBox.SelectedItem as GameInstall ?? installs[0];
+        try
+        {
+            MojangGames.Launch(install);
+        }
+        catch (Exception e)
+        {
+            Main.Log(F("启动 {0} 失败：{1}", game.Name, e.Message), "error");
+            Main.Toast(F("启动 {0} 失败：{1}", game.Name, e.Message), "error");
+            return;
+        }
+        Main.Log(F("已启动 {0}（{1}）", game.Name, install.ToString()), "success");
+        Main.Toast(F("正在启动 {0}", game.Name));
+        // 游戏由系统启动，启动器拿不到进程，按钮先禁用几秒防止连点开出多个
+        _otherLaunching = true;
+        UpdateLaunchButton();
+        DispatcherTimer.RunOnce(() =>
+        {
+            _otherLaunching = false;
+            UpdateLaunchButton();
+        }, TimeSpan.FromSeconds(4));
+        if (Main.Cfg.AfterLaunch != "keep" && TopLevel.GetTopLevel(this) is Window window)
+            window.WindowState = WindowState.Minimized;
+    }
+
+    private void OnOpenGameData(object sender, RoutedEventArgs e)
+    {
+        if (OtherGame?.DataDir is { } dir)
+            Platform.OpenPath(dir);
     }
 
     // ------------------------------------------------------------------ 日志
@@ -146,6 +307,17 @@ public partial class LaunchPage : UserControl, IPage
             VersionBox.SelectedItem = version;
             _updatingVersions = false;
         }
+
+        var other = OtherGame;
+        AccountPanel.IsVisible = VersionPanel.IsVisible = other == null;
+        UpdateLaunchButton();
+        if (other != null)
+        {
+            UpdateOtherHero(other);
+            return;
+        }
+        HeroOverline.Text = "READY  TO  PLAY";
+        SourcePanel.IsVisible = DataButton.IsVisible = GameLogo.IsVisible = false;
         if (string.IsNullOrEmpty(version))
         {
             HeroTitle.Text = T("还没有游戏版本");
@@ -169,7 +341,13 @@ public partial class LaunchPage : UserControl, IPage
 
     // ------------------------------------------------------------------ 启动
 
-    private void OnLaunchClick(object sender, RoutedEventArgs e) => Main.Launch();
+    private void OnLaunchClick(object sender, RoutedEventArgs e)
+    {
+        if (OtherGame is { } game)
+            LaunchOther(game);
+        else
+            Main.Launch();
+    }
 
     private async void OnStopClick(object sender, RoutedEventArgs e)
     {
@@ -181,6 +359,16 @@ public partial class LaunchPage : UserControl, IPage
 
     private void UpdateLaunchButton()
     {
+        if (OtherGame is { } game)
+        {
+            var installed = Installs(game.Id).Count > 0;
+            LaunchButton.IsEnabled = !_otherLaunching;
+            LaunchLabel.Icon = installed ? "play" : "external";
+            LaunchLabel.Text = !installed ? T("获取游戏") : _otherLaunching ? T("正在启动…") : T("启动游戏");
+            StopButton.IsVisible = false;
+            return;
+        }
+        LaunchLabel.Icon = "play";
         LaunchButton.IsEnabled = !Main.Launching;
         LaunchLabel.Text = Main.Launching ? T("正在启动…") : T("启动游戏");
         StopButton.IsVisible = Main.GameRunning;

@@ -81,6 +81,8 @@ public class LauncherConfig
     public bool VersionIsolation { get; set; } = true;
     public string JvmArgs { get; set; } = "";
     public string LastVersion { get; set; } = "";
+    /// <summary>启动页选中的游戏：java 或 MojangGames 里的 Id</summary>
+    public string SelectedGame { get; set; } = "java";
     public List<Account> Accounts { get; set; } = [];
     public int AccountIndex { get; set; }
     public string MsaClientId { get; set; } = "";

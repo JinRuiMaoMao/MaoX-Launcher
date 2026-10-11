@@ -39,6 +39,11 @@
   <true/>
   <key>LSSupportsOpeningDocumentsInPlace</key>
   <true/>
+  <!-- 启动页检测、打开基岩版 -->
+  <key>LSApplicationQueriesSchemes</key>
+  <array>
+    <string>minecraft</string>
+  </array>
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
   <key>NSAppTransportSecurity</key>

@@ -34,11 +34,35 @@ public class MainActivity : AvaloniaMainActivity<App>
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
         GameHost.Install(this);
         Terracotta.Mobile = _terracotta = new AndroidTerracotta(this);
+        MojangGames.MobileProbe = ProbeApp;
+        MojangGames.MobileLaunch = LaunchApp;
 #if !DEBUG
         // 调试版的签名和发布版不同，不能覆盖安装
         Updater.MobileInstaller = ApkInstaller.Install;
 #endif
         base.OnCreate(savedInstanceState);
+    }
+
+    private string ProbeApp(string package)
+    {
+        try
+        {
+            return PackageManager!.GetPackageInfo(package, 0)?.VersionName ?? "";
+        }
+        catch (global::Android.Content.PM.PackageManager.NameNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private bool LaunchApp(string package)
+    {
+        var intent = PackageManager!.GetLaunchIntentForPackage(package);
+        if (intent == null)
+            return false;
+        intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+        StartActivity(intent);
+        return true;
     }
 
     // 切回应用、旋转或分屏后系统会把状态栏放出来，拿到焦点时重新隐藏

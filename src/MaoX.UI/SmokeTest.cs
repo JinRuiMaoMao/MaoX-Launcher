@@ -126,6 +126,25 @@ internal static class SmokeTest
             });
         }
 
+        await Check("mojang games", async () =>
+        {
+            var timer = Stopwatch.StartNew();
+            var found = await Task.Run(MojangGames.DetectAll);
+            var elapsed = timer.ElapsedMilliseconds;
+            window.ShowPage("launch");
+            var games = MojangGames.All.Where(MojangGames.Supported).ToList();
+            foreach (var game in games.Where(g => found[g.Id].Count > 0 || !g.HiddenUnlessInstalled))
+            {
+                window.LaunchPage.SelectGame(game.Id, remember: false);
+                await Task.Delay(800);
+                Screenshot(window, Path.Combine(output, $"game-{game.Id}.png"));
+            }
+            window.LaunchPage.SelectGame("java", remember: false);
+            var installed = games.Where(g => found[g.Id].Count > 0)
+                                 .Select(g => $"{g.Id}=[{string.Join(", ", found[g.Id])}]").ToList();
+            return $"{games.Count} supported, detected in {elapsed}ms: " + (installed.Count == 0 ? "none installed" : string.Join("; ", installed));
+        });
+
         await Check("server list", async () =>
         {
             // 只加在内存里，不写入配置
