@@ -44,6 +44,9 @@
   <array>
     <string>minecraft</string>
   </array>
+  <!-- 陶瓦联机和同一局域网里的好友直连 -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>陶瓦联机需要访问局域网，才能和同一网络里的好友直接连接。</string>
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
   <key>NSAppTransportSecurity</key>

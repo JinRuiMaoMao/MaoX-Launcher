@@ -247,8 +247,8 @@ public partial class MultiplayerPage : UserControl, IPage
         _signature = signature;
         Body.Content = (state != null ? state.Str("state", "unknown") : _phase) switch
         {
-            "unsupported" when Platform.IsIOS => CenterCard("error", T("iPhone / iPad 暂不支持陶瓦联机"),
-                                                            T("陶瓦联机需要 VPN 权限，iOS 上暂时无法使用。可以在上方的“服务器”标签里加入服务器。"), "Warn"),
+            "unsupported" when Platform.IsIOS => CenterCard("error", T("这个安装包没有带陶瓦联机组件"),
+                                                            T("请到 GitHub Releases 下载最新的 MaoX-Launcher-iOS.ipa。暂时可以在上方的“服务器”标签里加入服务器。"), "Warn"),
             "unsupported" when Platform.IsMobile => CenterCard("error", T("手机版联机还在开发中"),
                                                                T("暂时可以在上方的“服务器”标签里加入服务器。"), "Warn"),
             "unsupported" => CenterCard("error", T("当前系统暂不支持联机"),
@@ -256,6 +256,12 @@ public partial class MultiplayerPage : UserControl, IPage
             "missing" => MissingView(),
             "fatal" => CenterCard("error", T("联机服务出现问题"), _error, "Error", MakeButton(T("重试"), "primary", "refresh", Retry)),
             "waiting" => WaitingView(),
+            // iOS 上游戏会盖住启动器且不能切回来：先在这里等着，再启动游戏，邀请码显示在游戏画面顶部
+            "host-scanning" when Platform.IsIOS => CenterCard("game", T("正在等待对局域网开放的世界…"),
+                                                              T("现在点「启动游戏」，进入单人世界后点「暂停」→「对局域网开放」→「创建局域网世界」。\n房间创建后，邀请码会显示在游戏画面顶部。"),
+                                                              "Accent",
+                                                              Actions(MakeButton(T("启动游戏"), "primary", "play", () => Main.Launch()),
+                                                                      MakeButton(T("取消"), null, null, LeaveRoom)), true),
             "host-scanning" => CenterCard("game", T("正在寻找对局域网开放的世界…"),
                                           Platform.IsMobile
                                               ? T("请在游戏中点「暂停」，选择「对局域网开放」并点击「创建局域网世界」。\n检测到之后会自动创建房间。")
@@ -372,12 +378,16 @@ public partial class MultiplayerPage : UserControl, IPage
     private Control WaitingView()
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,20,*") };
-        var host = Column("game", T("创建房间"), T("我是房主，邀请好友来我的世界"),
-                          Steps(T("启动游戏，进入一个单人世界"),
-                                Platform.IsMobile
-                                    ? T("点「暂停」打开菜单，选择「对局域网开放」，再点「创建局域网世界」")
-                                    : T("按 Esc 打开菜单，选择「对局域网开放」，再点「创建局域网世界」"),
-                                T("回到这里点击「创建房间」，把邀请码发给好友")),
+        var steps = Platform.IsIOS
+            ? Steps(T("先点下面的「创建房间」，再启动游戏进入一个单人世界"),
+                    T("点「暂停」打开菜单，选择「对局域网开放」，再点「创建局域网世界」"),
+                    T("游戏画面顶部会显示邀请码，点一下复制，发给好友"))
+            : Steps(T("启动游戏，进入一个单人世界"),
+                    Platform.IsMobile
+                        ? T("点「暂停」打开菜单，选择「对局域网开放」，再点「创建局域网世界」")
+                        : T("按 Esc 打开菜单，选择「对局域网开放」，再点「创建局域网世界」"),
+                    T("回到这里点击「创建房间」，把邀请码发给好友"));
+        var host = Column("game", T("创建房间"), T("我是房主，邀请好友来我的世界"), steps,
                           MakeButton(T("创建房间"), "primary", "people", CreateRoom));
         grid.Children.Add(host);
         var guestBody = new StackPanel { Spacing = 7 };
@@ -465,7 +475,9 @@ public partial class MultiplayerPage : UserControl, IPage
         var inner = Hero(root, "CONNECTED", url);
         inner.Children.Add(new TextBlock
         {
-            Text = T("已加入房间。在游戏「多人游戏」列表中会出现「陶瓦联机大厅」，也可以直接连接上面的地址。"),
+            Text = Platform.IsIOS
+                ? T("已加入房间。点「启动游戏并进入」会直接连接房主的世界，也可以在游戏里直接连接上面的地址。")
+                : T("已加入房间。在游戏「多人游戏」列表中会出现「陶瓦联机大厅」，也可以直接连接上面的地址。"),
             Classes = { "muted", "wrap" },
         });
         inner.Children.Add(Actions(MakeButton(T("启动游戏并进入"), "primary", "play", () => Main.Launch(url)),

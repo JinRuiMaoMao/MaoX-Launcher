@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Foundation;
 using MaoX.Core;
 using UIKit;
@@ -25,6 +26,7 @@ internal static class GameHost
     public static void Install()
     {
         GameLauncher.MobileStarter = StartAsync;
+        Terracotta.Mobile = IosTerracotta.Instance;
         GameLauncher.MobileJavaRunner = (_, _, _, _) => throw new PlatformNotSupportedException(
             T("iPhone / iPad 上不能运行 Forge / NeoForge / OptiFine 的安装程序：请在电脑上安装好，再把版本文件夹复制到“文件”App 里 MaoX Launcher 的 .minecraft/versions 中"));
         // StikDebug 里给启动器手动指定 JIT 脚本时，可以在“文件”App 的 MaoX Launcher 文件夹里选到它
@@ -294,8 +296,23 @@ internal static class GameHost
         {
             using var file = new FileStream(LogFile, FileMode.OpenOrCreate, FileAccess.Read,
                                             FileShare.ReadWrite | FileShare.Delete);
-            GameOutput.ReadLines(new TailStream(file, _exit.Task), onLine);
+            GameOutput.ReadLines(new TailStream(file, _exit.Task), line =>
+            {
+                WatchLanWorld(line);
+                onLine(line);
+            });
         });
+
+        /// <summary>陶瓦联机在 iOS 上收不到游戏的局域网广播，改为从日志里读出“对局域网开放”的端口。</summary>
+        private static void WatchLanWorld(string line)
+        {
+            if (LanStarted.Match(line) is { Success: true } match && int.TryParse(match.Groups[1].Value, out var port))
+                IosTerracotta.Instance.SetLanPort(port);
+            else if (line.Contains("Stopping server", StringComparison.Ordinal))
+                IosTerracotta.Instance.SetLanPort(0);
+        }
+
+        private static readonly Regex LanStarted = new(@"Started serving on (\d+)", RegexOptions.Compiled);
 
         public override Task<int> WaitForExitAsync() => _exit.Task;
     }

@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using CoreAnimation;
 using CoreGraphics;
 using Foundation;
+using MaoX.Core;
 using ObjCRuntime;
 using UIKit;
 using static MaoX.Core.I18n;
@@ -21,6 +22,9 @@ internal sealed class GameViewController : UIViewController
     private readonly string _gameDir;
     private SurfaceView _surface;
     private ControlsView _controls;
+    private UILabel _room;
+    private string _roomCopy;
+    private DateTime _copiedUntil;
     private int _width, _height;
     private bool _launched;
 
@@ -63,7 +67,78 @@ internal sealed class GameViewController : UIViewController
             KeyboardHidden = () => BecomeFirstResponder(),
         };
         _controls.SetWindowSize(_width, _height);
-        View.AddSubviews(_surface, _controls);
+        _room = new UILabel
+        {
+            BackgroundColor = UIColor.FromWhiteAlpha(0, 0.55f),
+            TextColor = UIColor.White,
+            Font = UIFont.SystemFontOfSize(13, UIFontWeight.Semibold),
+            TextAlignment = UITextAlignment.Center,
+            Hidden = true,
+            UserInteractionEnabled = true,
+            ClipsToBounds = true,
+        };
+        _room.Layer.CornerRadius = 8;
+        _room.AddGestureRecognizer(new UITapGestureRecognizer(CopyRoom));
+        View.AddSubviews(_surface, _controls, _room);
+    }
+
+    // ------------------------------------------------------------------ 陶瓦联机
+
+    /// <summary>游戏盖住了启动器界面，房间状态和邀请码显示在游戏画面顶部。</summary>
+    private void UpdateRoom()
+    {
+        string text = null, copy = null;
+        try
+        {
+            if (IosTerracotta.Instance.Started)
+            {
+                var state = Json.Parse(IosTerracotta.Instance.State());
+                var room = state.Str("room", "");
+                var url = state.Str("url", "");
+                (text, copy) = state.Str("state") switch
+                {
+                    "host-scanning" => (T("陶瓦联机：在暂停菜单里选「对局域网开放」后会自动创建房间"), null),
+                    "host-starting" => (T("陶瓦联机：正在创建房间…"), null),
+                    "host-ok" => (F("陶瓦联机邀请码：{0}（点按复制）", room), room),
+                    "guest-connecting" or "guest-starting" => (T("陶瓦联机：正在连接房主…"), null),
+                    "guest-ok" => (F("陶瓦联机：已加入房间，服务器地址 {0}（点按复制）", url), url),
+                    "exception" => (T("陶瓦联机已中断，请回到启动器重新创建或加入"), null),
+                    _ => (null, null),
+                };
+            }
+        }
+        catch (Exception)
+        {
+            // 状态读取失败时先不显示
+        }
+        _roomCopy = copy;
+        if (DateTime.UtcNow < _copiedUntil)
+            return;
+        _room.Hidden = text == null;
+        if (text != null && _room.Text != text)
+        {
+            _room.Text = text;
+            LayoutRoom();
+        }
+    }
+
+    private void CopyRoom()
+    {
+        if (string.IsNullOrEmpty(_roomCopy))
+            return;
+        UIPasteboard.General.String = _roomCopy;
+        _copiedUntil = DateTime.UtcNow.AddSeconds(2);
+        _room.Text = T("已复制，发给好友吧");
+        LayoutRoom();
+    }
+
+    private void LayoutRoom()
+    {
+        var bounds = View.Bounds;
+        // UILabel 没有内边距，宽高各加一点留白
+        var size = _room.SizeThatFits(new CGSize(bounds.Width - 64, 40));
+        var width = Math.Min(size.Width + 24, bounds.Width - 40);
+        _room.Frame = new CGRect((bounds.Width - width) / 2, View.SafeAreaInsets.Top + 8, width, size.Height + 12);
     }
 
     public override void ViewDidLayoutSubviews()
@@ -74,6 +149,7 @@ internal sealed class GameViewController : UIViewController
             return;
         _surface.Frame = bounds;
         _controls.Frame = bounds;
+        LayoutRoom();
         var screenScale = (double)(View.Window?.Screen.Scale ?? UIScreen.MainScreen.Scale);
         var (w, h, scale) = Measure(bounds.Width, bounds.Height, screenScale);
         _surface.Layer.ContentsScale = (nfloat)scale;
@@ -116,6 +192,7 @@ internal sealed class GameViewController : UIViewController
                 {
                     _launched = true;
                     UIApplication.SharedApplication.IdleTimerDisabled = true;
+                    NSTimer.CreateRepeatingScheduledTimer(2, _ => UpdateRoom());
                 }
                 else
                 {

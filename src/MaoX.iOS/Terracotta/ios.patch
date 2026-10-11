@@ -1,0 +1,73 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 170692b..a053e7c 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -49,14 +49,21 @@ objc2-web-kit = "0.3.1"
+ native-dialog = "0.9.0"
+ 
+ [target.'cfg(target_os = "android")'.dependencies]
+-easytier = { git = "https://github.com/burningtnt/EasyTier.git", branch = "main"}
++easytier = { git = "https://github.com/burningtnt/EasyTier.git", tag = "v2.5.0-terracotta.2" }
+ jni = { version = "0.21.1", features = ["invocation"] }
+ # These libraries are the necessities to interact with EasyTier. DO NOT upgrade their version.
+ uuid = "1"
+ toml = "0"
+ tokio = "1"
+ cidr = { version = "0", features = ["serde"] }
+ 
++[target.'cfg(target_os = "ios")'.dependencies]
++easytier = { git = "https://github.com/burningtnt/EasyTier.git", tag = "v2.5.0-terracotta.2" }
++uuid = "1"
++toml = "0"
++tokio = "1"
++cidr = { version = "0", features = ["serde"] }
++
+ [build-dependencies]
+ winresource = "0.1"
+ sevenz-rust2 = { version = "0.18.0", default-features = false, features = [
+diff --git a/build.rs b/build.rs
+index dfbcc4b..2f7ff41 100644
+--- a/build.rs
++++ b/build.rs
+@@ -182,6 +182,7 @@ fn download_easytier() {
+             desc: "freebsd-x86_64",
+         },
+         ("android", "arm") | ("android", "aarch64") | ("android", "x86") | ("android", "x86_64") => return,
++        ("ios", _) => return,
+         _ => panic!(
+             "Cannot compile Terracotta on {}-{}: Cannot find valid EasyTier binary.",
+             target_os, target_arch
+diff --git a/src/easytier/mod.rs b/src/easytier/mod.rs
+index dbabfc2..0ea5daf 100644
+--- a/src/easytier/mod.rs
++++ b/src/easytier/mod.rs
+@@ -8,7 +8,7 @@ pub mod argument;
+ pub mod publics;
+ 
+ cfg_if! {
+-    if #[cfg(not(target_os = "android"))] {
++    if #[cfg(not(any(target_os = "android", target_os = "ios")))] {
+         mod executable_impl;
+         use executable_impl as inner;
+ 
+diff --git a/src/mc/scanning.rs b/src/mc/scanning.rs
+index e48da85..fd40bc3 100644
+--- a/src/mc/scanning.rs
++++ b/src/mc/scanning.rs
+@@ -152,6 +152,15 @@ impl MinecraftScanner {
+     }
+ 
+     pub fn get_ports(&self) -> Vec<u16> {
+-        return self.port.lock().unwrap().clone();
++        #[allow(unused_mut)]
++        let mut ports = self.port.lock().unwrap().clone();
++        #[cfg(target_os = "ios")]
++        {
++            let port = crate::LAN_PORT.load(std::sync::atomic::Ordering::SeqCst);
++            if port != 0 && !ports.contains(&port) {
++                ports.insert(0, port);
++            }
++        }
++        return ports;
+     }
+ }

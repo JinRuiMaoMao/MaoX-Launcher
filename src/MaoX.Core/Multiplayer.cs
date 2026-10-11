@@ -18,11 +18,13 @@ public class TerracottaException : Exception
 /// <summary>某个平台的安装包：整个 tar.gz 的 SHA-512 与包内各文件的 SHA-512。</summary>
 public record TerracottaPackage(string Hash, IReadOnlyDictionary<string, string> Files);
 
-/// <summary>安卓版陶瓦联机是一个 JNI 库（不是独立进程），由宿主加载并转发调用。</summary>
+/// <summary>手机版陶瓦联机是一个原生库（不是独立进程），由宿主加载并转发调用。</summary>
 public interface IMobileTerracotta
 {
-    /// <summary>存放原生库的目录（必须在内部存储，外部存储上的库不能加载）。</summary>
+    /// <summary>存放原生库（安卓）和数据的目录（必须在内部存储，外部存储上的库不能加载）。</summary>
     string LibraryDir { get; }
+    /// <summary>随应用一起打包的库（iOS 不能加载下载的库）；为 null 时按安卓的方式下载。</summary>
+    string BundledLibrary { get; }
     bool Started { get; }
     /// <summary>加载库并启动；返回陶瓦版本。</summary>
     Task<string> StartAsync(string libraryPath);
@@ -116,8 +118,11 @@ public class Terracotta : IDisposable
                 }),
         };
 
-    /// <summary>安卓宿主设置；为 null 时手机上不支持联机。</summary>
+    /// <summary>手机宿主设置；为 null 时手机上不支持联机。</summary>
     public static IMobileTerracotta Mobile { get; set; }
+
+    /// <summary>iOS 版由 MaoX 用官方源码编译并打包进应用，没有下载包。</summary>
+    public const string IosClassifier = "ios-arm64";
 
     private static bool IsAndroidClassifier(string classifier) => classifier?.StartsWith("android-", StringComparison.Ordinal) == true;
 
@@ -193,6 +198,8 @@ public class Terracotta : IDisposable
     {
         if (Platform.IsAndroid)
             return Mobile == null ? null : Platform.IsArm ? "android-arm64v8a" : Platform.Arch == "x86_64" ? "android-x86_64" : null;
+        if (Platform.IsIOS)
+            return File.Exists(Mobile?.BundledLibrary) ? IosClassifier : null;
         if (Platform.IsWindows && !OperatingSystem.IsWindowsVersionAtLeast(10) || Platform.IsMobile)
             return null;
         return ClassifierFor(Platform.OsName, Platform.Arch);
@@ -217,11 +224,13 @@ public class Terracotta : IDisposable
 
     private bool IsMacPackage => Classifier?.StartsWith("macos-", StringComparison.Ordinal) == true;
 
+    private bool IsBundled => Classifier == IosClassifier;
+
     public string Executable() => Path.Combine(Dir, ExecutableName(Classifier));
 
     private bool FilesVerified()
     {
-        if (_verified)
+        if (_verified || IsBundled)
             return true;
         try
         {
@@ -412,7 +421,7 @@ public class Terracotta : IDisposable
         }
     }
 
-    private bool IsMobile => IsAndroidClassifier(Classifier) && Mobile != null;
+    private bool IsMobile => (IsAndroidClassifier(Classifier) || IsBundled) && Mobile != null;
 
     public async Task<bool> AliveAsync()
     {
@@ -435,7 +444,8 @@ public class Terracotta : IDisposable
         {
             if (!Mobile.Started)
             {
-                var version = await Mobile.StartAsync(Path.Combine(Dir, PackageName(Classifier)));
+                var version = await Mobile.StartAsync(IsBundled ? Mobile.BundledLibrary
+                                                          : Path.Combine(Dir, PackageName(Classifier)));
                 Log(F("陶瓦联机已启动（{0}）", version));
             }
             return;

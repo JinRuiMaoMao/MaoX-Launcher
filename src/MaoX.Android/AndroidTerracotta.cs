@@ -20,6 +20,8 @@ internal class AndroidTerracotta : IMobileTerracotta
 
     public string LibraryDir => Path.Combine(Ctx.FilesDir!.AbsolutePath, "terracotta");
 
+    public string BundledLibrary => null;
+
     public bool Started => TerracottaBridge.IsStarted;
 
     public Task<string> StartAsync(string libraryPath) => Task.Run(() =>
