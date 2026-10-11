@@ -38,3 +38,14 @@ dotnet run --project src/MaoX          # 直接运行
 1. 修改 `src/Directory.Build.props` 里的 `Version`
 2. 提交并打标签：`git tag -a v2.0.1 -m "更新内容"`，然后 `git push origin main v2.0.1`
 3. GitHub Actions 会在 Windows 和 macOS 上打包、自检，并创建 Release；启动器会自动提示更新
+
+## 开源协议
+
+MaoX Launcher 以 [GPL-3.0](LICENSE) 协议开源。
+
+手机版使用了以下项目的代码或文件：
+
+- 安卓版的游戏启动层、LWJGL 和渲染器来自 [Amethyst-Android](https://github.com/AngelAuraMC/Amethyst-Android)（LGPL-3.0）
+- iOS 版的游戏启动层（`src/MaoX.iOS/Native`、`src/MaoX.iOS/Java`）改编自 [Amethyst-iOS](https://github.com/AngelAuraMC/Amethyst-iOS)（GPL-3.0）
+- 手机版 Java 来自 [angelauramc-openjdk-build](https://github.com/AngelAuraMC/angelauramc-openjdk-build)（GPL-2.0 with Classpath Exception）
+- 多人联机使用 [Terracotta](https://github.com/burningtnt/Terracotta)（AGPL-3.0）

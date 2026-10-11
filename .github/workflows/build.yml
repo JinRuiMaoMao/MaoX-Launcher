@@ -187,7 +187,62 @@ jobs:
       - name: Install iOS workload
         run: dotnet workload install ios --version 10.0.401
 
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Cache iOS JREs
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/jre-cache
+          key: ios-jre-v1
+
+      # 游戏运行环境：移动版 Java、LWJGL、ANGLE / gl4es 来自 Amethyst-iOS（GPL-3.0），启动层源码在 src/MaoX.iOS/Native 和 Java
+      - name: Build game runtime
+        env:
+          AMETHYST_COMMIT: f98c4133c72d39e06ceac42b57cc4477c52105fc
+        run: |
+          work="$RUNNER_TEMP/game"
+          rt="$work/runtime"
+          mkdir -p "$rt/Frameworks" "$rt/libs" "$rt/libs_caciocavallo" "$rt/libs_caciocavallo17" "$rt/java_runtimes"
+          curl -fsSL --retry 3 "https://github.com/AngelAuraMC/Amethyst-iOS/archive/$AMETHYST_COMMIT.tar.gz" | tar xz -C "$work"
+          ame="$work/Amethyst-iOS-$AMETHYST_COMMIT"
+          fw="$ame/Natives/resources/Frameworks"
+
+          bash src/MaoX.iOS/Native/build.sh "$fw" "$work/native"
+          bash src/MaoX.iOS/Java/build.sh "$ame/JavaApp/libs" "$rt/libs"
+
+          cp -R "$fw/libEGL.framework" "$fw/libGLESv2.framework" "$rt/Frameworks/"
+          for lib in libgl4es_114 liblwjgl liblwjgl_nanovg liblwjgl_opengl liblwjgl_stb liblwjgl_tinyfd liblwjgl_vma \
+                     libopenal libfreetype libMoltenVK libshaderc; do
+            cp "$fw/$lib.dylib" "$rt/Frameworks/"
+          done
+          cp "$work/native/libmaoxgame.dylib" "$work/native/libtinygl4angle.dylib" "$rt/Frameworks/"
+          cp "$ame/JavaApp/libs/caciocavallo/"*.jar "$rt/libs_caciocavallo/"
+          cp "$ame/JavaApp/libs/caciocavallo17/"*.jar "$rt/libs_caciocavallo17/"
+          cp "$ame/Natives/resources/UniversalJIT26.js" "$ame/Natives/resources/UniversalJIT26Extension.js" "$rt/"
+
+          cache="$RUNNER_TEMP/jre-cache"
+          mkdir -p "$cache"
+          for v in 8 17 21 25; do
+            zip="$cache/jre$v.zip"
+            [ -s "$zip" ] || curl -fsSL --retry 3 -o "$zip" "https://assets.angelauramc.dev/openjdk/ios-arm64/jre$v-ios-aarch64.zip"
+            unzip -q -o "$zip" -d "$work/jre$v"
+            dir="$rt/java_runtimes/java-$v-openjdk"
+            mkdir -p "$dir"
+            tar xf "$(ls "$work/jre$v"/*.tar.xz | head -1)" -C "$dir"
+            (cd "$dir" && rm -rf ASSEMBLY_EXCEPTION bin include jre legal LICENSE man THIRD_PARTY_README \
+                                 lib/ct.sym lib/jspawnhelper lib/libjsig.dylib lib/src.zip lib/tools.jar)
+            test -f "$dir/release"
+            cp "$work/native/libawt_xawt.dylib" "$dir/lib/"
+          done
+
+          du -sh "$rt"/* "$rt"/java_runtimes/*
+          echo "GAME_RUNTIME=$rt" >> "$GITHUB_ENV"
+
       # 没有苹果开发者证书：打包未签名的 IPA，由用户用 AltStore / SideStore / TrollStore 等工具签名安装
+      # 主程序带上 JIT 和大内存需要的权限，SideStore 签名时会照着申请
       - name: Build IPA
         run: |
           dotnet build src/MaoX.iOS/MaoX.iOS.csproj -c Release -f net10.0-ios -r ios-arm64 -nologo \
@@ -196,6 +251,11 @@ jobs:
           echo "App bundle: $app"
           mkdir -p dist/ipa/Payload
           cp -R "$app" dist/ipa/Payload/
+          app="dist/ipa/Payload/$(basename "$app")"
+          cp -R "$GAME_RUNTIME/." "$app/"
+          exe=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$app/Info.plist")
+          codesign --force --sign - --entitlements src/MaoX.iOS/Entitlements.sideload.plist --generate-entitlement-der "$app/$exe"
+          codesign -d --entitlements - "$app/$exe"
           (cd dist/ipa && zip -qry ../MaoX-Launcher-iOS.ipa Payload)
           rm -rf dist/ipa
           ls -la dist
@@ -272,6 +332,6 @@ jobs:
           **下载**：Windows 下载 `MaoX-Launcher-Windows-x64.exe`；Mac（M 系列芯片）下载 `MaoX-Launcher-macOS-arm64.zip`，Intel 芯片下载 `MaoX-Launcher-macOS-x64.zip`。
           Mac 首次打开如果提示无法验证开发者：右键点击 → 打开，或到"系统设置 → 隐私与安全性"点"仍要打开"。需要 macOS 14 或更高版本。
           安卓手机/平板下载 `MaoX-Launcher-Android.apk` 直接安装（需要 Android 8.0 或更高版本，64 位）。
-          iPhone/iPad 下载 `MaoX-Launcher-iOS.ipa`，用 AltStore / SideStore / TrollStore 安装（需要 iOS 15 或更高版本）；受 iOS 限制暂时只能管理账号、版本和模组，还不能启动游戏。
+          iPhone/iPad 下载 `MaoX-Launcher-iOS.ipa`，用 SideStore / AltStore / TrollStore 安装（需要 iOS 15 或更高版本）；启动游戏需要 JIT：iOS 17.4 以上装 StikDebug，启动器会自动请求开启。Forge / NeoForge / OptiFine 请在电脑上安装好再把版本文件夹复制到手机。
           EOF
           gh release create "$GITHUB_REF_NAME" artifacts/* --title "MaoX Launcher $GITHUB_REF_NAME" --notes-file notes.md

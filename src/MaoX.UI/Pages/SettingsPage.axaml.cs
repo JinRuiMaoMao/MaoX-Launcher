@@ -395,8 +395,23 @@ public partial class SettingsPage : UserControl, IPage
                 "ByteHook — MIT",
             ]);
         }
+        if (Platform.IsIOS)
+        {
+            lines.AddRange([
+                F("Amethyst-iOS（{0}）— GPL-3.0", T("游戏启动层")),
+                F("OpenJDK（{0}）— GPL-2.0 with Classpath Exception", T("iOS 版 Java，来自 AngelAuraMC")),
+                F("ANGLE（{0}）— BSD-3-Clause", T("渲染器")),
+                "gl4es — MIT",
+                "MoltenVK — Apache-2.0",
+                "LWJGL — BSD-3-Clause",
+                "OpenAL Soft — LGPL-2.0",
+                "Caciocavallo — GPL-2.0 with Classpath Exception",
+                "fishhook — BSD-3-Clause",
+            ]);
+        }
         await Main.Dialog(T("开源许可"),
-                          T("MaoX Launcher 使用了以下开源项目，感谢它们的作者：") + "\n\n"
+                          T("MaoX Launcher 以 GPL-3.0 协议开源。") + "\n"
+                          + T("MaoX Launcher 使用了以下开源项目，感谢它们的作者：") + "\n\n"
                           + string.Join("\n", lines.Select(l => "• " + l)));
     }
 
