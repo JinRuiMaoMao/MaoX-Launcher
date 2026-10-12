@@ -133,7 +133,7 @@ static void on_pin(void *context, const char *pin);
                     if (s && !s.finished)
                         [s attachTask:task];
                     else
-                        [task setTaskCompleted:YES];
+                        [task setTaskCompletedWithSuccess:YES];
                 }];
             if (!registered) {
                 NSLog(@"[MaoX] pairing: could not register %@", identifier);

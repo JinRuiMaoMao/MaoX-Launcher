@@ -8,8 +8,9 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-# idevice (MIT) pinned to the commit that was reviewed; device-initiated pairing lives in remote_pairing/responder.rs
-idevice = { git = "https://github.com/jkcoxson/idevice", rev = "3854a5df4a5a6dee71ffce4d8befc2ea356a8065", default-features = false, features = ["remote_pairing"] }
+# idevice (MIT) pinned to the commit that was reviewed; device-initiated pairing lives in remote_pairing/responder.rs.
+# idevice needs a rustls backend to compile at all; ring cross-compiles for iOS more easily than the default aws-lc
+idevice = { git = "https://github.com/jkcoxson/idevice", rev = "3854a5df4a5a6dee71ffce4d8befc2ea356a8065", default-features = false, features = ["remote_pairing", "ring"] }
 tokio = { version = "1", features = ["rt", "net", "macros", "sync", "time"] }
 uuid = { version = "1", features = ["v4"] }
 
