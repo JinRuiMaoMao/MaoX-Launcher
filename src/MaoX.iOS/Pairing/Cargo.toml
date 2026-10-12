@@ -1,0 +1,20 @@
+[package]
+name = "maoxpair"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# idevice (MIT) pinned to the commit that was reviewed; device-initiated pairing lives in remote_pairing/responder.rs
+idevice = { git = "https://github.com/jkcoxson/idevice", rev = "3854a5df4a5a6dee71ffce4d8befc2ea356a8065", default-features = false, features = ["remote_pairing"] }
+tokio = { version = "1", features = ["rt", "net", "macros", "sync", "time"] }
+uuid = { version = "1", features = ["v4"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

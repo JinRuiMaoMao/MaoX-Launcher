@@ -33,11 +33,13 @@ $CC "${CFLAGS[@]}" -dynamiclib -install_name @rpath/libawt_xawt.dylib -Wl,-rpath
     -o "$OUT/libawt_xawt.dylib"
 rm -rf "$TMP"
 
-# Game runtime: JVM launcher, GLFW bridge, input, JIT / dyld helpers, built-in JIT helper bridge
+# Game runtime: JVM launcher, GLFW bridge, input, JIT / dyld helpers, built-in JIT helper bridge, on-device pairing
 $CC "${CFLAGS[@]}" "${LDFLAGS[@]}" \
     -install_name @rpath/libmaoxgame.dylib \
     -framework Foundation -framework UIKit -framework QuartzCore -framework CoreGraphics -framework IOKit \
+    -framework BackgroundTasks -framework UserNotifications \
     "$HERE/game.m" "$HERE/hooks.m" "$HERE/utils.m" "$HERE/egl_bridge.m" "$HERE/input_bridge_v3.m" "$HERE/jit_helper.m" \
+    "$HERE/pairing.m" \
     "$HERE/ctxbridges/gl_bridge.m" "$HERE/dyld_bypass_validation.m" "$HERE/dyld_patch_platform.m" \
     "$HERE/external/fishhook/fishhook.c" "$HERE/external/mach/mach_excServer.c" \
     -o "$OUT/libmaoxgame.dylib"

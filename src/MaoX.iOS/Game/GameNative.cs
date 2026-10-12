@@ -59,6 +59,25 @@ internal static unsafe class GameNative
 
     public static int JitHelperPid() => ((delegate* unmanaged<int>)Fn("maox_jit_helper_pid"))();
 
+    // 本机生成配对文件（Native/pairing.m），状态码和事件见 IosPairing
+    public static int PairAvailability() => ((delegate* unmanaged<int>)Fn("maox_pair_availability"))();
+
+    public static int PairStart(string json, long token, delegate* unmanaged<long, int, nint, void> callback)
+    {
+        var utf8 = Marshal.StringToCoTaskMemUTF8(json);
+        try
+        {
+            return ((delegate* unmanaged<nint, long, delegate* unmanaged<long, int, nint, void>, int>)
+                Fn("maox_pair_start"))(utf8, token, callback);
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem(utf8);
+        }
+    }
+
+    public static void PairCancel(long token) => ((delegate* unmanaged<long, void>)Fn("maox_pair_cancel"))(token);
+
     public static bool HasEntitlement(string name)
     {
         var utf8 = Marshal.StringToCoTaskMemUTF8(name);

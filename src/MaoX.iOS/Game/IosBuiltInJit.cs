@@ -45,6 +45,7 @@ internal static class IosBuiltInJit
             return;
         MobileJit.BuiltInUnavailableReason = UnavailableReason;
         MobileJit.ResetBuiltInDdi = ResetDdiAsync;
+        IosPairing.Install();
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(PairingFile)!);
@@ -162,7 +163,7 @@ internal static class IosBuiltInJit
         var pairing = PairingFile;
         if (!File.Exists(pairing))
             throw new InvalidOperationException(
-                T("内置 JIT 需要配对文件：请用 iloader 等工具生成，放到“文件”App 的 MaoX Launcher/StikJIT/pairingFile.plist；也可以在设置里关闭内置 JIT，改用 StikDebug"));
+                T("内置 JIT 需要配对文件：请在设置里导入用 iloader 等工具生成的配对文件（iOS 27 以上可以在本机生成）；也可以在设置里关闭内置 JIT，改用 StikDebug"));
 
         var request = NewRequest("enable", launcher.Cfg);
         request["pid"] = Environment.ProcessId;
@@ -244,7 +245,7 @@ internal static class IosBuiltInJit
         return reply.Code switch
         {
             "unreachable" => F("连接不到本机的调试服务（{0}）：请打开 LocalDevVPN 并连接 Wi-Fi，确认开发者模式已开启", detail),
-            "pairingFile" => F("配对文件无效或已过期（{0}）：请用 iloader 重新生成，替换 MaoX Launcher/StikJIT/pairingFile.plist", detail),
+            "pairingFile" => F("配对文件无效或已过期（{0}）：请在设置里重新导入或生成配对文件", detail),
             "preparationFailed" or "ddiDownload" or "ddiFilesMissing" or "ddiNotMounted" or "deviceNotReady" =>
                 F("准备开发者磁盘映像失败（{0}）：可以在设置里重置开发者磁盘映像，或重启手机后再试", detail),
             "txmDetectionUnavailable" => F("无法判断这台设备是否有 TXM（{0}）：请改用 StikDebug", detail),

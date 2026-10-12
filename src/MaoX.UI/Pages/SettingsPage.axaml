@@ -103,7 +103,20 @@
                 </StackPanel>
                 <ToggleSwitch Name="BuiltInJitSwitch" Grid.Column="1" />
               </Grid>
-              <Button Name="ResetDdiButton" Content="{c:Tr 重置开发者磁盘映像}" Click="OnResetDdi" />
+              <TextBlock Name="PairingFileText" Classes="small dim" TextWrapping="Wrap" />
+              <WrapPanel>
+                <Button Name="ImportPairingButton" Content="{c:Tr 导入配对文件}" Margin="0,0,8,8" Click="OnImportPairing" />
+                <Button Name="GeneratePairingButton" Content="{c:Tr '在本机生成配对文件（iOS 27+）'}" Margin="0,0,8,8"
+                        IsVisible="False" Click="OnGeneratePairing" />
+                <Button Name="ResetDdiButton" Content="{c:Tr 重置开发者磁盘映像}" Margin="0,0,8,8" Click="OnResetDdi" />
+              </WrapPanel>
+              <Border Name="PairingPanel" Classes="card" Padding="14,10" IsVisible="False">
+                <StackPanel Spacing="6">
+                  <TextBlock Name="PairingStatusText" TextWrapping="Wrap" />
+                  <SelectableTextBlock Name="PairingPinText" Classes="accent bold" FontSize="34" LetterSpacing="6"
+                                       HorizontalAlignment="Center" IsVisible="False" />
+                </StackPanel>
+              </Border>
             </StackPanel>
           </StackPanel>
         </Border>

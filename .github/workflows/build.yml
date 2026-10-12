@@ -220,6 +220,23 @@ jobs:
           version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Directory.Build.props | head -1)
           bash src/MaoX.iOS/JITHelper/build.sh dist/jithelper io.github.jinruimaomao.maox "$version"
 
+      - name: Cache Rust build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/pairing-target
+          key: ios-pairing-${{ hashFiles('src/MaoX.iOS/Pairing/**') }}
+          restore-keys: ios-pairing-
+
+      # iOS 27+ 在本机生成配对文件（idevice，MIT，版本固定在 src/MaoX.iOS/Pairing/Cargo.toml）；失败时实验版 IPA 只是没有这个功能
+      - name: Build pairing library
+        continue-on-error: true
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/pairing-target
+        run: bash src/MaoX.iOS/Pairing/build.sh dist/jithelper
+
       - uses: actions/upload-artifact@v7
         with:
           name: jit-helper-ios
@@ -360,6 +377,13 @@ jobs:
           cp -R "$helper/MaoXJITHelper.appex" "$app/PlugIns/"
           cp -R "$helper/StikJIT.framework" "$app/Frameworks/"
           chmod +x "$app/PlugIns/MaoXJITHelper.appex/MaoXJITHelper" "$app/Frameworks/StikJIT.framework/StikJIT"
+          if [ -f "$helper/libmaoxpair.dylib" ]; then
+            cp "$helper/libmaoxpair.dylib" "$app/Frameworks/"
+            codesign --force --sign - "$app/Frameworks/libmaoxpair.dylib"
+            nm -gU "$app/Frameworks/libmaoxpair.dylib" | grep -q _maox_pair_run
+          else
+            echo "::warning::Pairing library was not built; the experimental IPA cannot generate pairing files on device"
+          fi
 
           # 由内向外签名：框架、扩展、主程序（用户的安装工具会用自己的证书全部重签）
           exe=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$app/Info.plist")
@@ -385,6 +409,8 @@ jobs:
           test -f "$app/PlugIns/MaoXJITHelper.appex/../../Frameworks/StikJIT.framework/StikJIT"
           test -f "$app/Frameworks/StikJIT.framework/LICENSE.StikJIT-MPL-2.0.txt"
           nm -gU "$app/Frameworks/libmaoxgame.dylib" | grep -q _maox_jit_helper_request
+          nm -gU "$app/Frameworks/libmaoxgame.dylib" | grep -q _maox_pair_start
+          /usr/libexec/PlistBuddy -c "Print :NSBonjourServices" "$app/Info.plist" | grep -q _remotepairing-pairable-host._tcp
           (cd dist/ipa-jit && zip -qry ../MaoX-Launcher-iOS-BuiltinJIT.ipa Payload)
           rm -rf dist/ipa-jit
           ls -la dist

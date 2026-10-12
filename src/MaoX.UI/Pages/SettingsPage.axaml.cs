@@ -2,6 +2,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using MaoX.Core;
 using static MaoX.Core.I18n;
 
@@ -125,12 +127,108 @@ public partial class SettingsPage : UserControl, IPage
         BuiltInJitPanel.IsVisible = true;
         BuiltInJitSwitch.IsEnabled = ResetDdiButton.IsEnabled = reason == null;
         BuiltInJitSwitch.IsChecked = reason == null && Cfg.IosJitMethod == "builtin";
-        BuiltInJitHint.Text = reason ?? T("由安装包自带的 StikJIT 开启 JIT，不用切到 StikDebug。仍需要 LocalDevVPN、开发者模式，并把配对文件放到“文件”App 的 MaoX Launcher/StikJIT/pairingFile.plist");
+        BuiltInJitHint.Text = reason ?? T("由安装包自带的 StikJIT 开启 JIT，不用切到 StikDebug。仍需要 LocalDevVPN、开发者模式和配对文件");
         BuiltInJitSwitch.IsCheckedChanged += (_, _) =>
         {
             if (!_loading)
                 Cfg.IosJitMethod = BuiltInJitSwitch.IsChecked == true ? "builtin" : "auto";
         };
+        ImportPairingButton.IsEnabled = reason == null;
+        GeneratePairingButton.IsVisible = MobileJit.GeneratePairingFile != null;
+        GeneratePairingButton.IsEnabled = reason == null;
+        UpdatePairingFileText();
+    }
+
+    private void UpdatePairingFileText()
+    {
+        var status = MobileJit.PairingFileStatus?.Invoke();
+        PairingFileText.Text = status;
+        PairingFileText.IsVisible = !string.IsNullOrEmpty(status);
+    }
+
+    private async void OnImportPairing(object sender, RoutedEventArgs e)
+    {
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage == null || MobileJit.ImportPairingFile == null)
+            return;
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions { Title = T("选择配对文件") });
+        if (files.Count == 0)
+            return;
+        string error;
+        try
+        {
+            // 手机上选到的文件只能用流读取
+            await using var source = await files[0].OpenReadAsync();
+            using var buffer = new MemoryStream();
+            await source.CopyToAsync(buffer);
+            error = MobileJit.ImportPairingFile(buffer.ToArray());
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        UpdatePairingFileText();
+        if (error == null)
+            Main.Toast(T("配对文件已导入"));
+        else
+            await Main.Dialog(T("导入配对文件"), error, "error");
+    }
+
+    private CancellationTokenSource _pairing;
+
+    private async void OnGeneratePairing(object sender, RoutedEventArgs e)
+    {
+        if (_pairing != null)
+        {
+            _pairing.Cancel();
+            return;
+        }
+        var unavailable = MobileJit.GeneratePairingUnavailableReason?.Invoke();
+        if (unavailable != null)
+        {
+            await Main.Dialog(T("在本机生成配对文件（iOS 27+）"), unavailable, "error");
+            return;
+        }
+
+        _pairing = new CancellationTokenSource();
+        GeneratePairingButton.Content = T("取消配对");
+        ImportPairingButton.IsEnabled = false;
+        PairingPanel.IsVisible = true;
+        PairingPinText.IsVisible = false;
+        void Progress(string status, string pin) => Dispatcher.UIThread.Post(() =>
+        {
+            if (_pairing == null)
+                return;
+            PairingStatusText.Text = status;
+            PairingPinText.Text = pin;
+            PairingPinText.IsVisible = !string.IsNullOrEmpty(pin);
+        });
+
+        string message = null, error = null;
+        try
+        {
+            message = await MobileJit.GeneratePairingFile(Progress, _pairing.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            _pairing.Dispose();
+            _pairing = null;
+            GeneratePairingButton.Content = T("在本机生成配对文件（iOS 27+）");
+            ImportPairingButton.IsEnabled = true;
+            PairingPanel.IsVisible = false;
+            UpdatePairingFileText();
+        }
+        if (message != null)
+            await Main.Dialog(T("在本机生成配对文件（iOS 27+）"), message);
+        else if (error != null)
+            await Main.Dialog(T("在本机生成配对文件（iOS 27+）"), error, "error");
     }
 
     private async void OnResetDdi(object sender, RoutedEventArgs e)
@@ -444,7 +542,9 @@ public partial class SettingsPage : UserControl, IPage
             {
                 lines.AddRange([
                     F("StikJIT 1.9.0（{0}）— MPL-2.0", T("内置 JIT，未修改，源码：https://github.com/StikDebug/StikJIT")),
-                    F("idevice（{0}）— MIT", T("随 StikJIT 附带")),
+                    F("idevice（{0}）— MIT", MobileJit.GeneratePairingFile != null
+                        ? T("随 StikJIT 附带；在本机生成配对文件也用它")
+                        : T("随 StikJIT 附带")),
                     F("StikDebug JIT 脚本（{0}）— AGPL-3.0", T("随 StikJIT 附带")),
                 ]);
             }

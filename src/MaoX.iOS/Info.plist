@@ -47,9 +47,18 @@
     <string>altstore</string>
     <string>apple-magnifier</string>
   </array>
-  <!-- 陶瓦联机和同一局域网里的好友直连 -->
+  <!-- 陶瓦联机和同一局域网里的好友直连；内置 JIT 在本机生成配对文件时广播“可配对的电脑” -->
   <key>NSLocalNetworkUsageDescription</key>
-  <string>陶瓦联机需要访问局域网，才能和同一网络里的好友直接连接。</string>
+  <string>陶瓦联机需要访问局域网，才能和同一网络里的好友直接连接；在本机生成配对文件时也需要访问本地网络。</string>
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_remotepairing-pairable-host._tcp</string>
+  </array>
+  <!-- 在本机生成配对文件时，用户去“设置”里配对期间启动器要继续运行；侧载工具可能改包名，所以用通配符 -->
+  <key>BGTaskSchedulerPermittedIdentifiers</key>
+  <array>
+    <string>io.github.jinruimaomao.maox.*</string>
+  </array>
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
   <key>NSAppTransportSecurity</key>

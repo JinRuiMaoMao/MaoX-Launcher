@@ -9,9 +9,11 @@ StikJIT 1.9.0
   commit with StikJIT's own project.yml when the release binary cannot be used. The launcher only adds an
   Info.plist to the framework bundle so iOS accepts it.
 
-idevice (statically linked into StikJIT as libidevice_ffi)
+idevice (statically linked into StikJIT as libidevice_ffi, and into Frameworks/libmaoxpair.dylib)
   License: MIT (LICENSE.idevice-MIT.txt), Copyright 2026 Jackson Coxson
   Source:  https://github.com/jkcoxson/idevice
+  libmaoxpair.dylib (on-device pairing for iOS 27+, source in src/MaoX.iOS/Pairing) uses the unmodified
+  idevice crate at commit 3854a5df4a5a6dee71ffce4d8befc2ea356a8065.
 
 universal.js / legacy.js (bundled inside StikJIT.framework, from StikDebug)
   License: AGPL-3.0

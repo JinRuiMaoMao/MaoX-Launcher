@@ -13,3 +13,6 @@ obj/
 .vs/
 *.user
 /*.exe
+
+# Rust build output (iOS pairing library)
+src/MaoX.iOS/Pairing/target/
