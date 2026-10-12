@@ -31,6 +31,7 @@ internal static class IosBuiltInJit
 
     private static readonly TimeSpan EnableTimeout = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan ResetTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan StartCheck = TimeSpan.FromSeconds(3);
     private static readonly ConcurrentDictionary<long, TaskCompletionSource<Reply>> Pending = new();
     private static long _nextToken;
 
@@ -102,7 +103,8 @@ internal static class IosBuiltInJit
         if (started != Status.Ok)
         {
             Pending.TryRemove(token, out _);
-            tcs.TrySetResult(new Reply(started, false, started.ToString(), "", null, null));
+            var detail = started == Status.NotRegistered ? GameNative.JitHelperLastError() : "";
+            tcs.TrySetResult(new Reply(started, false, started.ToString(), detail, null, null));
         }
         return new Call(token, tcs.Task);
     }
@@ -141,6 +143,19 @@ internal static class IosBuiltInJit
     /// <summary>不在主线程上发送：查找扩展要和系统服务通信。</summary>
     private static Task<Call> SendInBackground(JsonObject request) => Task.Run(() => Send(request));
 
+    /// <summary>刚安装后 iOS 可能还没登记好扩展：助手没有启动时等一下再试一次。</summary>
+    private static async Task<Call> StartAsync(JsonObject request)
+    {
+        var call = await SendInBackground(request);
+        if (await Task.WhenAny(call.Reply, Task.Delay(StartCheck)) != call.Reply)
+            return call;
+        var status = (await call.Reply).Status;
+        if (status is not (Status.NotRegistered or Status.StartFailed))
+            return call;
+        await Task.Delay(1500);
+        return await SendInBackground(request);
+    }
+
     private static JsonObject NewRequest(string op, LauncherConfig cfg)
     {
         var request = new JsonObject { ["op"] = op };
@@ -174,7 +189,7 @@ internal static class IosBuiltInJit
             request["script"] = Convert.ToBase64String(await File.ReadAllBytesAsync(GameHost.JitScript));
 
         launcher.Log(T("正在用内置 JIT 开启 JIT（需要打开 LocalDevVPN）..."));
-        var call = await SendInBackground(request);
+        var call = await StartAsync(request);
         var deadline = DateTime.UtcNow + EnableTimeout;
         while (!GameNative.JitEnabled())
         {
@@ -215,7 +230,7 @@ internal static class IosBuiltInJit
 
     public static async Task<string> ResetDdiAsync()
     {
-        var call = await SendInBackground(NewRequest("resetDDI", null));
+        var call = await StartAsync(NewRequest("resetDDI", null));
         if (await Task.WhenAny(call.Reply, Task.Delay(ResetTimeout)) != call.Reply)
         {
             GameNative.JitHelperCancel(call.Token);

@@ -69,6 +69,12 @@ static dispatch_queue_t stateQueue(void) {
 }
 
 static MaoXJITHelperRequest *current;
+static char *lastError; // why the last request could not be started (stateQueue)
+
+static void setLastError(NSString *text) {
+    free(lastError);
+    lastError = strdup((text ?: @"").UTF8String);
+}
 
 // Read from the helper's own Info.plist: sideloaders append their team ID to the app's and the helper's identifier
 static NSString *helperIdentifier(void) {
@@ -164,6 +170,10 @@ EXPORT int maox_jit_helper_request(const char *json, int64_t token, maox_jit_hel
         id extension = [cls extensionWithIdentifier:identifier error:&error];
         if (!extension) {
             NSLog(@"[MaoX] JIT helper %@ is not registered: %@", identifier, error);
+            setLastError([NSString stringWithFormat:@"%@: %@", identifier,
+                                                    error ? [NSString stringWithFormat:@"%@ (%@ %ld)", error.localizedDescription,
+                                                                                       error.domain, (long)error.code]
+                                                          : @"not found"]);
             status = JH_NOT_REGISTERED;
             return;
         }
@@ -225,7 +235,7 @@ EXPORT int maox_jit_helper_request(const char *json, int64_t token, maox_jit_hel
         [extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *uuid) {
             dispatch_async(stateQueue(), ^{
                 if (!uuid) {
-                    finish(request, JH_START_FAILED, @"iOS did not start the JIT helper");
+                    finish(request, JH_START_FAILED, [NSString stringWithFormat:@"%@: iOS did not start the process", identifier]);
                     return;
                 }
                 request.identifier = uuid;
@@ -256,6 +266,15 @@ EXPORT void maox_jit_helper_cancel(int64_t token) {
         }
         finish(request, JH_CANCELLED, @"Cancelled by the launcher");
     });
+}
+
+// Why the last maox_jit_helper_request returned JH_NOT_REGISTERED (diagnostics). The caller frees the string.
+EXPORT char *maox_jit_helper_last_error(void) {
+    __block char *text = NULL;
+    dispatch_sync(stateQueue(), ^{
+        text = strdup(lastError ?: "");
+    });
+    return text;
 }
 
 // Process ID of the running helper request, 0 when there is none (diagnostics).

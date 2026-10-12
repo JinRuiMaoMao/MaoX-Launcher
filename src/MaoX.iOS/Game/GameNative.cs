@@ -59,6 +59,19 @@ internal static unsafe class GameNative
 
     public static int JitHelperPid() => ((delegate* unmanaged<int>)Fn("maox_jit_helper_pid"))();
 
+    public static string JitHelperLastError()
+    {
+        var text = ((delegate* unmanaged<nint>)Fn("maox_jit_helper_last_error"))();
+        try
+        {
+            return Marshal.PtrToStringUTF8(text) ?? "";
+        }
+        finally
+        {
+            NativeMemory.Free((void*)text);
+        }
+    }
+
     // 本机生成配对文件（Native/pairing.m），状态码和事件见 IosPairing
     public static int PairAvailability() => ((delegate* unmanaged<int>)Fn("maox_pair_availability"))();
 

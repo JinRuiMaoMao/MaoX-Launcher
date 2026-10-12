@@ -89,7 +89,26 @@ echo "$ORIGIN" > "$OUT/stikjit-origin.txt"
 echo "StikJIT $STIKJIT_VERSION ($ORIGIN)"
 
 sed -e "s/@APP_ID@/$APP_ID/g" -e "s/@VERSION@/$VERSION/g" "$HERE/Info.plist" > "$APPEX/Info.plist"
-plutil -lint "$APPEX/Info.plist"
+# The keys Xcode adds to every bundle it builds, so the helper looks like any other app extension to iOS
+SDK_VERSION="$(xcrun -sdk iphoneos --show-sdk-version)"
+SDK_BUILD="$(xcrun -sdk iphoneos --show-sdk-build-version)"
+XCODE_VERSION="$(xcodebuild -version | awk '/^Xcode/ {print $2}')"
+XCODE_BUILD="$(xcodebuild -version | awk '/Build version/ {print $3}')"
+IFS=. read -r XC_MAJOR XC_MINOR XC_PATCH <<< "$XCODE_VERSION"
+plist="$APPEX/Info.plist"
+plutil -insert DTPlatformName -string iphoneos "$plist"
+plutil -insert DTPlatformVersion -string "$SDK_VERSION" "$plist"
+plutil -insert DTPlatformBuild -string "$SDK_BUILD" "$plist"
+plutil -insert DTSDKName -string "iphoneos$SDK_VERSION" "$plist"
+plutil -insert DTSDKBuild -string "$SDK_BUILD" "$plist"
+plutil -insert DTXcode -string "$(printf '%d%d%d' "$XC_MAJOR" "${XC_MINOR:-0}" "${XC_PATCH:-0}")" "$plist"
+plutil -insert DTXcodeBuild -string "$XCODE_BUILD" "$plist"
+plutil -insert DTCompiler -string com.apple.compilers.llvm.clang.1_0 "$plist"
+plutil -insert BuildMachineOSBuild -string "$(sw_vers -buildVersion)" "$plist"
+plutil -insert UIRequiredDeviceCapabilities -array "$plist"
+plutil -insert UIRequiredDeviceCapabilities.0 -string arm64 "$plist"
+plutil -lint "$plist"
+plutil -p "$plist"
 
 # The framework goes into the app's Frameworks, where sideloaders re-sign it. installd refuses an embedded
 # framework without an Info.plist, and the release binary has none: add a minimal one, nothing else changes.
