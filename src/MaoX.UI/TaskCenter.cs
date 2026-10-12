@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using MaoX.Controls;
+using MaoX.Core;
 using static MaoX.Core.I18n;
 
 namespace MaoX;
@@ -15,11 +16,17 @@ public class TaskItem
 
     private readonly object _lock = new();
     private (int Done, int Total, string Text)? _progress;
+    private (int Done, int Total, string Text)? _shown;
+    private string _rate;
+    private long _rateAt;
 
     public TaskItem(string name) => Name = name;
 
     public string Name { get; }
     public CancellationTokenSource Cancel { get; } = new();
+
+    /// <summary>任务里下载的字节数，用来显示速度（TaskContext.Meter）</summary>
+    public DownloadMeter Meter { get; } = new();
 
     /// <summary>running / done / failed / cancelled</summary>
     public string State { get; private set; } = "running";
@@ -47,10 +54,28 @@ public class TaskItem
             p = _progress;
             _progress = null;
         }
-        if (p is not { } v || !Running)
+        if (!Running)
             return false;
-        Fraction = (double)v.Done / v.Total;
-        Detail = $"{(string.IsNullOrEmpty(v.Text) ? "" : v.Text + "  ")}{v.Done} / {v.Total}";
+        var changed = false;
+        if (p is { } latest)
+        {
+            _shown = latest;
+            Fraction = (double)latest.Done / latest.Total;
+            changed = true;
+        }
+        // 速度每半秒更新一次，数字跳得太快看不清
+        var now = Environment.TickCount64;
+        if (now - _rateAt >= 500)
+        {
+            _rateAt = now;
+            var rate = Meter.Describe();
+            changed |= rate != _rate;
+            _rate = rate;
+        }
+        if (!changed || _shown is not { } v)
+            return false;
+        Detail = $"{(string.IsNullOrEmpty(v.Text) ? "" : v.Text + "  ")}{v.Done} / {v.Total}"
+                 + (_rate == null ? "" : "  ·  " + _rate);
         return true;
     }
 

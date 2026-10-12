@@ -546,6 +546,7 @@ public partial class MainView : UserControl
             {
                 TaskItem.Current.Value = task;
                 TaskContext.Token = task.Cancel.Token;
+                TaskContext.Meter = task.Meter;
                 return await job();
             });
         }

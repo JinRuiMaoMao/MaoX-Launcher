@@ -351,7 +351,7 @@ public class GameLauncher
         Cfg = cfg;
         Log = log ?? (_ => { });
         Progress = progress ?? ((_, _, _) => { });
-        Dl = new Downloader(cfg.DownloadSource, cfg.DownloadThreads);
+        Dl = new Downloader(cfg.DownloadSource, cfg.DownloadThreads) { Log = Log };
     }
 
     public string McDir => Path.GetFullPath(Cfg.MinecraftDir);
@@ -690,8 +690,7 @@ public class GameLauncher
 
         if (!await Task.Run(() => tasks.AsParallel().All(t => t.IsValid())))
         {
-            var source = await Dl.ResolvedSourceAsync();
-            var name = source == "bmclapi" ? T("BMCLAPI 镜像") : T("Mojang 官方");
+            var name = Downloader.SourceName(await Dl.ResolvedSourceAsync());
             Log(Dl.Source == "auto" && Downloader.AutoSourceDetail != null
                     ? F("下载源：{0}（{1}）", name, Downloader.AutoSourceDetail)
                     : F("下载源：{0}", name));

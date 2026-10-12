@@ -148,6 +148,51 @@ public record HttpResult(int Status, byte[] Body, IReadOnlyDictionary<string, st
     public string Header(string name) => Headers.TryGetValue(name, out var v) ? v : null;
 }
 
+/// <summary>一个任务的下载量：下载器累加收到的字节，界面定时取样，算出速度和剩余时间。</summary>
+public sealed class DownloadMeter
+{
+    private const long Window = 3000;
+    private readonly Queue<(long Ticks, long Bytes)> _samples = new();
+    private long _received;
+    private long _batchStart;
+    private long _batchExpected;
+
+    public long Received => Interlocked.Read(ref _received);
+
+    public void Add(long bytes) => Interlocked.Add(ref _received, bytes);
+
+    /// <summary>开始一批下载。expected 为这批文件的总大小，有大小未知的文件时为 null（不估算剩余时间）。</summary>
+    public void BeginBatch(long? expected)
+    {
+        Interlocked.Exchange(ref _batchStart, Received);
+        Interlocked.Exchange(ref _batchExpected, expected ?? 0);
+    }
+
+    /// <summary>最近几秒的速度和剩余时间，最近没有下载时为 null。只在一个线程（界面定时器）上调用。</summary>
+    public string Describe()
+    {
+        var now = Environment.TickCount64;
+        var bytes = Received;
+        _samples.Enqueue((now, bytes));
+        while (_samples.Count > 1 && now - _samples.Peek().Ticks > Window)
+            _samples.Dequeue();
+        var (start, startBytes) = _samples.Peek();
+        if (now - start < 500 || bytes == startBytes)
+            return null;
+        var rate = (bytes - startBytes) * 1000.0 / (now - start);
+        var text = Downloader.FormatRate(rate);
+        var remaining = Interlocked.Read(ref _batchExpected) - (bytes - Interlocked.Read(ref _batchStart));
+        if (Interlocked.Read(ref _batchExpected) > 0 && remaining > 0)
+            text += "，" + F("剩余约 {0}", FormatDuration(remaining / rate));
+        return text;
+    }
+
+    private static string FormatDuration(double seconds) =>
+        seconds < 60 ? F("{0} 秒", Math.Max(1, (int)Math.Ceiling(seconds)))
+        : seconds < 3600 ? F("{0} 分 {1} 秒", (int)seconds / 60, (int)seconds % 60)
+        : F("{0} 小时 {1} 分", (int)seconds / 3600, (int)seconds % 3600 / 60);
+}
+
 /// <summary>带镜像回退、重试和并发的下载器（对应 BMCLAPI / MCIM 镜像规则）。</summary>
 public class Downloader
 {
@@ -182,10 +227,24 @@ public class Downloader
     /// <summary>上一次自动测速的结果，写进日志方便排查下载慢</summary>
     public static string AutoSourceDetail { get; private set; }
 
+    // 下载中比较两个源：0 还没比较，1 正在比较，2 已经选定
+    private static int _trialState;
+    private static long _officialBytes;
+    private static long _mirrorBytes;
+    private const double FastEnough = 10 << 20;
+
     public string Source { get; }
     public int Threads { get; }
     public int Retries { get; }
     public int Timeout { get; }
+
+    /// <summary>下载中换源时写日志，没有时不记</summary>
+    public Action<string> Log { get; set; }
+
+    public static string SourceName(string source) => source == "bmclapi" ? T("BMCLAPI 镜像") : T("Mojang 官方");
+
+    public static string FormatRate(double bytesPerSecond) =>
+        bytesPerSecond >= 1 << 20 ? $"{bytesPerSecond / (1 << 20):0.0} MB/s" : $"{bytesPerSecond / 1024:0} KB/s";
 
     public Downloader(string source = "auto", int threads = 16, int retries = 3, int timeout = 30)
     {
@@ -340,8 +399,11 @@ public class Downloader
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(task.Path)!);
         var tmp = task.Path + ".part";
+        var meter = TaskContext.Meter;
+        var mirrored = MirrorUrl(task.Url, "bmclapi");
         await WithFallbackAsync(task.Url, async u =>
         {
+            var mirror = u == mirrored && u != task.Url;
             try
             {
                 using var cts = TaskContext.Link(cancel);
@@ -361,6 +423,11 @@ public class Downloader
                     {
                         sha1.AppendData(buffer, 0, read);
                         await output.WriteAsync(buffer.AsMemory(0, read), cts.Token);
+                        meter?.Add(read);
+                        if (mirror)
+                            Interlocked.Add(ref _mirrorBytes, read);
+                        else
+                            Interlocked.Add(ref _officialBytes, read);
                     }
                 }
                 if (task.Sha1 != null && Convert.ToHexStringLower(sha1.GetHashAndReset()) != task.Sha1)
@@ -391,26 +458,40 @@ public class Downloader
         var total = pending.Count;
         if (total == 0)
             return 0;
+        var expected = pending.All(t => t.Size != null) ? pending.Sum(t => t.Size!.Value) : (long?)null;
+        TaskContext.Meter?.BeginBatch(expected);
 
         var done = 0;
         var failures = new List<(DownloadTask Task, Exception Error)>();
-        await Parallel.ForEachAsync(pending, new ParallelOptions
+        using var finished = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        var trial = Source == "auto" && (total >= 100 || expected >= 30 << 20)
+            ? CompareSourcesAsync(finished.Token)
+            : Task.CompletedTask;
+        try
         {
-            MaxDegreeOfParallelism = Threads,
-            CancellationToken = cancel,
-        }, async (task, token) =>
+            await Parallel.ForEachAsync(pending, new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Threads,
+                CancellationToken = cancel,
+            }, async (task, token) =>
+            {
+                try
+                {
+                    await DownloadAsync(task, token);
+                }
+                catch (Exception e) when (e is not OperationCanceledException || !cancel.IsCancellationRequested)
+                {
+                    lock (failures)
+                        failures.Add((task, e));
+                }
+                progress?.Invoke(Interlocked.Increment(ref done), total);
+            });
+        }
+        finally
         {
-            try
-            {
-                await DownloadAsync(task, token);
-            }
-            catch (Exception e) when (e is not OperationCanceledException || !cancel.IsCancellationRequested)
-            {
-                lock (failures)
-                    failures.Add((task, e));
-            }
-            progress?.Invoke(Interlocked.Increment(ref done), total);
-        });
+            finished.Cancel();
+            await trial;
+        }
         if (failures.Count > 0)
         {
             var (task, error) = failures[0];
@@ -419,4 +500,58 @@ public class Downloader
         }
         return total;
     }
+
+    /// <summary>
+    /// 开头的测速只比较谁先返回一个小文件，不代表下载大量文件时谁更快。第一次下载大量文件时，用当前的源下载几秒、
+    /// 再换另一个源下载几秒，之后用较快的那个（进程内只比较一次）。批次提前结束时恢复原来的源，下次再比较。
+    /// </summary>
+    private async Task CompareSourcesAsync(CancellationToken stop)
+    {
+        if (Interlocked.CompareExchange(ref _trialState, 1, 0) != 0)
+            return;
+        var first = Volatile.Read(ref _autoSource);
+        var decided = false;
+        try
+        {
+            if (first == null)
+                return;
+            var second = first == "bmclapi" ? "official" : "bmclapi";
+            var firstRate = await MeasureAsync(first, stop);
+            if (firstRate >= FastEnough)
+            {
+                decided = true;
+                return;
+            }
+            Volatile.Write(ref _autoSource, second);
+            var secondRate = await MeasureAsync(second, stop);
+            var best = secondRate > firstRate ? second : first;
+            Volatile.Write(ref _autoSource, best);
+            decided = true;
+            AutoSourceDetail = F("下载中测速：{0} {1}，{2} {3}", SourceName(first), FormatRate(firstRate),
+                                 SourceName(second), FormatRate(secondRate));
+            Log?.Invoke(F("下载源：{0}（{1}）", SourceName(best), AutoSourceDetail));
+        }
+        catch (OperationCanceledException)
+        {
+            if (first != null)
+                Volatile.Write(ref _autoSource, first);
+        }
+        finally
+        {
+            Volatile.Write(ref _trialState, decided ? 2 : 0);
+        }
+    }
+
+    /// <summary>这个源接下来几秒的下载速度（字节/秒）。前两秒是新源建立连接的时间，不计入。</summary>
+    private static async Task<double> MeasureAsync(string source, CancellationToken stop)
+    {
+        await Task.Delay(2000, stop);
+        var start = SourceBytes(source);
+        var watch = Stopwatch.StartNew();
+        await Task.Delay(6000, stop);
+        return (SourceBytes(source) - start) / watch.Elapsed.TotalSeconds;
+    }
+
+    private static long SourceBytes(string source) =>
+        source == "bmclapi" ? Interlocked.Read(ref _mirrorBytes) : Interlocked.Read(ref _officialBytes);
 }
