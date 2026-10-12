@@ -1,12 +1,30 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace MaoX.Core;
 
 /// <summary>启动器数据目录。Windows 上与 exe 同目录（便携），macOS / Linux 上在用户数据目录。</summary>
-public static class AppPaths
+public static partial class AppPaths
 {
     public static readonly string BaseDir = ResolveBaseDir();
+
+    [GeneratedRegex("^(/private)?/var/mobile/Containers/Data/Application/[0-9A-Fa-f-]+(?=/|$)")]
+    private static partial Regex IosContainer();
+
+    /// <summary>
+    /// iOS 重新安装或更新 App 后，数据容器路径里的 UUID 可能会变，旧容器下的绝对路径不能再访问：换成当前容器下的同一位置。
+    /// </summary>
+    public static string Rebase(string path)
+    {
+        if (!Platform.IsIOS || string.IsNullOrEmpty(path))
+            return path;
+        var current = IosContainer().Match(BaseDir);
+        var saved = IosContainer().Match(path);
+        if (!current.Success || !saved.Success || saved.Value == current.Value)
+            return path;
+        return current.Value + path[saved.Length..];
+    }
 
     public static string ConfigPath => Path.Combine(BaseDir, "launcher_config.json");
     public static string ToolsDir => Path.Combine(BaseDir, "tools");
@@ -118,6 +136,9 @@ public class LauncherConfig
                     cfg.Servers ??= [];
                     if (string.IsNullOrWhiteSpace(cfg.MinecraftDir))
                         cfg.MinecraftDir = AppPaths.DefaultMinecraftDir;
+                    cfg.MinecraftDir = AppPaths.Rebase(cfg.MinecraftDir);
+                    cfg.JavaPath = AppPaths.Rebase(cfg.JavaPath);
+                    cfg.Background = AppPaths.Rebase(cfg.Background);
                     return cfg;
                 }
             }

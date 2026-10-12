@@ -483,7 +483,7 @@ public class GameLauncher
             if (settings.Get("max_memory") != null)
                 cfg.MaxMemory = settings.Int("max_memory", cfg.MaxMemory);
             if (settings.Get("java_path") != null)
-                cfg.JavaPath = settings.Str("java_path") ?? "";
+                cfg.JavaPath = AppPaths.Rebase(settings.Str("java_path") ?? "");
             if (settings.Get("jvm_args") != null)
                 cfg.JvmArgs = settings.Str("jvm_args") ?? "";
         }
