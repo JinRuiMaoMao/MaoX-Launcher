@@ -12,7 +12,7 @@ namespace MaoX.iOS.Game;
 /// StikJIT 1.9.0 通过 LocalDevVPN 连接本机的调试服务，给启动器进程开启 JIT。仍然需要 LocalDevVPN、开发者模式和配对文件。
 /// 只在用户打开设置里的开关时使用；是否开启以 GameNative.JitEnabled()（CS_DEBUGGED）为准，不以助手的回答为准。
 /// </summary>
-internal static unsafe class IosBuiltInJit
+internal static class IosBuiltInJit
 {
     private const string HelperBundle = "MaoXJITHelper.appex";
 
@@ -92,7 +92,7 @@ internal static unsafe class IosBuiltInJit
         public Task<Reply> Reply { get; } = reply;
     }
 
-    private static Call Send(JsonObject request)
+    private static unsafe Call Send(JsonObject request)
     {
         var token = Interlocked.Increment(ref _nextToken);
         var tcs = new TaskCompletionSource<Reply>(TaskCreationOptions.RunContinuationsAsynchronously);
