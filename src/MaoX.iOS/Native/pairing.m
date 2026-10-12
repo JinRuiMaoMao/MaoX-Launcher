@@ -275,7 +275,7 @@ static void on_pin(void *context, const char *pin);
         if (task) {
             if (rc == 0)
                 task.progress.completedUnitCount = 100;
-            [task setTaskCompleted:rc == 0];
+            [task setTaskCompletedWithSuccess:rc == 0];
         }
     }
     self.task = nil;
