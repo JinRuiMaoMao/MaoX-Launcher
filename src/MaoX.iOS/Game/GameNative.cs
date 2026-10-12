@@ -38,6 +38,27 @@ internal static unsafe class GameNative
 
     public static JitFlags Flags() => (JitFlags)((delegate* unmanaged<int>)Fn("maox_jit_flags"))();
 
+    // 内置 JIT 助手（Native/jit_helper.m），状态码见 IosBuiltInJit.Status
+    public static int JitHelperAvailability() => ((delegate* unmanaged<int>)Fn("maox_jit_helper_availability"))();
+
+    public static int JitHelperRequest(string json, long token, delegate* unmanaged<long, int, nint, void> callback)
+    {
+        var utf8 = Marshal.StringToCoTaskMemUTF8(json);
+        try
+        {
+            return ((delegate* unmanaged<nint, long, delegate* unmanaged<long, int, nint, void>, int>)
+                Fn("maox_jit_helper_request"))(utf8, token, callback);
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem(utf8);
+        }
+    }
+
+    public static void JitHelperCancel(long token) => ((delegate* unmanaged<long, void>)Fn("maox_jit_helper_cancel"))(token);
+
+    public static int JitHelperPid() => ((delegate* unmanaged<int>)Fn("maox_jit_helper_pid"))();
+
     public static bool HasEntitlement(string name)
     {
         var utf8 = Marshal.StringToCoTaskMemUTF8(name);

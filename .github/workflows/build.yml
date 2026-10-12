@@ -196,8 +196,37 @@ jobs:
           name: terracotta-ios
           path: dist/terracotta/libterracotta.dylib
 
+  # 内置 JIT（实验）：JIT 助手扩展 + StikJIT 1.9.0（MPL-2.0，版本固定在 src/MaoX.iOS/JITHelper/build.sh），
+  # 只打进单独的实验版 IPA；失败时正式 IPA 照常打包
+  ios-jit-helper:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      # 和打包 IPA 用同一个 Xcode，不为 StikJIT 升级工具链
+      - name: Select Xcode
+        run: |
+          xcode=/Applications/Xcode_26.5.app
+          [ -d "$xcode" ] || xcode=$(ls -d /Applications/Xcode_26*.app | grep -vi beta | sort -V | tail -1)
+          xcode=$(cd "$xcode" && pwd -P)
+          echo "Using $xcode"
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+
+      - name: Build JIT helper
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Directory.Build.props | head -1)
+          bash src/MaoX.iOS/JITHelper/build.sh dist/jithelper io.github.jinruimaomao.maox "$version"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jit-helper-ios
+          path: dist/jithelper
+
   ios:
-    needs: ios-terracotta
+    needs: [ios-terracotta, ios-jit-helper]
     if: ${{ !cancelled() }}
     runs-on: macos-latest
     timeout-minutes: 50
@@ -298,6 +327,7 @@ jobs:
           exe=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$app/Info.plist")
           codesign --force --sign - --entitlements src/MaoX.iOS/Entitlements.sideload.plist --generate-entitlement-der "$app/$exe"
           codesign -d --entitlements - "$app/$exe"
+          test ! -e "$app/PlugIns"
           (cd dist/ipa && zip -qry ../MaoX-Launcher-iOS.ipa Payload)
           rm -rf dist/ipa
           ls -la dist
@@ -306,6 +336,64 @@ jobs:
         with:
           name: MaoX-iOS
           path: dist/MaoX-Launcher-iOS.ipa
+
+      - name: Download JIT helper
+        id: jithelper
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: jit-helper-ios
+          path: ${{ runner.temp }}/jithelper
+
+      # 实验版：正式 IPA 加上 PlugIns/MaoXJITHelper.appex 和 Frameworks/StikJIT.framework，不进 Release、不参与自动更新
+      - name: Build IPA with built-in JIT (experimental)
+        if: steps.jithelper.outcome == 'success'
+        run: |
+          helper="$RUNNER_TEMP/jithelper"
+          echo "StikJIT: $(cat "$helper/stikjit-origin.txt")"
+          app=$(find src/MaoX.iOS/bin/Release -maxdepth 4 -type d -name "*.app" | head -1)
+          mkdir -p dist/ipa-jit/Payload
+          cp -R "$app" dist/ipa-jit/Payload/
+          app="dist/ipa-jit/Payload/$(basename "$app")"
+          cp -R "$GAME_RUNTIME/." "$app/"
+          mkdir -p "$app/PlugIns"
+          cp -R "$helper/MaoXJITHelper.appex" "$app/PlugIns/"
+          cp -R "$helper/StikJIT.framework" "$app/Frameworks/"
+          chmod +x "$app/PlugIns/MaoXJITHelper.appex/MaoXJITHelper" "$app/Frameworks/StikJIT.framework/StikJIT"
+
+          # 由内向外签名：框架、扩展、主程序（用户的安装工具会用自己的证书全部重签）
+          exe=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$app/Info.plist")
+          codesign --force --sign - "$app/Frameworks/StikJIT.framework"
+          codesign --force --sign - --generate-entitlement-der "$app/PlugIns/MaoXJITHelper.appex"
+          codesign --force --sign - --entitlements src/MaoX.iOS/Entitlements.sideload.plist --generate-entitlement-der "$app/$exe"
+
+          # 检查签名和打包关系
+          codesign --verify --strict --verbose=2 "$app/Frameworks/StikJIT.framework"
+          codesign --verify --strict --verbose=2 "$app/PlugIns/MaoXJITHelper.appex"
+          codesign --verify --strict --verbose=2 "$app/$exe"
+          codesign --verify --deep --strict --verbose=2 "$app" || echo "::warning::Deep verification of the whole app failed (the standard IPA is signed the same way)"
+          codesign -d --entitlements - "$app/$exe" 2>&1 | grep -q get-task-allow
+          app_id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist")
+          helper_plist="$app/PlugIns/MaoXJITHelper.appex/Info.plist"
+          helper_id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$helper_plist")
+          echo "App $app_id, helper $helper_id"
+          case "$helper_id" in "$app_id".*) ;; *) echo "Helper identifier must start with $app_id."; exit 1 ;; esac
+          [ "$(/usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPrincipalClass" "$helper_plist")" = MaoXJITHelperHandler ]
+          [ "$(/usr/libexec/PlistBuddy -c "Print :CFBundlePackageType" "$helper_plist")" = "XPC!" ]
+          /usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$app/Frameworks/StikJIT.framework/Info.plist"
+          otool -L "$app/PlugIns/MaoXJITHelper.appex/MaoXJITHelper" | grep -q "@rpath/StikJIT.framework/StikJIT"
+          test -f "$app/PlugIns/MaoXJITHelper.appex/../../Frameworks/StikJIT.framework/StikJIT"
+          test -f "$app/Frameworks/StikJIT.framework/LICENSE.StikJIT-MPL-2.0.txt"
+          nm -gU "$app/Frameworks/libmaoxgame.dylib" | grep -q _maox_jit_helper_request
+          (cd dist/ipa-jit && zip -qry ../MaoX-Launcher-iOS-BuiltinJIT.ipa Payload)
+          rm -rf dist/ipa-jit
+          ls -la dist
+
+      - uses: actions/upload-artifact@v7
+        if: steps.jithelper.outcome == 'success'
+        with:
+          name: ios-builtin-jit-experimental
+          path: dist/MaoX-Launcher-iOS-BuiltinJIT.ipa
 
       - name: Simulator smoke test
         timeout-minutes: 25

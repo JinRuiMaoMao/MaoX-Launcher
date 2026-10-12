@@ -95,6 +95,16 @@
               </StackPanel>
               <TextBox Name="JvmBox" />
             </StackPanel>
+            <StackPanel Name="BuiltInJitPanel" Spacing="8" IsVisible="False">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="{c:Tr '内置 JIT（实验）'}" />
+                  <TextBlock Name="BuiltInJitHint" Classes="small dim" TextWrapping="Wrap" />
+                </StackPanel>
+                <ToggleSwitch Name="BuiltInJitSwitch" Grid.Column="1" />
+              </Grid>
+              <Button Name="ResetDdiButton" Content="{c:Tr 重置开发者磁盘映像}" Click="OnResetDdi" />
+            </StackPanel>
           </StackPanel>
         </Border>
 

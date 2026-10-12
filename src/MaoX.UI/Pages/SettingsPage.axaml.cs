@@ -76,6 +76,7 @@ public partial class SettingsPage : UserControl, IPage
         BuildSwatches();
         UpdateThemeControls();
         FillJava([]);
+        LoadBuiltInJit();
         _loading = false;
 
         IsolationSwitch.IsCheckedChanged += (_, _) => Cfg.VersionIsolation = IsolationSwitch.IsChecked == true;
@@ -112,6 +113,37 @@ public partial class SettingsPage : UserControl, IPage
 
     public void OnShow()
     {
+    }
+
+    // ------------------------------------------------------------------ iOS 内置 JIT（实验）
+
+    private void LoadBuiltInJit()
+    {
+        if (!MobileJit.BuiltInIncluded)
+            return;
+        var reason = MobileJit.BuiltInUnavailableReason();
+        BuiltInJitPanel.IsVisible = true;
+        BuiltInJitSwitch.IsEnabled = ResetDdiButton.IsEnabled = reason == null;
+        BuiltInJitSwitch.IsChecked = reason == null && Cfg.IosJitMethod == "builtin";
+        BuiltInJitHint.Text = reason ?? T("由安装包自带的 StikJIT 开启 JIT，不用切到 StikDebug。仍需要 LocalDevVPN、开发者模式，并把配对文件放到“文件”App 的 MaoX Launcher/StikJIT/pairingFile.plist");
+        BuiltInJitSwitch.IsCheckedChanged += (_, _) =>
+        {
+            if (!_loading)
+                Cfg.IosJitMethod = BuiltInJitSwitch.IsChecked == true ? "builtin" : "auto";
+        };
+    }
+
+    private async void OnResetDdi(object sender, RoutedEventArgs e)
+    {
+        ResetDdiButton.IsEnabled = false;
+        try
+        {
+            await Main.Dialog(T("内置 JIT（实验）"), await MobileJit.ResetBuiltInDdi());
+        }
+        finally
+        {
+            ResetDdiButton.IsEnabled = true;
+        }
     }
 
     // ------------------------------------------------------------------ 外观
@@ -408,6 +440,14 @@ public partial class SettingsPage : UserControl, IPage
                 "Caciocavallo — GPL-2.0 with Classpath Exception",
                 "fishhook — BSD-3-Clause",
             ]);
+            if (MobileJit.BuiltInIncluded)
+            {
+                lines.AddRange([
+                    F("StikJIT 1.9.0（{0}）— MPL-2.0", T("内置 JIT，未修改，源码：https://github.com/StikDebug/StikJIT")),
+                    F("idevice（{0}）— MIT", T("随 StikJIT 附带")),
+                    F("StikDebug JIT 脚本（{0}）— AGPL-3.0", T("随 StikJIT 附带")),
+                ]);
+            }
         }
         await Main.Dialog(T("开源许可"),
                           T("MaoX Launcher 以 GPL-3.0 协议开源。") + "\n"

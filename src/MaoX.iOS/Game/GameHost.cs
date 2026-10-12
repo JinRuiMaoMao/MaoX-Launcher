@@ -21,12 +21,13 @@ internal static class GameHost
 
     private static string Bundle => NSBundle.MainBundle.BundlePath;
     public static string LogFile => Path.Combine(AppPaths.BaseDir, "game.log");
-    private static string JitScript => Path.Combine(Bundle, "UniversalJIT26.js");
+    internal static string JitScript => Path.Combine(Bundle, "UniversalJIT26.js");
 
     public static void Install()
     {
         GameLauncher.MobileStarter = StartAsync;
         GameLauncher.MobilePreparing = RequestJitEarly;
+        IosBuiltInJit.Install();
         Terracotta.Mobile = IosTerracotta.Instance;
         GameLauncher.MobileJavaRunner = (_, _, _, _) => throw new PlatformNotSupportedException(
             T("iPhone / iPad 上不能运行 Forge / NeoForge / OptiFine 的安装程序：请在电脑上安装好，再把版本文件夹复制到“文件”App 里 MaoX Launcher 的 .minecraft/versions 中"));
@@ -128,11 +129,22 @@ internal static class GameHost
         request.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
     }
 
-    /// <summary>没有 JIT 时请 StikDebug（iOS 17.4+）或 SideStore 给当前进程开启，最多等两分钟。</summary>
+    /// <summary>
+    /// 没有 JIT 时请 StikDebug（iOS 17.4+）或 SideStore 给当前进程开启，最多等两分钟。
+    /// 用户在设置里打开了内置 JIT（实验）且可用时，改由安装包里的 JIT 助手开启，失败时不会再改用 StikDebug。
+    /// </summary>
     private static async Task EnsureJitAsync(GameLauncher launcher)
     {
         if (GameNative.JitEnabled())
             return;
+        if (IosBuiltInJit.Selected(launcher.Cfg, out var unavailable))
+        {
+            await IosBuiltInJit.EnableAsync(launcher);
+            launcher.Log(T("JIT 已开启"));
+            return;
+        }
+        if (unavailable != null)
+            launcher.Log(F("内置 JIT 不可用（{0}），使用原来的方式开启 JIT", unavailable));
         launcher.Log(T("正在请求开启 JIT，请在弹出的 StikDebug 中确认..."));
         // 切到 StikDebug 后 iOS 很快会挂起启动器，申请一段后台运行时间，让同时进行的下载不中断
         var background = new BackgroundTime();

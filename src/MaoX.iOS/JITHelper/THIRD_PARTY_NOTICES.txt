@@ -1,0 +1,19 @@
+MaoX Launcher built-in JIT helper (PlugIns/MaoXJITHelper.appex, Frameworks/StikJIT.framework)
+
+StikJIT 1.9.0
+  License: Mozilla Public License 2.0 (LICENSE.StikJIT-MPL-2.0.txt)
+  Source:  https://github.com/StikDebug/StikJIT/tree/1.9.0
+           (commit 32287268fa5824f9edce4cb359f5833ce0cf7b00)
+  Used unmodified: the official StikJIT.xcframework.zip of release 1.9.0 (sha256
+  806664393770c68e75f2b6429955bfdd88cfaad09fec2ba70f8ed615ff90c060), or the framework built from that same
+  commit with StikJIT's own project.yml when the release binary cannot be used. The launcher only adds an
+  Info.plist to the framework bundle so iOS accepts it.
+
+idevice (statically linked into StikJIT as libidevice_ffi)
+  License: MIT (LICENSE.idevice-MIT.txt), Copyright 2026 Jackson Coxson
+  Source:  https://github.com/jkcoxson/idevice
+
+universal.js / legacy.js (bundled inside StikJIT.framework, from StikDebug)
+  License: AGPL-3.0
+  Source:  https://github.com/StikDebug/StikDebug
+  MaoX Launcher passes its own JIT script (UniversalJIT26.js from Amethyst-iOS) instead of these.
