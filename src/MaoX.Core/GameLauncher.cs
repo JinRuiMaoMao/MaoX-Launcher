@@ -691,10 +691,15 @@ public class GameLauncher
         if (!await Task.Run(() => tasks.AsParallel().All(t => t.IsValid())))
         {
             var source = await Dl.ResolvedSourceAsync();
-            Log(F("下载源：{0}", source == "bmclapi" ? T("BMCLAPI 镜像") : T("Mojang 官方")));
+            var name = source == "bmclapi" ? T("BMCLAPI 镜像") : T("Mojang 官方");
+            Log(Dl.Source == "auto" && Downloader.AutoSourceDetail != null
+                    ? F("下载源：{0}（{1}）", name, Downloader.AutoSourceDetail)
+                    : F("下载源：{0}", name));
         }
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         var count = await Dl.DownloadManyAsync(tasks, (d, t) => Progress(d, t, T("下载游戏文件")));
-        Log(count > 0 ? F("已下载 {0} 个文件", count) : T("游戏文件完整，无需下载"));
+        Log(count > 0 ? F("已下载 {0} 个文件，用时 {1} 秒", count, (int)watch.Elapsed.TotalSeconds)
+                      : T("游戏文件完整，无需下载"));
 
         // 和官方启动器一样把本体复制成 <版本名>.jar，新版 Forge 按这个文件名把本体排除出类路径
         if (!string.Equals(Path.GetFullPath(versionJar), Path.GetFullPath(clientJar),

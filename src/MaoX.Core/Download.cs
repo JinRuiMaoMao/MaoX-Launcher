@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -176,6 +177,10 @@ public class Downloader
 
     private static readonly SemaphoreSlim AutoLock = new(1, 1);
     private static string _autoSource;
+    private static DateTime _autoRetryAt;
+
+    /// <summary>上一次自动测速的结果，写进日志方便排查下载慢</summary>
+    public static string AutoSourceDetail { get; private set; }
 
     public string Source { get; }
     public int Threads { get; }
@@ -202,7 +207,10 @@ public class Downloader
         return url;
     }
 
-    /// <summary>同时请求官方源和镜像源的同一个小文件，返回先成功的那个。结果在进程内缓存。</summary>
+    /// <summary>
+    /// 同时请求官方源和镜像源的同一个小文件，返回先成功的那个。结果在进程内缓存；两边都失败（比如刚安装时系统还在询问
+    /// 是否允许联网）时暂时用官方源，30 秒后再测，不把失败的结果一直留到退出。
+    /// </summary>
     public static async Task<string> DetectFastestSourceAsync(int timeout = 8)
     {
         await AutoLock.WaitAsync();
@@ -210,7 +218,10 @@ public class Downloader
         {
             if (_autoSource != null)
                 return _autoSource;
+            if (DateTime.UtcNow < _autoRetryAt)
+                return "official";
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
+            var watch = Stopwatch.StartNew();
             var probes = new[] { "official", "bmclapi" }.Select(async source =>
             {
                 using var response = await Http.Client.GetAsync(MirrorUrl(ProbeUrl, source), cts.Token);
@@ -218,7 +229,7 @@ public class Downloader
                 await response.Content.ReadAsByteArrayAsync(cts.Token);
                 return source;
             }).ToList();
-            var result = "official";
+            string result = null;
             while (probes.Count > 0)
             {
                 var done = await Task.WhenAny(probes);
@@ -230,6 +241,13 @@ public class Downloader
                 }
             }
             cts.Cancel();
+            if (result == null)
+            {
+                _autoRetryAt = DateTime.UtcNow.AddSeconds(30);
+                AutoSourceDetail = T("自动测速失败，暂时使用官方源");
+                return "official";
+            }
+            AutoSourceDetail = F("自动测速 {0} ms", watch.ElapsedMilliseconds);
             _autoSource = result;
             return result;
         }
