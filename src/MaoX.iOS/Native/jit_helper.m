@@ -4,6 +4,7 @@
 // uses; one JSON request goes in the first NSExtensionItem's userInfo and one JSON response comes back the same way.
 // Whether JIT is on is still decided by isJITEnabled() (CS_DEBUGGED), not by the helper's answer.
 #import <Foundation/Foundation.h>
+#import <OSLog/OSLog.h>
 
 #include <dlfcn.h>
 #include <signal.h>
@@ -43,6 +44,7 @@ typedef void (*maox_jit_helper_callback)(int64_t token, int status, const char *
 - (void)setRequestCancellationBlock:(void (^)(NSUUID *requestIdentifier, NSError *error))block;
 - (void)setRequestInterruptionBlock:(void (^)(NSUUID *requestIdentifier))block;
 - (void)_kill:(int)signal;
+- (void)setPreferredLanguages:(NSArray *)languages;
 @end
 
 @interface MaoXJITHelperRequest : NSObject
@@ -53,6 +55,9 @@ typedef void (*maox_jit_helper_callback)(int64_t token, int status, const char *
 @property(nonatomic) pid_t pid;
 @property(nonatomic) BOOL cancelled;
 @property(nonatomic) BOOL done;
+@property(nonatomic, strong) NSDate *started;
+@property(nonatomic, copy) NSString *startError; // cancellation error that arrived before iOS named the request
+@property(nonatomic) BOOL failing;
 @end
 
 @implementation MaoXJITHelperRequest
@@ -74,6 +79,47 @@ static char *lastError; // why the last request could not be started (stateQueue
 static void setLastError(NSString *text) {
     free(lastError);
     lastError = strdup((text ?: @"").UTF8String);
+}
+
+// What this process logged about extensions since `since` (ExtensionFoundation, PlugInKit and RunningBoard log the
+// reason a launch failed here, not in the callbacks). Slow; only for failures.
+static NSString *recentExtensionLog(NSDate *since) {
+    NSError *error = nil;
+    OSLogStore *store = [OSLogStore storeWithScope:OSLogStoreCurrentProcessIdentifier error:&error];
+    if (!store) {
+        return [NSString stringWithFormat:@"(system log unavailable: %@)", error.localizedDescription];
+    }
+    OSLogEnumerator *entries = [store entriesEnumeratorWithOptions:0
+                                                          position:[store positionWithDate:since]
+                                                         predicate:nil
+                                                             error:&error];
+    if (!entries) {
+        return [NSString stringWithFormat:@"(system log unavailable: %@)", error.localizedDescription];
+    }
+    NSDateFormatter *time = [NSDateFormatter new];
+    time.dateFormat = @"HH:mm:ss.SSS";
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    for (OSLogEntry *entry in entries) {
+        if (![entry isKindOfClass:OSLogEntryLog.class]) {
+            continue;
+        }
+        OSLogEntryLog *log = (OSLogEntryLog *)entry;
+        NSString *subsystem = log.subsystem ?: @"";
+        NSString *message = log.composedMessage ?: @"";
+        NSString *lower = [subsystem stringByAppendingString:message].lowercaseString;
+        BOOL relevant = log.level >= OSLogEntryLogLevelError || [lower containsString:@"extension"] ||
+                        [lower containsString:@"plugin"] || [lower containsString:@"runningboard"] ||
+                        [lower containsString:@"jithelper"] || [lower containsString:@"launch"] ||
+                        [lower containsString:@"xpc"];
+        if (relevant) {
+            [lines addObject:[NSString stringWithFormat:@"%@ [%@:%@] %@", [time stringFromDate:log.date], subsystem,
+                                                        log.category ?: @"", message]];
+        }
+    }
+    if (lines.count > 40) {
+        [lines removeObjectsInRange:NSMakeRange(0, lines.count - 40)];
+    }
+    return lines.count ? [lines componentsJoinedByString:@"\n"] : @"(nothing about extensions in the log)";
 }
 
 // Read from the helper's own Info.plist: sideloaders append their team ID to the app's and the helper's identifier
@@ -112,6 +158,28 @@ static void finish(MaoXJITHelperRequest *request, int status, NSString *text) {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         callback(token, status, utf8);
         free(utf8);
+    });
+}
+
+static NSString *describeError(NSError *error) {
+    NSString *text = [NSString stringWithFormat:@"%@ (%@ %ld)", error.localizedDescription, error.domain, (long)error.code];
+    NSError *underlying = error.userInfo[NSUnderlyingErrorKey];
+    return underlying ? [NSString stringWithFormat:@"%@; %@", text, describeError(underlying)] : text;
+}
+
+// Runs on stateQueue. iOS did not start the helper: report it with iOS's reason and what this process logged about it.
+static void startFailed(MaoXJITHelperRequest *request, NSString *identifier) {
+    if (request.done || request.failing) {
+        return;
+    }
+    request.failing = YES;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSString *log = recentExtensionLog(request.started);
+        dispatch_async(stateQueue(), ^{
+            NSString *reason = request.startError ? [@" - " stringByAppendingString:request.startError] : @"";
+            finish(request, JH_START_FAILED,
+                   [NSString stringWithFormat:@"%@: iOS did not start the process%@\n%@", identifier, reason, log]);
+        });
     });
 }
 
@@ -170,10 +238,7 @@ EXPORT int maox_jit_helper_request(const char *json, int64_t token, maox_jit_hel
         id extension = [cls extensionWithIdentifier:identifier error:&error];
         if (!extension) {
             NSLog(@"[MaoX] JIT helper %@ is not registered: %@", identifier, error);
-            setLastError([NSString stringWithFormat:@"%@: %@", identifier,
-                                                    error ? [NSString stringWithFormat:@"%@ (%@ %ld)", error.localizedDescription,
-                                                                                       error.domain, (long)error.code]
-                                                          : @"not found"]);
+            setLastError([NSString stringWithFormat:@"%@: %@", identifier, error ? describeError(error) : @"not found"]);
             status = JH_NOT_REGISTERED;
             return;
         }
@@ -194,7 +259,11 @@ EXPORT int maox_jit_helper_request(const char *json, int64_t token, maox_jit_hel
         request.extension = extension;
         request.token = token;
         request.callback = callback;
+        request.started = [NSDate dateWithTimeIntervalSinceNow:-1];
         current = request;
+        if ([extension respondsToSelector:@selector(setPreferredLanguages:)]) {
+            [extension setPreferredLanguages:@[]]; // as LiveContainer does before starting LiveProcess
+        }
 
         // The blocks belong to the NSExtension object; they are replaced for every request and may run on any queue
         [extension setRequestCompletionBlock:^(NSUUID *uuid, NSArray *items) {
@@ -218,8 +287,16 @@ EXPORT int maox_jit_helper_request(const char *json, int64_t token, maox_jit_hel
             });
         }];
         [extension setRequestCancellationBlock:^(NSUUID *uuid, NSError *cancelError) {
-            NSString *message = cancelError.localizedDescription ?: @"The JIT helper request was cancelled";
+            NSString *message = cancelError ? describeError(cancelError) : @"The JIT helper request was cancelled";
             dispatch_async(stateQueue(), ^{
+                if (!request.identifier && !request.cancelled) {
+                    // A failed launch reports its reason here, around the time the begin completion gets no identifier
+                    request.startError = message;
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), stateQueue(), ^{
+                        startFailed(request, identifier);
+                    });
+                    return;
+                }
                 finish(request, JH_CANCELLED, message);
             });
         }];
@@ -232,21 +309,27 @@ EXPORT int maox_jit_helper_request(const char *json, int64_t token, maox_jit_hel
         NSExtensionItem *item = [NSExtensionItem new];
         item.userInfo = @{RequestKey: data};
         NSLog(@"[MaoX] Starting JIT helper %@ (request %lld)", identifier, token);
-        [extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *uuid) {
-            dispatch_async(stateQueue(), ^{
-                if (!uuid) {
-                    finish(request, JH_START_FAILED, [NSString stringWithFormat:@"%@: iOS did not start the process", identifier]);
-                    return;
-                }
-                request.identifier = uuid;
-                request.pid = [extension pidForRequestIdentifier:uuid];
-                NSLog(@"[MaoX] JIT helper request %lld runs as pid %d", request.token, request.pid);
-                if (request.cancelled) {
-                    // Cancelled before iOS said which request it was: stop the helper now
-                    stopHelper(request, extension);
-                }
-            });
-        }];
+        // From the main thread, like LiveContainer and Husk
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *uuid) {
+                dispatch_async(stateQueue(), ^{
+                    if (!uuid) {
+                        // iOS's reason, if any, comes through the cancellation block: give it a moment
+                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 2), stateQueue(), ^{
+                            startFailed(request, identifier);
+                        });
+                        return;
+                    }
+                    request.identifier = uuid;
+                    request.pid = [extension pidForRequestIdentifier:uuid];
+                    NSLog(@"[MaoX] JIT helper request %lld runs as pid %d", request.token, request.pid);
+                    if (request.cancelled) {
+                        // Cancelled before iOS said which request it was: stop the helper now
+                        stopHelper(request, extension);
+                    }
+                });
+            }];
+        });
     });
     return status;
 }

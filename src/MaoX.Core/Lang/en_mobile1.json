@@ -80,6 +80,7 @@
   "内置 JIT 助手没有响应，请稍后再试": "The built-in JIT helper didn't respond. Try again later",
   "已删除缓存的开发者磁盘映像，下次开启 JIT 时会重新下载（已经挂载的映像要重启手机后才会卸载）": "The cached Developer Disk Image was deleted and will be downloaded again next time (an image that is already mounted stays mounted until you restart the device)",
   "上一次内置 JIT 请求还没有结束，请稍后再试": "The previous built-in JIT request hasn't finished yet. Try again later",
+  "{0}；详细日志在“文件”App 的 MaoX Launcher/StikJIT/helper-log.txt": "{0}; full log in the Files app under MaoX Launcher/StikJIT/helper-log.txt",
   "JIT 助手没有启动（{0}）：请重新安装启动器，安装工具询问时选择保留 App 扩展；或在设置里关闭内置 JIT，改用 StikDebug": "The JIT helper didn't start ({0}): reinstall the launcher and keep its app extensions when the installer asks, or turn off built-in JIT in Settings and use StikDebug",
   "JIT 助手意外退出了，请再试一次；多次失败请重启手机，或在设置里关闭内置 JIT，改用 StikDebug": "The JIT helper quit unexpectedly. Try again; if it keeps failing, restart your device, or turn off built-in JIT in Settings and use StikDebug",
   "内置 JIT 请求被取消（{0}）": "The built-in JIT request was cancelled ({0})",

@@ -37,7 +37,7 @@ rm -rf "$TMP"
 $CC "${CFLAGS[@]}" "${LDFLAGS[@]}" \
     -install_name @rpath/libmaoxgame.dylib \
     -framework Foundation -framework UIKit -framework QuartzCore -framework CoreGraphics -framework IOKit \
-    -framework BackgroundTasks -framework UserNotifications \
+    -framework BackgroundTasks -framework UserNotifications -framework OSLog \
     "$HERE/game.m" "$HERE/hooks.m" "$HERE/utils.m" "$HERE/egl_bridge.m" "$HERE/input_bridge_v3.m" "$HERE/jit_helper.m" \
     "$HERE/pairing.m" \
     "$HERE/ctxbridges/gl_bridge.m" "$HERE/dyld_bypass_validation.m" "$HERE/dyld_patch_platform.m" \
