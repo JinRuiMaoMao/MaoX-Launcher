@@ -27,6 +27,7 @@ internal sealed class GameViewController : UIViewController
     private DateTime _copiedUntil;
     private int _width, _height;
     private bool _launched;
+    private GamepadInput _gamepad;
 
     public GameViewController(string gameDir, ScreenInfo screen)
     {
@@ -193,6 +194,8 @@ internal sealed class GameViewController : UIViewController
                     _launched = true;
                     UIApplication.SharedApplication.IdleTimerDisabled = true;
                     NSTimer.CreateRepeatingScheduledTimer(2, _ => UpdateRoom());
+                    _gamepad = new GamepadInput(_controls);
+                    _gamepad.Start();
                 }
                 else
                 {

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
@@ -45,6 +46,9 @@ public class ControlsView extends View {
     private final List<Button> mButtons = new ArrayList<>();
     private final SparseArray<Object> mPointers = new SparseArray<>();
     private boolean mGrabbing;
+    private boolean mGamepadActive;
+    private float mCursorX = -1, mCursorY = -1;
+    private final Path mArrow = new Path();
 
     // 摇杆
     private final RectF mStickZone = new RectF();
@@ -93,7 +97,7 @@ public class ControlsView extends View {
         }
 
         boolean visible() {
-            return mGrabbing ? inGame : inMenu;
+            return !mGamepadActive && (mGrabbing ? inGame : inMenu);
         }
 
         void press(boolean down) {
@@ -191,10 +195,30 @@ public class ControlsView extends View {
         b.rect.set(x, y, x + w, y + h);
     }
 
+    public boolean isGrabbing() {
+        return mGrabbing;
+    }
+
+    /** 正在用手柄时隐藏触屏按键，手指碰到屏幕就重新显示。 */
+    public void setGamepadActive(boolean active) {
+        if (mGamepadActive == active) return;
+        mGamepadActive = active;
+        invalidate();
+    }
+
+    /** 菜单里手柄光标的位置（界面像素），负数表示不画。 */
+    public void setGamepadCursor(float x, float y) {
+        if (mCursorX == x && mCursorY == y) return;
+        mCursorX = x;
+        mCursorY = y;
+        invalidate();
+    }
+
     public void setGrabbing(boolean grabbing) {
         if (mGrabbing == grabbing) return;
         releaseAll();
         mGrabbing = grabbing;
+        mCursorX = mCursorY = -1;
         if (grabbing) showKeyboard(false);
         else CallbackBridge.sendCursorPos(CallbackBridge.windowWidth / 2f, CallbackBridge.windowHeight / 2f);
         invalidate();
@@ -219,6 +243,7 @@ public class ControlsView extends View {
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         int action = e.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) setGamepadActive(false);
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN: {
@@ -431,7 +456,23 @@ public class ControlsView extends View {
             float ty = b.rect.centerY() - (mText.descent() + mText.ascent()) / 2;
             canvas.drawText(b.label, b.rect.centerX(), ty, mText);
         }
-        if (mGrabbing) {
+        if (!mGrabbing && mGamepadActive && mCursorX >= 0) {
+            float x = mCursorX, y = mCursorY, u = mDp;
+            mArrow.reset();
+            mArrow.moveTo(x, y);
+            mArrow.lineTo(x, y + 20 * u);
+            mArrow.lineTo(x + 5 * u, y + 15 * u);
+            mArrow.lineTo(x + 9 * u, y + 23 * u);
+            mArrow.lineTo(x + 12 * u, y + 21.5f * u);
+            mArrow.lineTo(x + 8 * u, y + 13.5f * u);
+            mArrow.lineTo(x + 14 * u, y + 13.5f * u);
+            mArrow.close();
+            mFill.setColor(Color.WHITE);
+            canvas.drawPath(mArrow, mFill);
+            mStroke.setColor(Color.BLACK);
+            canvas.drawPath(mArrow, mStroke);
+        }
+        if (mGrabbing && !mGamepadActive) {
             mFill.setColor(0x33000000);
             mStroke.setColor(0x66FFFFFF);
             canvas.drawCircle(mStickX, mStickY, mStickRadius, mFill);

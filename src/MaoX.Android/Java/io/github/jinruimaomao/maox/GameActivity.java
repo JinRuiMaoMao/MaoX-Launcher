@@ -50,6 +50,7 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
     private boolean mStarted;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private ControlsView mControls;
+    private Gamepad mGamepad;
 
     /** 游戏非正常退出时由 ExitActivity（原生代码回调）写入退出码，启动器据此显示崩溃信息。 */
     public static void writeExitCode(int code, boolean isSignal) {
@@ -93,6 +94,7 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
         root.addView(mControls, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
         mControls.setOnGenericMotionListener((v, e) -> onMouse(e));
+        mGamepad = new Gamepad(this, mControls, mScale);
         setContentView(root);
         mControls.requestFocus();
 
@@ -243,6 +245,7 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
     public boolean dispatchKeyEvent(KeyEvent event) {
         int code = event.getKeyCode();
         if (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN) return super.dispatchKeyEvent(event);
+        if (mGamepad != null && mGamepad.onKey(event)) return true;
         if (code == KeyEvent.KEYCODE_BACK && (event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
             CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_RIGHT, event.getAction() == KeyEvent.ACTION_DOWN);
             return true;
@@ -254,6 +257,13 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
         Keys.updateModifier(glfw, down);
         CallbackBridge.sendKeycode(glfw, (char) event.getUnicodeChar(), 0, CallbackBridge.getCurrentMods(), down);
         return true;
+    }
+
+    /** 手柄摇杆不一定发到有焦点的 View 上，在这里统一接。 */
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (mGamepad != null && mGamepad.onMotion(event)) return true;
+        return super.dispatchGenericMotionEvent(event);
     }
 
     /** 外接鼠标：移动、滚轮、按键（触屏由 ControlsView 处理）。 */

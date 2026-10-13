@@ -37,6 +37,41 @@ internal sealed class ControlsView : UIView
     /// <summary>界面点 → 游戏像素。</summary>
     public double PixelScale { get; set; } = 1;
 
+    public bool Grabbing => _grabbing;
+
+    public int WindowWidth => _windowWidth;
+
+    public int WindowHeight => _windowHeight;
+
+    private bool _gamepadActive;
+    private CGPoint? _gamepadCursor;
+
+    /// <summary>正在用手柄时隐藏触屏按键，手指碰到屏幕就重新显示。</summary>
+    public bool GamepadActive
+    {
+        get => _gamepadActive;
+        set
+        {
+            if (_gamepadActive == value)
+                return;
+            _gamepadActive = value;
+            SetNeedsDisplay();
+        }
+    }
+
+    /// <summary>菜单里手柄光标的位置（界面点），null 时不画。</summary>
+    public CGPoint? GamepadCursor
+    {
+        get => _gamepadCursor;
+        set
+        {
+            if (_gamepadCursor == value)
+                return;
+            _gamepadCursor = value;
+            SetNeedsDisplay();
+        }
+    }
+
     public Action KeyboardHidden { get; set; }
 
     public bool KeyboardShown => _input.IsFirstResponder;
@@ -111,7 +146,7 @@ internal sealed class ControlsView : UIView
 
         public bool Toggle => toggle;
 
-        public bool Visible => owner._grabbing ? inGame : inMenu;
+        public bool Visible => !owner._gamepadActive && (owner._grabbing ? inGame : inMenu);
 
         public void Press(bool down)
         {
@@ -195,6 +230,7 @@ internal sealed class ControlsView : UIView
             return;
         ReleaseAll();
         _grabbing = grabbing;
+        _gamepadCursor = null;
         if (grabbing)
             ShowKeyboard(false);
         else
@@ -225,6 +261,7 @@ internal sealed class ControlsView : UIView
 
     public override void TouchesBegan(NSSet touches, UIEvent evt)
     {
+        GamepadActive = false;
         foreach (var touch in touches.Cast<UITouch>())
         {
             var p = touch.LocationInView(this);
@@ -504,7 +541,24 @@ internal sealed class ControlsView : UIView
             var size = text.Size;
             text.DrawString(new CGPoint(b.Rect.GetMidX() - size.Width / 2, b.Rect.GetMidY() - size.Height / 2));
         }
-        if (_grabbing)
+        if (!_grabbing && _gamepadActive && _gamepadCursor is { } cursor)
+        {
+            var arrow = new UIBezierPath();
+            arrow.MoveTo(cursor);
+            arrow.AddLineTo(new CGPoint(cursor.X, cursor.Y + 20));
+            arrow.AddLineTo(new CGPoint(cursor.X + 5, cursor.Y + 15));
+            arrow.AddLineTo(new CGPoint(cursor.X + 9, cursor.Y + 23));
+            arrow.AddLineTo(new CGPoint(cursor.X + 12, cursor.Y + 21.5));
+            arrow.AddLineTo(new CGPoint(cursor.X + 8, cursor.Y + 13.5));
+            arrow.AddLineTo(new CGPoint(cursor.X + 14, cursor.Y + 13.5));
+            arrow.ClosePath();
+            arrow.LineWidth = 1.5f;
+            UIColor.White.SetFill();
+            arrow.Fill();
+            UIColor.Black.SetStroke();
+            arrow.Stroke();
+        }
+        if (_grabbing && !_gamepadActive)
         {
             var ring = UIBezierPath.FromOval(new CGRect(_stickX - _stickRadius, _stickY - _stickRadius,
                                                         _stickRadius * 2, _stickRadius * 2));

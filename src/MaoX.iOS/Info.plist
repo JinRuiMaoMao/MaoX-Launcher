@@ -59,6 +59,16 @@
   <array>
     <string>io.github.jinruimaomao.maox.*</string>
   </array>
+  <!-- 游戏里自己处理手柄按键，不让系统拿 B / 菜单键做界面返回 -->
+  <key>GCSupportsControllerUserInteraction</key>
+  <true/>
+  <key>GCSupportedGameControllers</key>
+  <array>
+    <dict>
+      <key>ProfileName</key>
+      <string>ExtendedGamepad</string>
+    </dict>
+  </array>
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
   <key>NSAppTransportSecurity</key>
