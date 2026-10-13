@@ -579,14 +579,27 @@ public class GameLauncher
         await Dl.DownloadManyAsync([new DownloadTask(index.Str("url"), indexPath, index.Str("sha1"), index.Long("size"))]);
         var data = Json.ReadFile(indexPath);
         var tasks = new List<DownloadTask>();
-        foreach (var (_, obj) in data.Obj("objects") ?? [])
+        foreach (var (name, obj) in data.Obj("objects") ?? [])
         {
             var hash = obj.Str("hash");
+            if (SkipAsset(name))
+            {
+                var skipped = PathOf("assets", "objects", hash[..2], hash);
+                if (File.Exists(skipped))
+                    File.Delete(skipped);
+                continue;
+            }
             tasks.Add(new DownloadTask($"{Mc.ResourcesUrl}{hash[..2]}/{hash}", PathOf("assets", "objects", hash[..2], hash),
                                        hash, obj.Long("size")));
         }
         return ((index.Str("id"), data), tasks);
     }
+
+    /// <summary>
+    /// iOS 上的 Java 报告自己是 Mac OS X，1.19 起游戏会用 ObjC 桥设置 macOS 窗口图标（iOS 上没有这个库，游戏直接崩溃）；
+    /// 图标文件不存在时游戏会跳过这一步（和 Amethyst 一样不下载它）。
+    /// </summary>
+    private static bool SkipAsset(string name) => Platform.IsIOS && name == "icons/minecraft.icns";
 
     private static void ExtractNatives(List<(string Jar, List<string> Excludes)> natives, string dest)
     {
@@ -636,6 +649,12 @@ public class GameLauncher
         {
             var hash = obj.Str("hash");
             var dest = Path.Combine(target, Path.Combine(name.Split('/')));
+            if (SkipAsset(name))
+            {
+                if (File.Exists(dest))
+                    File.Delete(dest);
+                continue;
+            }
             var info = new FileInfo(dest);
             if (info.Exists && info.Length == obj.Long("size"))
                 continue;
