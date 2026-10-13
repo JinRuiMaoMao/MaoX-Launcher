@@ -292,6 +292,8 @@ jobs:
           fw="$ame/Natives/resources/Frameworks"
 
           bash src/MaoX.iOS/Native/build.sh "$fw" "$work/native"
+          # JLI 用 dlsym(RTLD_DEFAULT, "main") 重新进入 JLI_Launch，.NET 主程序不导出 main
+          nm -gU "$work/native/libmaoxgame.dylib" | grep -q " _main$"
           bash src/MaoX.iOS/Java/build.sh "$ame/JavaApp/libs" "$rt/libs"
 
           cp -R "$fw/libEGL.framework" "$fw/libGLESv2.framework" "$rt/Frameworks/"

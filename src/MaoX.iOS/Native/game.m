@@ -34,11 +34,30 @@ void maox_exit_now(int code);
 
 static char lastError[2048];
 static BOOL launched;
+static JLI_Launch_func *jliLaunch;
+
+static jint callJLI(int argc, const char **argv) {
+    return jliLaunch(argc, argv,
+        0, NULL, 0, NULL,
+        // Ignored by Java 9+
+        "1.8.0-internal", "1.8",
+        "java", "openjdk",
+        JNI_FALSE, JNI_TRUE, JNI_FALSE, JNI_TRUE);
+}
+
+// JLI on Apple platforms (MacOSXStartup in java_md_macosx.m) runs the launcher again on a new thread through
+// dlsym(RTLD_DEFAULT, "main") and expects that to re-enter JLI_Launch, like Amethyst's main() does.
+// The .NET executable doesn't export main, so this library provides it; nothing else calls it.
+EXPORT int main(int argc, char *argv[]) {
+    if (!jliLaunch) {
+        return 1;
+    }
+    return callJLI(argc, (const char **)argv);
+}
 
 typedef struct {
     int argc;
     const char **argv;
-    JLI_Launch_func *launch;
     struct sigaction sigbus;
 } launch_ctx;
 
@@ -61,12 +80,7 @@ static void *launchThread(void *arg) {
     // The dyld bypass ignores SIGBUS while patching; give the JVM (and .NET) the previous handler back
     sigaction(SIGBUS, &ctx->sigbus, NULL);
     NSLog(@"[MaoX] Calling JLI_Launch");
-    jint code = ctx->launch(ctx->argc, ctx->argv,
-        0, NULL, 0, NULL,
-        // Ignored by Java 9+
-        "1.8.0-internal", "1.8",
-        "java", "openjdk",
-        JNI_FALSE, JNI_TRUE, JNI_FALSE, JNI_TRUE);
+    jint code = callJLI(ctx->argc, ctx->argv);
     NSLog(@"[MaoX] JLI_Launch returned %d", code);
     fflush(stdout);
     fflush(stderr);
@@ -192,8 +206,8 @@ EXPORT int maox_launch(const char *json, void *layer) {
     if (!libjli) {
         return fail(dlerror() ?: "dlopen libjli failed");
     }
-    JLI_Launch_func *launch = (JLI_Launch_func *)dlsym(libjli, "JLI_Launch");
-    if (!launch) {
+    jliLaunch = (JLI_Launch_func *)dlsym(libjli, "JLI_Launch");
+    if (!jliLaunch) {
         return fail("JLI_Launch not found");
     }
 
@@ -211,7 +225,6 @@ EXPORT int maox_launch(const char *json, void *layer) {
         ctx->argv[i] = strdup([args[i] UTF8String]);
         NSLog(@"[MaoX] arg[%lu] %s", (unsigned long)i, ctx->argv[i]);
     }
-    ctx->launch = launch;
     ctx->sigbus = oldSigbus;
 
     pthread_attr_t attr;
