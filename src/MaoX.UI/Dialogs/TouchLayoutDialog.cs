@@ -23,7 +23,7 @@ public class TouchLayoutDialog : DialogView
 
     private readonly List<ControlLayout> _layouts;
     private ControlLayout _current;
-    private readonly Canvas _canvas = new();
+    private readonly Canvas _canvas = new() { Background = Brushes.Transparent };
     private readonly Border _hotbar;
     private readonly Dictionary<string, Border> _views = [];
     private readonly Border _panel;
