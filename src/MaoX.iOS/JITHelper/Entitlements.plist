@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Sideloadly / Feather 等基于 zsign 的签名工具只给带这个权限的可执行文件设 CS_EXECSEG_MAIN_BINARY，
+       没有它 iOS 26 起扩展一启动就被以 CODESIGNING Invalid Page 杀掉 -->
+  <key>get-task-allow</key>
+  <true/>
+</dict>
+</plist>
