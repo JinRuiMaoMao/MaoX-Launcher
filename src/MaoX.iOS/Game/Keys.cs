@@ -3,7 +3,7 @@ namespace MaoX.iOS.Game;
 /// <summary>GLFW 按键码，以及外接键盘 HID 用法码 → GLFW 按键码。</summary>
 internal static class Keys
 {
-    public const int MouseLeft = 0, MouseRight = 1;
+    public const int MouseLeft = 0, MouseRight = 1, MouseMiddle = 2;
 
     public const int Space = 32, Digit0 = 48, Digit1 = 49, A = 65, D = 68, E = 69, Q = 81, S = 83, T = 84, W = 87;
     public const int Escape = 256, Enter = 257, Tab = 258, Backspace = 259, F1 = 290, F5 = 294;

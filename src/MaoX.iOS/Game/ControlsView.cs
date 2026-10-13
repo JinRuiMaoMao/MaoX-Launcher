@@ -105,6 +105,13 @@ internal sealed class ControlsView : UIView
         _view = Add("view", labels, Keys.F5, false, true, false, null);
         _pause = Add("pause", labels, Keys.Escape, false, true, false, null);
         _keyboard = Add("keyboard", labels, 0, false, true, true, () => ShowKeyboard(!KeyboardShown));
+        foreach (var c in layout?.Buttons ?? [])
+        {
+            _buttons.Add(new Button(this, c.Id, c.Label, [.. c.Keys ?? []], c.Toggle, c.InGame, c.InMenu, null)
+            {
+                Round = c.Round, Custom = c,
+            });
+        }
 
         // 屏幕外的输入框接收输入法的文字；保留一个删不掉的空格，好让退格键一直有效
         _input = new UITextField(new CGRect(0, -40, 10, 30))
@@ -142,7 +149,7 @@ internal sealed class ControlsView : UIView
         AddSubview(_input);
     }
 
-    private sealed class Button(ControlsView owner, string id, string label, int key, bool toggle, bool inGame,
+    private sealed class Button(ControlsView owner, string id, string label, int[] keys, bool toggle, bool inGame,
                                 bool inMenu, Action action)
     {
         public readonly string Id = id;
@@ -150,6 +157,8 @@ internal sealed class ControlsView : UIView
         public CGRect Rect;
         public bool Round, Pressed, Latched, Hidden;
         public double Size = 1;
+        /// <summary>用户添加的按键（null 是内置按键）</summary>
+        public ControlButton Custom;
 
         public bool Toggle => toggle;
 
@@ -170,20 +179,55 @@ internal sealed class ControlsView : UIView
                     return;
                 Latched = !Latched;
                 Pressed = Latched;
-                GameNative.SendKey(key, Latched);
+                Send(Latched);
                 return;
             }
             Pressed = down;
-            GameNative.SendKey(key, down);
+            Send(down);
+        }
+
+        private void Send(bool down)
+        {
+            foreach (var key in keys)
+                owner.SendCode(key, down);
         }
     }
 
     private Button Add(string id, IReadOnlyDictionary<string, string> labels, int key, bool toggle, bool inGame,
                        bool inMenu, Action action)
     {
-        var b = new Button(this, id, labels[id], key, toggle, inGame, inMenu, action);
+        var b = new Button(this, id, labels[id], [key], toggle, inGame, inMenu, action);
         _buttons.Add(b);
         return b;
+    }
+
+    /// <summary>按下 / 松开一个键：GLFW 键码，或 ControlKeys 里的鼠标、滚轮、打开键盘。</summary>
+    private void SendCode(int code, bool down)
+    {
+        switch (code)
+        {
+            case >= 0:
+                GameNative.SendKey(code, down);
+                break;
+            case ControlKeys.MouseLeft:
+                GameNative.SendMouse(Keys.MouseLeft, down);
+                break;
+            case ControlKeys.MouseRight:
+                GameNative.SendMouse(Keys.MouseRight, down);
+                break;
+            case ControlKeys.MouseMiddle:
+                GameNative.SendMouse(Keys.MouseMiddle, down);
+                break;
+            case ControlKeys.ScrollUp when down:
+                GameNative.SendScroll(0, 1);
+                break;
+            case ControlKeys.ScrollDown when down:
+                GameNative.SendScroll(0, -1);
+                break;
+            case ControlKeys.Keyboard when down:
+                ShowKeyboard(!KeyboardShown);
+                break;
+        }
     }
 
     private static void Tap(int key)
@@ -237,6 +281,14 @@ internal sealed class ControlsView : UIView
             return;
         foreach (var b in _buttons)
         {
+            if (b.Custom is { } c)
+            {
+                double cw = Math.Clamp(c.Width, ControlButton.MinSide, ControlButton.MaxSide);
+                double ch = Math.Clamp(c.Height, ControlButton.MinSide, ControlButton.MaxSide);
+                b.Rect = new CGRect(c.X * w - cw / 2, c.Y * h - ch / 2, cw, ch);
+                b.Size = Math.Min(cw, ch) / 44;
+                continue;
+            }
             if (_layout.Get(b.Id) is not { } item)
                 continue;
             b.Size = Math.Clamp(item.Size, ControlLayout.MinSize, ControlLayout.MaxSize);
@@ -564,18 +616,20 @@ internal sealed class ControlsView : UIView
             if (!b.Visible)
                 continue;
             var on = b.Pressed || b.Latched;
-            var path = b.Round ? UIBezierPath.FromOval(b.Rect) : UIBezierPath.FromRoundedRect(b.Rect, 8);
+            var path = UIBezierPath.FromRoundedRect(b.Rect, b.Round ? nfloat.Min(b.Rect.Width, b.Rect.Height) / 2 : 8);
             path.LineWidth = 1.5f;
             Fade(on ? AccentFill : IdleFill).SetFill();
             path.Fill();
             Fade(on ? AccentStroke : IdleStroke).SetStroke();
             path.Stroke();
-            var text = new NSAttributedString(b.Label, new UIStringAttributes
-            {
-                Font = UIFont.BoldSystemFontOfSize((nfloat)(13 * Math.Clamp(b.Size, 0.75, 1.4))),
-                ForegroundColor = Fade(UIColor.White),
-            });
+            var fontSize = 13 * Math.Clamp(b.Size, 0.7, 1.4);
+            var text = Label(b.Label, fontSize);
             var size = text.Size;
+            if (size.Width > b.Rect.Width - 6)
+            {
+                text = Label(b.Label, Math.Max(7, fontSize * (b.Rect.Width - 6) / size.Width));
+                size = text.Size;
+            }
             text.DrawString(new CGPoint(b.Rect.GetMidX() - size.Width / 2, b.Rect.GetMidY() - size.Height / 2));
         }
         if (!_grabbing && _gamepadActive && _gamepadCursor is { } cursor)
@@ -610,6 +664,12 @@ internal sealed class ControlsView : UIView
             knob.Fill();
         }
     }
+
+    private NSAttributedString Label(string label, double fontSize) => new(label, new UIStringAttributes
+    {
+        Font = UIFont.BoldSystemFontOfSize((nfloat)fontSize),
+        ForegroundColor = Fade(UIColor.White),
+    });
 
     // ------------------------------------------------------------------ 输入法
 

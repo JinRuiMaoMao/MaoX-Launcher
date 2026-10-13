@@ -341,6 +341,23 @@ internal static class SmokeTest
             dialog.GetVisualDescendants().OfType<Slider>().First().Value = 150;
             dialog.Select("chat");
             dialog.GetVisualDescendants().OfType<CheckBox>().First().IsChecked = true;
+
+            var picker = new Dialogs.ControlKeysDialog([]);
+            var picked = window.ShowDialogAsync(picker);
+            await Task.Delay(400);
+            ScreenshotControl(picker, Path.Combine(output, "touch-layout-keys.png"));
+            foreach (var key in new[] { ControlKeys.MouseRight, 340, 65, 66, 67 })
+                picker.Toggle(key, true);
+            picker.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == I18n.T("确定"))
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            if (await picked is not List<int> keys || keys.Count != ControlButton.MaxKeys)
+                throw new Exception("key picker did not return " + ControlButton.MaxKeys + " keys");
+            var custom = dialog.AddButton();
+            dialog.SetKeys(custom, keys.Take(2));
+            dialog.MoveTo(custom, dialog.Bounds.Width * 0.25, dialog.Bounds.Height * 0.5);
+            await Task.Delay(200);
+            dialog.GetVisualDescendants().OfType<TextBox>().First(t => t.IsEffectivelyVisible).Text = "Use";
+            dialog.GetVisualDescendants().OfType<CheckBox>().First(c => c.Content as string == I18n.T("切换模式")).IsChecked = true;
             await Task.Delay(400);
             ScreenshotControl(dialog, Path.Combine(output, "touch-layout-edited.png"));
             var save = dialog.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == I18n.T("保存"));
@@ -351,6 +368,9 @@ internal static class SmokeTest
             var jump = layout.Get("jump");
             if (jump == null || Math.Abs(jump.X - 0.5) > 0.01 || Math.Abs(jump.Size - 1.5) > 0.001 || layout.Get("chat")?.Hidden != true)
                 throw new Exception("unexpected layout: " + layout.ToJson().ToJsonString());
+            if (layout.Buttons is not [{ Name: "Use", Toggle: true } button]
+                || !button.Keys.SequenceEqual([ControlKeys.MouseRight, 340]) || Math.Abs(button.X - 0.25) > 0.01)
+                throw new Exception("unexpected custom buttons: " + layout.ToJson().ToJsonString());
             await Task.Delay(300);
             return $"{layout.Name}: {layout.ToJson().ToJsonString()}";
         });

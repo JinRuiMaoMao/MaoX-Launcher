@@ -145,6 +145,13 @@ public class LauncherConfig
                     cfg.Accounts ??= [];
                     cfg.Servers ??= [];
                     cfg.ControlLayouts ??= [];
+                    foreach (var layout in cfg.ControlLayouts)
+                    {
+                        layout.Items ??= [];
+                        layout.Buttons ??= [];
+                        foreach (var button in layout.Buttons)
+                            button.Keys ??= [];
+                    }
                     if (string.IsNullOrWhiteSpace(cfg.MinecraftDir))
                         cfg.MinecraftDir = AppPaths.DefaultMinecraftDir;
                     cfg.MinecraftDir = AppPaths.Rebase(cfg.MinecraftDir);

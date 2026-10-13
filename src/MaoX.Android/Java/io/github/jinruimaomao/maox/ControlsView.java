@@ -18,6 +18,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.lwjgl.glfw.CallbackBridge;
 
@@ -78,10 +79,14 @@ public class ControlsView extends View {
     private static final Object HOTBAR = new Object();
     private static final Object NONE = new Object();
 
+    // 自定义按键的特殊键码（和启动器 ControlKeys、Pojav 一致）
+    private static final int KEYBOARD = -1, MOUSE_LEFT = -3, MOUSE_RIGHT = -4, MOUSE_MIDDLE = -6, SCROLL_UP = -7,
+            SCROLL_DOWN = -8;
+
     private final class Button {
         final String id;
         final String label;
-        final int key;
+        final int[] keys;
         final boolean toggle;
         final boolean inGame;
         final boolean inMenu;
@@ -92,11 +97,13 @@ public class ControlsView extends View {
         boolean latched;
         boolean hidden;
         float size = 1;
+        /** 用户添加的按键（null 是内置按键） */
+        JSONObject custom;
 
-        Button(String id, String label, int key, boolean toggle, boolean inGame, boolean inMenu, Runnable action) {
+        Button(String id, String label, int[] keys, boolean toggle, boolean inGame, boolean inMenu, Runnable action) {
             this.id = id;
             this.label = label;
-            this.key = key;
+            this.keys = keys;
             this.toggle = toggle;
             this.inGame = inGame;
             this.inMenu = inMenu;
@@ -117,11 +124,32 @@ public class ControlsView extends View {
                 if (!down) return;
                 latched = !latched;
                 pressed = latched;
-                CallbackBridge.sendKeyPress(key, CallbackBridge.getCurrentMods(), latched);
+                send(latched);
                 return;
             }
             pressed = down;
-            CallbackBridge.sendKeyPress(key, CallbackBridge.getCurrentMods(), down);
+            send(down);
+        }
+
+        private void send(boolean down) {
+            for (int key : keys) sendCode(key, down);
+        }
+    }
+
+    /** 按下 / 松开一个键：GLFW 键码，或鼠标、滚轮、打开键盘这些特殊键码。 */
+    private void sendCode(int code, boolean down) {
+        if (code >= 0) {
+            CallbackBridge.sendKeyPress(code, CallbackBridge.getCurrentMods(), down);
+            return;
+        }
+        switch (code) {
+            case MOUSE_LEFT: CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_LEFT, down); break;
+            case MOUSE_RIGHT: CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_RIGHT, down); break;
+            case MOUSE_MIDDLE: CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_MIDDLE, down); break;
+            case SCROLL_UP: if (down) CallbackBridge.sendScroll(0, 1); break;
+            case SCROLL_DOWN: if (down) CallbackBridge.sendScroll(0, -1); break;
+            case KEYBOARD: if (down) toggleKeyboard(); break;
+            default: break;
         }
     }
 
@@ -156,12 +184,26 @@ public class ControlsView extends View {
         mView = add(labels, "view", "View", 294, false, true, false, null);
         mPause = add(labels, "pause", "Pause", Keys.GLFW_KEY_ESCAPE, false, true, false, null);
         mKeyboard = add(labels, "keyboard", "Keyboard", 0, false, true, true, this::toggleKeyboard);
+
+        JSONArray custom = layout == null ? null : layout.optJSONArray("buttons");
+        for (int i = 0; custom != null && i < custom.length(); i++) {
+            JSONObject c = custom.optJSONObject(i);
+            if (c == null) continue;
+            JSONArray codes = c.optJSONArray("keys");
+            int[] keys = new int[codes == null ? 0 : codes.length()];
+            for (int k = 0; k < keys.length; k++) keys[k] = codes.optInt(k);
+            Button b = new Button("custom" + i, c.optString("label", "?"), keys, c.optBoolean("toggle", false),
+                    c.optBoolean("inGame", true), c.optBoolean("inMenu", false), null);
+            b.round = c.optBoolean("round", false);
+            b.custom = c;
+            mButtons.add(b);
+        }
     }
 
     private Button add(JSONObject labels, String id, String fallback, int key, boolean toggle, boolean inGame,
                        boolean inMenu, Runnable action) {
         String label = labels == null ? fallback : labels.optString(id, fallback);
-        Button b = new Button(id, label, key, toggle, inGame, inMenu, action);
+        Button b = new Button(id, label, new int[] {key}, toggle, inGame, inMenu, action);
         mButtons.add(b);
         return b;
     }
@@ -198,9 +240,17 @@ public class ControlsView extends View {
     /** 启动器里编辑过的布局：位置是中心点占屏幕宽高的比例，大小是默认大小的倍数。 */
     private void applyLayout(int w, int h) {
         mKnobRadius = 26 * mDp;
+        for (Button b : mButtons) {
+            if (b.custom == null) continue;
+            float bw = side(b.custom, "w") * mDp, bh = side(b.custom, "h") * mDp;
+            float cx = (float) b.custom.optDouble("x", 0.5) * w, cy = (float) b.custom.optDouble("y", 0.5) * h;
+            b.rect.set(cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2);
+            b.size = Math.min(bw, bh) / mDp / 44;
+        }
         JSONObject items = mLayout == null ? null : mLayout.optJSONObject("items");
         if (items == null) return;
         for (Button b : mButtons) {
+            if (b.custom != null) continue;
             JSONObject item = items.optJSONObject(b.id);
             if (item == null) continue;
             b.size = layoutSize(item);
@@ -226,6 +276,11 @@ public class ControlsView extends View {
 
     private static float layoutSize(JSONObject item) {
         return (float) Math.max(0.5, Math.min(2, item.optDouble("size", 1)));
+    }
+
+    /** 自定义按键的宽 / 高（dp），范围和启动器 ControlButton 一致。 */
+    private static float side(JSONObject button, String key) {
+        return (float) Math.max(24, Math.min(200, button.optDouble(key, 56)));
     }
 
     /** 按布局的不透明度调整颜色的透明度。 */
@@ -492,15 +547,13 @@ public class ControlsView extends View {
             mFill.setColor(fade(on ? 0x8800D9FF : 0x55000000));
             mStroke.setColor(fade(on ? 0xDD00D9FF : 0x88FFFFFF));
             mText.setColor(fade(Color.WHITE));
-            mText.setTextSize(13 * mDp * Math.max(0.75f, Math.min(1.4f, b.size)));
-            if (b.round) {
-                canvas.drawCircle(b.rect.centerX(), b.rect.centerY(), b.rect.width() / 2, mFill);
-                canvas.drawCircle(b.rect.centerX(), b.rect.centerY(), b.rect.width() / 2, mStroke);
-            } else {
-                float r = 8 * mDp;
-                canvas.drawRoundRect(b.rect, r, r, mFill);
-                canvas.drawRoundRect(b.rect, r, r, mStroke);
-            }
+            float textSize = 13 * mDp * Math.max(0.7f, Math.min(1.4f, b.size));
+            mText.setTextSize(textSize);
+            float textWidth = mText.measureText(b.label), room = b.rect.width() - 6 * mDp;
+            if (textWidth > room) mText.setTextSize(Math.max(7 * mDp, textSize * room / textWidth));
+            float r = b.round ? Math.min(b.rect.width(), b.rect.height()) / 2 : 8 * mDp;
+            canvas.drawRoundRect(b.rect, r, r, mFill);
+            canvas.drawRoundRect(b.rect, r, r, mStroke);
             float ty = b.rect.centerY() - (mText.descent() + mText.ascent()) / 2;
             canvas.drawText(b.label, b.rect.centerX(), ty, mText);
         }

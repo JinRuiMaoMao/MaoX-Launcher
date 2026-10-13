@@ -27,7 +27,18 @@ public class TouchLayoutDialog : DialogView
     private readonly Border _hotbar;
     private readonly Dictionary<string, Border> _views = [];
     private readonly Border _panel;
-    private readonly Control _panelBody;
+    private readonly ScrollViewer _panelBody;
+    private readonly Grid _builtinRow;
+    private readonly StackPanel _customSection;
+    private readonly TextBox _nameBox = new() { Watermark = T("不填就显示按键名"), MaxLength = 24 };
+    private readonly TextBlock _keysText = Text("", "small", "wrap");
+    private readonly Slider _widthSlider = MakeSlider(ControlButton.MinSide, ControlButton.MaxSide, 4);
+    private readonly Slider _heightSlider = MakeSlider(ControlButton.MinSide, ControlButton.MaxSide, 4);
+    private readonly TextBlock _widthText = Text("", "small"), _heightText = Text("", "small");
+    private readonly CheckBox _toggleBox = new() { Content = T("切换模式") };
+    private readonly CheckBox _roundBox = new() { Content = T("圆形") };
+    private readonly CheckBox _inGameBox = new() { Content = T("游戏中显示") };
+    private readonly CheckBox _inMenuBox = new() { Content = T("菜单里显示") };
     private readonly ComboBox _layoutBox = new() { Width = 150 };
     private readonly Button _renameButton, _deleteButton;
     private readonly TextBlock _hint = Text("", "small", "dim", "wrap");
@@ -74,26 +85,38 @@ public class TouchLayoutDialog : DialogView
         add.MinWidth = 0;
         var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { _layoutBox, add, _renameButton, _deleteButton } };
 
+        var addButton = MakeButton(T("添加按键"), "ghost", onClick: async () => await PickKeys(AddButton()));
         var reset = MakeButton(T("恢复默认"), "ghost", onClick: Reset);
         var cancel = MakeButton(T("取消"), onClick: () => Close());
         var save = MakeButton(T("保存"), "primary", onClick: () => Save(cfg));
-        foreach (var b in new[] { reset, cancel, save })
+        foreach (var b in new[] { addButton, reset, cancel, save })
             b.MinWidth = 0;
-        var buttons = new StackPanel
+        var buttons = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Margin = new Thickness(0, 4, 0, 0) };
+        buttons.Children.Add(addButton);
+        var right = new StackPanel
         {
             Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 4, 0, 0), Children = { reset, cancel, save },
+            Children = { reset, cancel, save },
         };
+        Grid.SetColumn(right, 1);
+        buttons.Children.Add(right);
 
-        _panelBody = new StackPanel
+        _builtinRow = Row(T("大小"), _sizeSlider, _sizeText, _hiddenBox);
+        _customSection = BuildCustomSection();
+        _panelBody = new ScrollViewer
         {
-            Spacing = 8,
-            Children =
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Content = new StackPanel
             {
-                top, _hint,
-                Row(T("大小"), _sizeSlider, _sizeText, _hiddenBox),
-                Row(T("不透明度"), _opacitySlider, _opacityText, null),
-                buttons,
+                Spacing = 8,
+                Children =
+                {
+                    top, _hint,
+                    _builtinRow,
+                    _customSection,
+                    Row(T("不透明度"), _opacitySlider, _opacityText, null),
+                    buttons,
+                },
             },
         };
         var grip = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Cursor = new Cursor(StandardCursorType.SizeAll), Background = Brushes.Transparent };
@@ -111,6 +134,11 @@ public class TouchLayoutDialog : DialogView
             Child = new StackPanel { Spacing = 8, Children = { grip, _panelBody } },
         };
         _canvas.Children.Add(_panel);
+        _panel.SizeChanged += (_, _) =>
+        {
+            if (_panelPlaced)
+                MovePanel(Canvas.GetLeft(_panel), Canvas.GetTop(_panel));
+        };
 
         var background = new Panel
         {
@@ -170,11 +198,76 @@ public class TouchLayoutDialog : DialogView
         Refresh();
     }
 
-    private static Slider MakeSlider(double min, double max) => new()
+    private static Slider MakeSlider(double min, double max, double tick = 5) => new()
     {
         Minimum = min, Maximum = max, Width = 170, VerticalAlignment = VerticalAlignment.Center,
-        TickFrequency = 5, IsSnapToTickEnabled = true,
+        TickFrequency = tick, IsSnapToTickEnabled = true,
     };
+
+    /// <summary>选中自定义按键时显示的设置：名称、按键、宽高、形状、切换模式、什么时候显示。</summary>
+    private StackPanel BuildCustomSection()
+    {
+        var name = new Grid { ColumnDefinitions = new ColumnDefinitions("70,*") };
+        name.Children.Add(new TextBlock { Text = T("名称"), VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetColumn(_nameBox, 1);
+        name.Children.Add(_nameBox);
+
+        var pick = MakeButton(T("选择按键"), "ghost", onClick: async () => await PickKeys(_selected));
+        pick.MinWidth = 0;
+        var keys = new Grid { ColumnDefinitions = new ColumnDefinitions("70,*,Auto") };
+        keys.Children.Add(new TextBlock { Text = T("按键"), VerticalAlignment = VerticalAlignment.Center });
+        _keysText.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(_keysText, 1);
+        keys.Children.Add(_keysText);
+        pick.Margin = new Thickness(8, 0, 0, 0);
+        Grid.SetColumn(pick, 2);
+        keys.Children.Add(pick);
+
+        var remove = MakeButton(T("删除这个按键"), "ghost", onClick: RemoveButton);
+        remove.MinWidth = 0;
+        remove.HorizontalAlignment = HorizontalAlignment.Right;
+        var options = new WrapPanel { Orientation = Orientation.Horizontal };
+        foreach (var box in new[] { _toggleBox, _roundBox, _inGameBox, _inMenuBox })
+        {
+            box.Margin = new Thickness(0, 0, 14, 0);
+            options.Children.Add(box);
+        }
+
+        _nameBox.PropertyChanged += (_, e) =>
+        {
+            if (e.Property != TextBox.TextProperty || _updating || Custom(_selected) is not { } button)
+                return;
+            button.Name = _nameBox.Text?.Trim() ?? "";
+            _hint.Text = F("已选中：{0}", button.Label);
+            Render();
+        };
+        _widthSlider.ValueChanged += (_, _) => EditCustom(b => b.Width = Math.Round(_widthSlider.Value));
+        _heightSlider.ValueChanged += (_, _) => EditCustom(b => b.Height = Math.Round(_heightSlider.Value));
+        _toggleBox.IsCheckedChanged += (_, _) => EditCustom(b => b.Toggle = _toggleBox.IsChecked == true);
+        _roundBox.IsCheckedChanged += (_, _) => EditCustom(b => b.Round = _roundBox.IsChecked == true);
+        _inGameBox.IsCheckedChanged += (_, _) => EditCustom(b => b.InGame = _inGameBox.IsChecked == true);
+        _inMenuBox.IsCheckedChanged += (_, _) => EditCustom(b => b.InMenu = _inMenuBox.IsChecked == true);
+
+        return new StackPanel
+        {
+            Spacing = 8,
+            Children =
+            {
+                name, keys,
+                Row(T("宽度"), _widthSlider, _widthText, null),
+                Row(T("高度"), _heightSlider, _heightText, null),
+                options, remove,
+            },
+        };
+    }
+
+    private void EditCustom(Action<ControlButton> edit)
+    {
+        if (_updating || Custom(_selected) is not { } button)
+            return;
+        edit(button);
+        Refresh();
+    }
 
     private static Grid Row(string label, Control slider, Control value, Control extra)
     {
@@ -195,7 +288,7 @@ public class TouchLayoutDialog : DialogView
         return grid;
     }
 
-    private static string Label(string id) => id switch
+    private string Label(string id) => Custom(id)?.Label ?? id switch
     {
         "stick" => T("移动"),
         "jump" => T("跳跃"),
@@ -214,6 +307,7 @@ public class TouchLayoutDialog : DialogView
         {
             Text = Label(id), Foreground = Brushes.White, FontWeight = FontWeight.Bold,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2),
         };
         Control child = text;
         if (id == "stick")
@@ -258,6 +352,11 @@ public class TouchLayoutDialog : DialogView
     private (double X, double Y, double W, double H, bool Hidden) Place(string id)
     {
         double width = _canvas.Bounds.Width, height = _canvas.Bounds.Height;
+        if (Custom(id) is { } button)
+        {
+            return (button.X * width, button.Y * height, Math.Clamp(button.Width, ControlButton.MinSide, ControlButton.MaxSide),
+                Math.Clamp(button.Height, ControlButton.MinSide, ControlButton.MaxSide), false);
+        }
         var (bw, bh, _) = ControlLayout.BaseSize(id);
         if (_current?.Get(id) is { } item)
             return (item.X * width, item.Y * height, bw * item.Size, bh * item.Size, item.Hidden);
@@ -326,10 +425,79 @@ public class TouchLayoutDialog : DialogView
     {
         double width = _canvas.Bounds.Width, height = _canvas.Bounds.Height;
         var (_, _, w, h, _) = Place(id);
-        var item = Item(id);
-        item.X = Math.Clamp(x, w / 2, Math.Max(w / 2, width - w / 2)) / width;
-        item.Y = Math.Clamp(y, h / 2, Math.Max(h / 2, height - h / 2)) / height;
+        var fx = Math.Clamp(x, w / 2, Math.Max(w / 2, width - w / 2)) / width;
+        var fy = Math.Clamp(y, h / 2, Math.Max(h / 2, height - h / 2)) / height;
+        if (Custom(id) is { } button)
+        {
+            button.X = fx;
+            button.Y = fy;
+        }
+        else
+        {
+            var item = Item(id);
+            item.X = fx;
+            item.Y = fy;
+        }
         Render();
+    }
+
+    // ------------------------------------------------------------------ 自定义按键
+
+    private ControlButton Custom(string id) => id == null ? null : _current?.Buttons.FirstOrDefault(b => b.Id == id);
+
+    /// <summary>在屏幕中间添加一个还没绑定键的自定义按键并选中它，返回它的 id。</summary>
+    internal string AddButton()
+    {
+        EnsureCustom();
+        var id = "custom-" + Guid.NewGuid().ToString("N")[..8];
+        _current.Buttons.Add(new ControlButton { Id = id });
+        _selected = id;
+        Refresh();
+        return id;
+    }
+
+    internal void SetKeys(string id, IEnumerable<int> keys)
+    {
+        if (Custom(id) is not { } button)
+            return;
+        button.Keys = keys.Take(ControlButton.MaxKeys).ToList();
+        Refresh();
+    }
+
+    private async Task PickKeys(string id)
+    {
+        if (Custom(id) is not { } button)
+            return;
+        if (await MainView.Current.ShowDialogAsync(new ControlKeysDialog(button.Keys)) is List<int> keys)
+            SetKeys(id, keys);
+    }
+
+    private void RemoveButton()
+    {
+        if (Custom(_selected) is not { } button)
+            return;
+        _current.Buttons.Remove(button);
+        _selected = null;
+        Refresh();
+    }
+
+    /// <summary>让画布上的自定义按键和当前布局里的一致（切换、新建、删除布局或按键后调用）。</summary>
+    private void SyncViews()
+    {
+        var ids = _current?.Buttons.Select(b => b.Id).ToHashSet() ?? [];
+        foreach (var id in _views.Keys.Where(id => !ControlLayout.Ids.Contains(id) && !ids.Contains(id)).ToList())
+        {
+            _canvas.Children.Remove(_views[id]);
+            _views.Remove(id);
+        }
+        foreach (var id in ids.Where(id => !_views.ContainsKey(id)))
+        {
+            var view = MakeView(id);
+            _views[id] = view;
+            _canvas.Children.Insert(_canvas.Children.IndexOf(_panel), view);
+        }
+        if (_selected != null && !_views.ContainsKey(_selected))
+            _selected = null;
     }
 
     internal void Select(string id)
@@ -441,8 +609,26 @@ public class TouchLayoutDialog : DialogView
 
     private void Refresh()
     {
+        SyncViews();
         _updating = true;
         _renameButton.IsEnabled = _deleteButton.IsEnabled = _current != null;
+        var custom = Custom(_selected);
+        _builtinRow.IsVisible = custom == null;
+        _customSection.IsVisible = custom != null;
+        if (custom != null)
+        {
+            if ((_nameBox.Text ?? "").Trim() != custom.Name)
+                _nameBox.Text = custom.Name;
+            _keysText.Text = ControlKeys.Describe(custom.Keys);
+            _widthSlider.Value = custom.Width;
+            _heightSlider.Value = custom.Height;
+            _widthText.Text = $"{Math.Round(custom.Width)}";
+            _heightText.Text = $"{Math.Round(custom.Height)}";
+            _toggleBox.IsChecked = custom.Toggle;
+            _roundBox.IsChecked = custom.Round;
+            _inGameBox.IsChecked = custom.InGame;
+            _inMenuBox.IsChecked = custom.InMenu;
+        }
         _hint.Text = _selected == null
             ? T("点一下按键选中，拖动调整位置")
             : _current == null
@@ -474,6 +660,8 @@ public class TouchLayoutDialog : DialogView
         Canvas.SetLeft(_hotbar, (width - _hotbar.Width) / 2);
         Canvas.SetTop(_hotbar, height - _hotbar.Height);
 
+        _panelBody.MaxHeight = Math.Max(160, height - 70);
+
         var opacity = _current?.Opacity ?? 1;
         foreach (var (id, view) in _views)
         {
@@ -482,13 +670,16 @@ public class TouchLayoutDialog : DialogView
             view.Height = h;
             Canvas.SetLeft(view, x - w / 2);
             Canvas.SetTop(view, y - h / 2);
-            var round = ControlLayout.BaseSize(id).Round;
-            view.CornerRadius = new CornerRadius(round ? w / 2 : 8);
+            var custom = Custom(id);
+            var round = custom?.Round ?? ControlLayout.BaseSize(id).Round;
+            view.CornerRadius = new CornerRadius(round ? Math.Min(w, h) / 2 : 8);
             var selected = id == _selected;
             view.BorderBrush = selected ? Selected : Stroke;
             view.BorderThickness = new Thickness(selected ? 2.5 : 1.5);
             view.Opacity = hidden ? 0.3 : Math.Max(opacity, selected ? 0.6 : 0);
-            var scale = Math.Clamp(w / ControlLayout.BaseSize(id).Width, 0.75, 1.4);
+            var scale = custom != null
+                ? Math.Clamp(Math.Min(w, h) / 44, 0.7, 1.4)
+                : Math.Clamp(w / ControlLayout.BaseSize(id).Width, 0.75, 1.4);
             if (view.Child is Panel stick)
             {
                 var knob = (Ellipse)stick.Children[0];
@@ -497,7 +688,10 @@ public class TouchLayoutDialog : DialogView
             }
             else
             {
-                ((TextBlock)view.Child).FontSize = 13 * scale;
+                var text = (TextBlock)view.Child;
+                text.FontSize = 13 * scale;
+                if (custom != null)
+                    text.Text = custom.Label;
             }
         }
         if (!_panelPlaced)
