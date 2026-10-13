@@ -82,6 +82,7 @@
   "上一次内置 JIT 请求还没有结束，请稍后再试": "The previous built-in JIT request hasn't finished yet. Try again later",
   "{0}；详细日志在“文件”App 的 MaoX Launcher/StikJIT/helper-log.txt": "{0}; full log in the Files app under MaoX Launcher/StikJIT/helper-log.txt",
   "JIT 助手没有启动（{0}）：请重新安装启动器，安装工具询问时选择保留 App 扩展；或在设置里关闭内置 JIT，改用 StikDebug": "The JIT helper didn't start ({0}): reinstall the launcher and keep its app extensions when the installer asks, or turn off built-in JIT in Settings and use StikDebug",
+  "安装工具签名时没有把 JIT 助手标记为可执行程序（{0}），iOS 26 起系统会拒绝启动它；Sideloadly 有这个问题：请改用 SideStore 或 AltStore 安装，或在设置里关闭内置 JIT，改用 StikDebug": "The installer didn't sign the JIT helper as an executable ({0}), so iOS 26 and later refuse to start it. Sideloadly has this problem: install with SideStore or AltStore instead, or turn off built-in JIT in Settings and use StikDebug",
   "JIT 助手意外退出了，请再试一次；多次失败请重启手机，或在设置里关闭内置 JIT，改用 StikDebug": "The JIT helper quit unexpectedly. Try again; if it keeps failing, restart your device, or turn off built-in JIT in Settings and use StikDebug",
   "内置 JIT 请求被取消（{0}）": "The built-in JIT request was cancelled ({0})",
   "内置 JIT 失败：{0}": "Built-in JIT failed: {0}",

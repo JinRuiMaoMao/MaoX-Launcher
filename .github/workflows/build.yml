@@ -388,7 +388,7 @@ jobs:
           # 由内向外签名：框架、扩展、主程序（用户的安装工具会用自己的证书全部重签）
           exe=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$app/Info.plist")
           codesign --force --sign - "$app/Frameworks/StikJIT.framework"
-          codesign --force --sign - --entitlements src/MaoX.iOS/JITHelper/Entitlements.plist --generate-entitlement-der "$app/PlugIns/MaoXJITHelper.appex"
+          codesign --force --sign - --generate-entitlement-der "$app/PlugIns/MaoXJITHelper.appex"
           codesign --force --sign - --entitlements src/MaoX.iOS/Entitlements.sideload.plist --generate-entitlement-der "$app/$exe"
 
           # 检查签名和打包关系
@@ -397,7 +397,6 @@ jobs:
           codesign --verify --strict --verbose=2 "$app/$exe"
           codesign --verify --deep --strict --verbose=2 "$app" || echo "::warning::Deep verification of the whole app failed (the standard IPA is signed the same way)"
           codesign -d --entitlements - "$app/$exe" 2>&1 | grep -q get-task-allow
-          codesign -d --entitlements - "$app/PlugIns/MaoXJITHelper.appex" 2>&1 | grep -q get-task-allow
           app_id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist")
           helper_plist="$app/PlugIns/MaoXJITHelper.appex/Info.plist"
           helper_id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$helper_plist")

@@ -35,7 +35,9 @@ internal static class IosBuiltInJit
     private static readonly ConcurrentDictionary<long, TaskCompletionSource<Reply>> Pending = new();
     private static long _nextToken;
 
-    public static bool Included => Directory.Exists(Path.Combine(NSBundle.MainBundle.BundlePath, "PlugIns", HelperBundle));
+    private static string HelperPath => Path.Combine(NSBundle.MainBundle.BundlePath, "PlugIns", HelperBundle);
+
+    public static bool Included => Directory.Exists(HelperPath);
 
     /// <summary>用户放配对文件的位置：“文件”App 里 MaoX Launcher/StikJIT/pairingFile.plist（和 StikJIT 文档一致）</summary>
     public static string PairingFile => Path.Combine(AppPaths.BaseDir, "StikJIT", "pairingFile.plist");
@@ -283,6 +285,8 @@ internal static class IosBuiltInJit
             return reply.Status switch
             {
                 Status.Busy => T("上一次内置 JIT 请求还没有结束，请稍后再试"),
+                Status.StartFailed when CodeSignatureInfo.LacksMainBinary(HelperPath) =>
+                    F("安装工具签名时没有把 JIT 助手标记为可执行程序（{0}），iOS 26 起系统会拒绝启动它；Sideloadly 有这个问题：请改用 SideStore 或 AltStore 安装，或在设置里关闭内置 JIT，改用 StikDebug", detail),
                 Status.Missing or Status.NotRegistered or Status.StartFailed =>
                     F("JIT 助手没有启动（{0}）：请重新安装启动器，安装工具询问时选择保留 App 扩展；或在设置里关闭内置 JIT，改用 StikDebug", detail),
                 Status.Interrupted => T("JIT 助手意外退出了，请再试一次；多次失败请重启手机，或在设置里关闭内置 JIT，改用 StikDebug"),

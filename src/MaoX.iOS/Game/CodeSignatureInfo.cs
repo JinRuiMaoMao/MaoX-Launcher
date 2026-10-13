@@ -54,18 +54,72 @@ internal static partial class CodeSignatureInfo
         }
     }
 
+    /// <summary>
+    /// 扩展的可执行文件签名里没有 CS_EXECSEG_MAIN_BINARY。Apple 的 codesign 给每个 MH_EXECUTE 都设这个标记，
+    /// Sideloadly 只给主程序设；iOS 26 起没有它的扩展一启动就被系统以 CODESIGNING Invalid Page 杀掉。
+    /// </summary>
+    public static bool LacksMainBinary(string bundle)
+    {
+        try
+        {
+            var exe = NSBundle.FromPath(bundle)?.InfoDictionary?["CFBundleExecutable"]?.ToString();
+            if (string.IsNullOrEmpty(exe))
+                return false;
+            var blob = SignatureBlob(Thin(File.ReadAllBytes(Path.Combine(bundle, exe))));
+            if (blob.Length < 12 || BinaryPrimitives.ReadUInt32BigEndian(blob) != 0xfade0cc0)
+                return false;
+            var count = BinaryPrimitives.ReadUInt32BigEndian(blob[8..]);
+            for (var i = 0; i < count; i++)
+            {
+                var off = (int)BinaryPrimitives.ReadUInt32BigEndian(blob[(16 + i * 8)..]);
+                var cd = blob[off..];
+                if (BinaryPrimitives.ReadUInt32BigEndian(cd) == 0xfade0c02 && BinaryPrimitives.ReadUInt32BigEndian(cd[8..]) >= 0x20400)
+                    return (BinaryPrimitives.ReadUInt64BigEndian(cd[80..]) & 1) == 0;
+            }
+        }
+        catch (Exception)
+        {
+            // 读不出来时不下结论
+        }
+        return false;
+    }
+
+    /// <summary>通用二进制取第一个架构</summary>
+    private static ReadOnlySpan<byte> Thin(ReadOnlySpan<byte> data)
+    {
+        if (BinaryPrimitives.ReadUInt32BigEndian(data) != 0xcafebabe)
+            return data;
+        var offset = (int)BinaryPrimitives.ReadUInt32BigEndian(data[16..]);
+        var size = (int)BinaryPrimitives.ReadUInt32BigEndian(data[20..]);
+        return data.Slice(offset, size);
+    }
+
+    /// <summary>LC_CODE_SIGNATURE 指向的签名数据，没有时为空</summary>
+    private static ReadOnlySpan<byte> SignatureBlob(ReadOnlySpan<byte> macho)
+    {
+        if (BinaryPrimitives.ReadUInt32LittleEndian(macho) != 0xfeedfacf)
+            return default;
+        var commands = BinaryPrimitives.ReadUInt32LittleEndian(macho[16..]);
+        var at = 32;
+        for (var i = 0; i < commands; i++)
+        {
+            var cmd = BinaryPrimitives.ReadUInt32LittleEndian(macho[at..]);
+            if (cmd == LcCodeSignature)
+            {
+                var off = (int)BinaryPrimitives.ReadUInt32LittleEndian(macho[(at + 8)..]);
+                var len = (int)BinaryPrimitives.ReadUInt32LittleEndian(macho[(at + 12)..]);
+                return macho.Slice(off, len);
+            }
+            at += (int)BinaryPrimitives.ReadUInt32LittleEndian(macho[(at + 4)..]);
+        }
+        return default;
+    }
+
     private static void Binary(StringBuilder sb, byte[] file)
     {
-        var data = file.AsSpan();
-        var magic = BinaryPrimitives.ReadUInt32BigEndian(data);
-        if (magic is 0xcafebabe)
-        {
-            var count = BinaryPrimitives.ReadUInt32BigEndian(data[4..]);
-            sb.Append("  fat, ").Append(count).Append(" slices; first slice:\n");
-            var offset = (int)BinaryPrimitives.ReadUInt32BigEndian(data[16..]);
-            var size = (int)BinaryPrimitives.ReadUInt32BigEndian(data[20..]);
-            data = data.Slice(offset, size);
-        }
+        if (BinaryPrimitives.ReadUInt32BigEndian(file) is 0xcafebabe)
+            sb.Append("  fat, ").Append(BinaryPrimitives.ReadUInt32BigEndian(file.AsSpan(4))).Append(" slices; first slice:\n");
+        var data = Thin(file);
         if (BinaryPrimitives.ReadUInt32LittleEndian(data) != 0xfeedfacf)
         {
             sb.Append("  not a 64-bit Mach-O\n");
@@ -73,23 +127,12 @@ internal static partial class CodeSignatureInfo
         }
         var cpuSubtype = BinaryPrimitives.ReadUInt32LittleEndian(data[8..]) & 0xff;
         var fileType = BinaryPrimitives.ReadUInt32LittleEndian(data[12..]);
-        var commands = BinaryPrimitives.ReadUInt32LittleEndian(data[16..]);
         sb.Append($"  Mach-O filetype {fileType}, cpusubtype {cpuSubtype}\n");
-        var at = 32;
-        for (var i = 0; i < commands; i++)
-        {
-            var cmd = BinaryPrimitives.ReadUInt32LittleEndian(data[at..]);
-            var size = (int)BinaryPrimitives.ReadUInt32LittleEndian(data[(at + 4)..]);
-            if (cmd == LcCodeSignature)
-            {
-                var off = (int)BinaryPrimitives.ReadUInt32LittleEndian(data[(at + 8)..]);
-                var len = (int)BinaryPrimitives.ReadUInt32LittleEndian(data[(at + 12)..]);
-                SuperBlob(sb, data.Slice(off, len));
-                return;
-            }
-            at += size;
-        }
-        sb.Append("  no code signature\n");
+        var blob = SignatureBlob(data);
+        if (blob.IsEmpty)
+            sb.Append("  no code signature\n");
+        else
+            SuperBlob(sb, blob);
     }
 
     private static void SuperBlob(StringBuilder sb, ReadOnlySpan<byte> blob)
