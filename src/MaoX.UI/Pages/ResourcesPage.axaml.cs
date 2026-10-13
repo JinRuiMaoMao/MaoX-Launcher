@@ -306,8 +306,8 @@ public partial class ResourcesPage : UserControl, IPage
         var browse = _tab != "local";
         BrowseView.IsVisible = BrowseTools.IsVisible = browse;
         LocalView.IsVisible = LocalTools.IsVisible = !browse;
-        CheckUpdateButton.IsVisible = _kind == "mod";
-        if (_kind != "mod")
+        CheckUpdateButton.IsVisible = CanUpdate;
+        if (!CanUpdate)
             UpdateAllButton.IsVisible = false;
         if (browse && _tab != _source)
         {
@@ -761,17 +761,23 @@ public partial class ResourcesPage : UserControl, IPage
         Platform.OpenPath(folder);
     }
 
-    // ------------------------------------------------------------------ 模组更新
+    // ------------------------------------------------------------------ 更新（模组、资源包、光影、数据包）
+
+    private bool CanUpdate => _kind is "mod" or "resourcepack" or "shader" or "datapack";
+
+    private string KindName => Mods.KindNames.GetValueOrDefault(_kind, _kind);
 
     private async void OnCheckUpdates(object sender, RoutedEventArgs e)
     {
-        var mods = _kind == "mod" ? _localItems.ToList() : [];
-        if (mods.Count == 0)
+        var items = CanUpdate ? _localItems.Where(i => !i.IsDir).ToList() : [];
+        if (items.Count == 0)
         {
-            Main.Toast(T("没有可以检查的模组"), "warn");
+            Main.Toast(F("没有可以检查的{0}", KindName), "warn");
             return;
         }
         var ctx = _ctx;
+        var kind = _kind;
+        var name = KindName;
         var modrinth = (ModrinthClient)_clients["modrinth"];
         var curseforge = (CurseForgeClient)_clients["curseforge"];
         CheckUpdateButton.IsEnabled = false;
@@ -779,7 +785,7 @@ public partial class ResourcesPage : UserControl, IPage
         List<ModUpdate> updates;
         try
         {
-            updates = await Task.Run(() => Mods.CheckUpdatesAsync(modrinth, curseforge, mods, ctx.Game, ctx.Loader));
+            updates = await Task.Run(() => Mods.CheckUpdatesAsync(modrinth, curseforge, items, ctx.Game, ctx.Loader, kind));
         }
         catch (Exception ex)
         {
@@ -791,12 +797,12 @@ public partial class ResourcesPage : UserControl, IPage
             CheckUpdateButton.IsEnabled = true;
             CheckUpdateLabel.Text = T("检查更新");
         }
-        if (ctx != _ctx)
+        if (ctx != _ctx || kind != _kind)
             return;
         _updates = updates.ToDictionary(u => u.Mod.Path);
         RenderLocal();
         UpdateUpdateAll();
-        Main.Toast(updates.Count > 0 ? F("有 {0} 个模组可以更新", updates.Count) : T("所有模组都是最新版本"));
+        Main.Toast(updates.Count > 0 ? F("有 {0} 个{1}可以更新", updates.Count, name) : F("所有{0}都是最新版本", name));
     }
 
     private void UpdateUpdateAll()
@@ -810,12 +816,13 @@ public partial class ResourcesPage : UserControl, IPage
     private void RunUpdates(List<ModUpdate> updates)
     {
         var dl = Main.MakeLauncher().Dl;
-        _ = Main.RunTask(T("更新模组"), async () =>
+        var name = KindName;
+        _ = Main.RunTask(F("更新{0}", name), async () =>
         {
             var failed = new List<string>();
             for (var i = 0; i < updates.Count; i++)
             {
-                Main.Progress(i, updates.Count, T("更新模组"));
+                Main.Progress(i, updates.Count, F("更新{0}", name));
                 try
                 {
                     await Mods.ApplyUpdateAsync(dl, updates[i]);
@@ -833,9 +840,9 @@ public partial class ResourcesPage : UserControl, IPage
             UpdateUpdateAll();
             ReloadLocal(false);
             if (failed.Count > 0)
-                _ = Main.Dialog(T("部分模组更新失败"), string.Join("\n", failed.Take(8)), "error");
+                _ = Main.Dialog(F("部分{0}更新失败", name), string.Join("\n", failed.Take(8)), "error");
             else
-                Main.Toast(F("已更新 {0} 个模组", updates.Count));
+                Main.Toast(F("已更新 {0} 个{1}", updates.Count, name));
         });
     }
 

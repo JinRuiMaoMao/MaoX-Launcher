@@ -97,6 +97,10 @@ public class LauncherConfig
     public int WindowWidth { get; set; } = 854;
     public int WindowHeight { get; set; } = 480;
     public bool VersionIsolation { get; set; } = true;
+    /// <summary>启动游戏前自动备份上次备份之后玩过的存档</summary>
+    public bool AutoBackupWorlds { get; set; } = true;
+    /// <summary>每个存档保留的自动备份份数</summary>
+    public int BackupKeep { get; set; } = 3;
     public string JvmArgs { get; set; } = "";
     public string LastVersion { get; set; } = "";
     /// <summary>启动页选中的游戏：java 或 MojangGames 里的 Id</summary>

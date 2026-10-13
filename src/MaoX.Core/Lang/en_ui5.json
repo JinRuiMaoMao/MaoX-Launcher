@@ -1,5 +1,21 @@
 {
   "手机上不能直接打开文件夹，路径已复制：{0}": "Folders can't be opened directly on mobile. Path copied: {0}",
   "手机版联机还在开发中": "Multiplayer rooms are not available on mobile yet",
-  "暂时可以在上方的“服务器”标签里加入服务器。": "For now, you can join servers from the \"Servers\" tab above."
+  "暂时可以在上方的“服务器”标签里加入服务器。": "For now, you can join servers from the \"Servers\" tab above.",
+  "正在自动备份存档 {0}...": "Backing up world {0}...",
+  "已自动备份 {0} 个存档（游戏目录的 backups 文件夹）": "Backed up {0} world(s) (backups folder in the game directory)",
+  "[警告] 自动备份存档失败：{0}": "[Warning] Automatic world backup failed: {0}",
+  "这个存档正在被游戏使用，请先退出游戏或回到标题画面": "The game is using this world. Quit the game or go back to the title screen first",
+  "还原存档": "Restore world",
+  "备份里没有完整的存档（缺少 level.dat）": "The backup doesn't contain a complete world (level.dat is missing)",
+  "还原存档 {0}": "Restore world {0}",
+  "用备份替换现在的存档。还原前会先把现在的存档再备份一份，选错了也能找回来。": "Replaces the current world with a backup. The current world is backed up first, so you can go back if you pick the wrong one.",
+  "这个存档还没有备份": "This world has no backups yet",
+  "自动备份": "Automatic backup",
+  "手动备份": "Manual backup",
+  "还原": "Restore",
+  "用 {0} 的备份替换存档 {1} 吗？现在的存档会先自动备份。": "Replace world {1} with the backup from {0}? The current world is backed up first.",
+  "已还原存档 {0}": "Restored world {0}",
+  "自动备份存档": "Back up worlds automatically",
+  "启动游戏前备份玩过的存档，每个保留最新 3 份，可在版本设置的存档列表里还原": "Worlds you played are backed up before the game starts (latest 3 kept). Restore them from the world list in version settings"
 }

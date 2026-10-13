@@ -246,17 +246,18 @@ public static partial class Mods
 
     // ------------------------------------------------------------------ 更新
 
-    /// <summary>先用 Modrinth 检查，Modrinth 不认识的模组再交给 CurseForge。</summary>
+    /// <summary>先用 Modrinth 检查，Modrinth 不认识的文件再交给 CurseForge。kind 为 mod / resourcepack / shader / datapack。</summary>
     public static async Task<List<ModUpdate>> CheckUpdatesAsync(ModrinthClient modrinth, CurseForgeClient curseforge,
                                                                 IReadOnlyList<LocalFile> mods, string gameVersion,
-                                                                string loader)
+                                                                string loader, string kind = "mod")
     {
-        var (updates, unknown) = await modrinth.UpdatesAsync(mods, gameVersion, loader);
+        mods = mods.Where(m => !m.IsDir).ToList();
+        var (updates, unknown) = await modrinth.UpdatesAsync(mods, gameVersion, loader, kind);
         if (unknown.Count > 0)
         {
             try
             {
-                updates.AddRange(await curseforge.UpdatesAsync(unknown, gameVersion, loader));
+                updates.AddRange(await curseforge.UpdatesAsync(unknown, gameVersion, loader, kind));
             }
             catch (Exception)
             {
@@ -811,7 +812,7 @@ public class ModrinthClient : IModClient
 
     /// <summary>返回 (可更新列表, Modrinth 不认识的模组列表)。</summary>
     public async Task<(List<ModUpdate> Updates, List<LocalFile> Unknown)> UpdatesAsync(
-        IEnumerable<LocalFile> mods, string gameVersion, string loader)
+        IEnumerable<LocalFile> mods, string gameVersion, string loader, string kind = "mod")
     {
         var hashes = await Mods.HashFilesAsync(mods);
         if (hashes.Count == 0)
@@ -820,7 +821,7 @@ public class ModrinthClient : IModClient
         {
             ["hashes"] = new JsonArray(hashes.Keys.Select(h => (JsonNode)h).ToArray()),
             ["algorithm"] = "sha1",
-            ["loaders"] = new JsonArray(Mods.ModrinthLoaders(loader).Select(l => (JsonNode)l).ToArray()),
+            ["loaders"] = new JsonArray(Mods.ModrinthVersionLoaders(kind, loader).Select(l => (JsonNode)l).ToArray()),
             ["game_versions"] = new JsonArray(gameVersion),
         }) as JsonObject ?? new JsonObject();
         var known = await IdentifyAsync(hashes.Keys);
@@ -978,7 +979,8 @@ public partial class CurseForgeClient : IModClient
     }
 
     /// <summary>通过 CurseForge 文件指纹检查更新（最多 8 个并发请求）。</summary>
-    public async Task<List<ModUpdate>> UpdatesAsync(IEnumerable<LocalFile> mods, string gameVersion, string loader)
+    public async Task<List<ModUpdate>> UpdatesAsync(IEnumerable<LocalFile> mods, string gameVersion, string loader,
+                                                    string kind = "mod")
     {
         var prints = await Mods.FingerprintFilesAsync(mods);
         if (prints.Count == 0)
@@ -998,7 +1000,7 @@ public partial class CurseForgeClient : IModClient
             {
                 var match = matches[i];
                 var current = match.Get("file");
-                var best = await BestFileAsync(match.Get("id")?.AsStr(), gameVersion, loader);
+                var best = await BestFileAsync(match.Get("id")?.AsStr(), gameVersion, loader, kind);
                 if (best != null && best.Long("id") != current.Long("id")
                     && string.CompareOrdinal(best.Str("fileDate", ""), current.Str("fileDate", "")) > 0)
                 {

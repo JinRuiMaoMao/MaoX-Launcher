@@ -317,14 +317,20 @@ public static partial class Instance
             .ToList();
     }
 
-    /// <summary>把存档打包到 &lt;游戏目录&gt;/backups，返回备份文件路径。progress(已完成, 总数, "备份存档")。</summary>
+    private const string StampFormat = "yyyy-MM-dd_HH-mm-ss";
+    private const string AutoSuffix = "_auto";
+
+    /// <summary>
+    /// 把存档打包到 &lt;游戏目录&gt;/backups，返回备份文件路径。progress(已完成, 总数, "备份存档")。
+    /// auto 为 true 时是启动游戏前的自动备份，文件名带 _auto，只保留最新的几份。
+    /// </summary>
     public static Task<string> BackupWorldAsync(string gameDir, WorldInfo world,
-                                                Action<int, int, string> progress = null) => Task.Run(() =>
+                                                Action<int, int, string> progress = null, bool auto = false) => Task.Run(() =>
     {
         var backups = Path.Combine(gameDir, "backups");
         Directory.CreateDirectory(backups);
-        var stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-        var dest = Path.Combine(backups, $"{world.Folder}_{stamp}.zip");
+        var stamp = DateTime.Now.ToString(StampFormat);
+        var dest = Path.Combine(backups, $"{world.Folder}_{stamp}{(auto ? AutoSuffix : "")}.zip");
         var files = Directory.GetFiles(world.Path, "*", SearchOption.AllDirectories);
         var tmp = dest + ".part";
         try
@@ -351,4 +357,110 @@ public static partial class Instance
         }
         return dest;
     });
+
+    /// <summary>某个存档在 backups 里的备份，新的在前。</summary>
+    public static List<WorldBackup> ListBackups(string gameDir, string worldFolder)
+    {
+        var backups = Path.Combine(gameDir, "backups");
+        if (!Directory.Exists(backups))
+            return [];
+        var prefix = worldFolder + "_";
+        var result = new List<WorldBackup>();
+        foreach (var path in Directory.EnumerateFiles(backups, "*.zip"))
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            if (!name.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+            var rest = name[prefix.Length..];
+            var auto = rest.EndsWith(AutoSuffix, StringComparison.Ordinal);
+            if (auto)
+                rest = rest[..^AutoSuffix.Length];
+            if (!DateTime.TryParseExact(rest, StampFormat, null, System.Globalization.DateTimeStyles.None, out var time))
+                continue;
+            result.Add(new WorldBackup(path, time, new FileInfo(path).Length, auto));
+        }
+        return result.OrderByDescending(b => b.Time).ToList();
+    }
+
+    /// <summary>
+    /// 启动游戏前调用：上次备份之后玩过（level.dat 更新过）的存档各备份一份，每个存档只保留最新的 keep 份自动备份
+    /// （手动备份不删）。返回备份的存档数。
+    /// </summary>
+    public static async Task<int> AutoBackupAsync(string gameDir, int keep, Action<string> log,
+                                                  Action<int, int, string> progress = null)
+    {
+        var count = 0;
+        foreach (var world in ListWorlds(gameDir))
+        {
+            TaskContext.ThrowIfCancelled();
+            var latest = ListBackups(gameDir, world.Folder).FirstOrDefault();
+            var changed = File.GetLastWriteTime(Path.Combine(world.Path, "level.dat"));
+            if (latest != null && File.GetLastWriteTime(latest.Path) >= changed)
+                continue;
+            log(F("正在自动备份存档 {0}...", world.Name));
+            await BackupWorldAsync(gameDir, world, progress, auto: true);
+            count++;
+            foreach (var old in ListBackups(gameDir, world.Folder).Where(b => b.Auto).Skip(Math.Max(1, keep)))
+                File.Delete(old.Path);
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// 用备份替换存档。替换前把当前存档另外备份一份（万一选错了还能找回），新存档先解压到临时文件夹，完整后才替换。
+    /// </summary>
+    public static async Task RestoreWorldAsync(string gameDir, WorldInfo world, WorldBackup backup,
+                                               Action<int, int, string> progress = null)
+    {
+        if (File.Exists(Path.Combine(world.Path, "session.lock")) && IsLocked(Path.Combine(world.Path, "session.lock")))
+            throw new InvalidOperationException(T("这个存档正在被游戏使用，请先退出游戏或回到标题画面"));
+        await BackupWorldAsync(gameDir, world, progress, auto: true);
+        var saves = Path.GetDirectoryName(world.Path)!;
+        var tmp = Path.Combine(saves, ".restore-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            await Task.Run(() =>
+            {
+                using var zip = ZipFile.OpenRead(backup.Path);
+                var prefix = zip.Entries.Select(e => e.FullName.Split('/')[0]).FirstOrDefault() ?? "";
+                for (var i = 0; i < zip.Entries.Count; i++)
+                {
+                    var entry = zip.Entries[i];
+                    var parts = entry.FullName.Split('/');
+                    if (parts[0] != prefix || parts.Contains("..") || entry.FullName.EndsWith('/'))
+                        continue;
+                    var target = Path.Combine([tmp, .. parts[1..]]);
+                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    entry.ExtractToFile(target, true);
+                    if (progress != null && (i % 20 == 0 || i == zip.Entries.Count - 1))
+                        progress(i + 1, zip.Entries.Count, T("还原存档"));
+                }
+                if (!File.Exists(Path.Combine(tmp, "level.dat")))
+                    throw new InvalidDataException(T("备份里没有完整的存档（缺少 level.dat）"));
+                Directory.Delete(world.Path, true);
+                Directory.Move(tmp, world.Path);
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(tmp))
+                Directory.Delete(tmp, true);
+        }
+    }
+
+    private static bool IsLocked(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+    }
 }
+
+/// <summary>一份存档备份。Auto 表示启动游戏前的自动备份。</summary>
+public record WorldBackup(string Path, DateTime Time, long Size, bool Auto);

@@ -279,7 +279,7 @@ public class VersionDialog : DialogView
 
     private Control WorldRow(WorldInfo world)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto") };
         Control icon = null;
         if (!string.IsNullOrEmpty(world.Icon) && File.Exists(world.Icon))
         {
@@ -319,6 +319,10 @@ public class VersionDialog : DialogView
         backup.MinWidth = 0;
         Grid.SetColumn(backup, 3);
         grid.Children.Add(backup);
+        var restore = MakeButton(T("还原"), "ghost", "download", () => Restore(world));
+        restore.MinWidth = 0;
+        Grid.SetColumn(restore, 4);
+        grid.Children.Add(restore);
         return new Border { Classes = { "row" }, Padding = new Thickness(10, 8), Child = grid };
     }
 
@@ -327,6 +331,26 @@ public class VersionDialog : DialogView
         var gameDir = _gl.GameDirFor(_version);
         _ = Main.RunTask(F("备份存档 {0}", world.Name), () => Instance.BackupWorldAsync(gameDir, world, Main.Progress),
                          path => Main.Toast(T("已备份到 backups") + Path.DirectorySeparatorChar + Path.GetFileName(path)));
+    }
+
+    private async void Restore(WorldInfo world)
+    {
+        if (!CheckNotRunning())
+            return;
+        var gameDir = _gl.GameDirFor(_version);
+        var backups = await Task.Run(() => Instance.ListBackups(gameDir, world.Folder));
+        if (await Main.ShowDialogAsync(new WorldBackupsDialog(world, backups)) is not WorldBackup backup)
+            return;
+        if (!await Main.Confirm(T("还原存档"),
+                                F("用 {0} 的备份替换存档 {1} 吗？现在的存档会先自动备份。", backup.Time.ToString("yyyy-MM-dd HH:mm"), world.Name),
+                                T("还原"), "warn", "danger"))
+            return;
+        await Main.RunTask(F("还原存档 {0}", world.Name), () => Instance.RestoreWorldAsync(gameDir, world, backup, Main.Progress),
+                           () =>
+                           {
+                               Main.Toast(F("已还原存档 {0}", world.Name));
+                               LoadWorlds();
+                           });
     }
 
     // ------------------------------------------------------------------ 版本操作

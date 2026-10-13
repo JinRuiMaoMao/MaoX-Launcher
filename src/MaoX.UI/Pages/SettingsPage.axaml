@@ -32,6 +32,13 @@
               </StackPanel>
               <ToggleSwitch Name="IsolationSwitch" Grid.Column="1" />
             </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 自动备份存档}" />
+                <TextBlock Text="{c:Tr 启动游戏前备份玩过的存档，每个保留最新 3 份，可在版本设置的存档列表里还原}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="AutoBackupSwitch" Grid.Column="1" />
+            </Grid>
           </StackPanel>
         </Border>
 

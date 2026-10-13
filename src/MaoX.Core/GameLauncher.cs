@@ -957,9 +957,27 @@ public class GameLauncher
         return await Loaders.RunJavaAsync(await SelectJavaAsync(vjson), args, workDir);
     }
 
+    /// <summary>启动前备份上次备份之后玩过的存档。失败只记日志，不影响启动。</summary>
+    private async Task AutoBackupAsync(string versionId)
+    {
+        if (!Cfg.AutoBackupWorlds)
+            return;
+        try
+        {
+            var count = await Instance.AutoBackupAsync(GameDirFor(versionId), Cfg.BackupKeep, Log, Progress);
+            if (count > 0)
+                Log(F("已自动备份 {0} 个存档（游戏目录的 backups 文件夹）", count));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            Log(F("[警告] 自动备份存档失败：{0}", e.Message));
+        }
+    }
+
     /// <summary>准备文件并启动游戏：电脑上启动 java 子进程，手机上交给 <see cref="MobileStarter"/>。</summary>
     public async Task<RunningGame> StartAsync(string versionId, string server = null, LaunchAuth auth = null)
     {
+        await AutoBackupAsync(versionId);
         if (!Platform.IsMobile)
             return RunningGame.Of(await LaunchAsync(versionId, server, auth));
         var starter = MobileStarter ?? throw new PlatformNotSupportedException(T("这个平台还不能启动游戏"));

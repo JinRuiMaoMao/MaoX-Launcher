@@ -47,6 +47,7 @@ public partial class SettingsPage : UserControl, IPage
         var cfg = Cfg;
         McDirBox.Text = cfg.MinecraftDir;
         IsolationSwitch.IsChecked = cfg.VersionIsolation;
+        AutoBackupSwitch.IsChecked = cfg.AutoBackupWorlds;
 
         var ram = Platform.TotalMemoryMb();
         RamText.Text = F("系统内存 {0:0} GB", ram / 1024.0);
@@ -82,6 +83,7 @@ public partial class SettingsPage : UserControl, IPage
         _loading = false;
 
         IsolationSwitch.IsCheckedChanged += (_, _) => Cfg.VersionIsolation = IsolationSwitch.IsChecked == true;
+        AutoBackupSwitch.IsCheckedChanged += (_, _) => Cfg.AutoBackupWorlds = AutoBackupSwitch.IsChecked == true;
         MemorySlider.ValueChanged += (_, _) =>
         {
             Cfg.MaxMemory = (int)MemorySlider.Value;
