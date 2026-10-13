@@ -172,7 +172,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # 编好的库按源码和补丁缓存：没改动时直接用，不再花十多分钟重新编译
+      - name: Cache Terracotta library
+        id: terracotta-lib
+        uses: actions/cache@v5
+        with:
+          path: dist/terracotta
+          key: ios-terracotta-lib-${{ hashFiles('src/MaoX.iOS/Terracotta/**') }}
+
       - name: Cache Rust build
+        if: steps.terracotta-lib.outputs.cache-hit != 'true'
         uses: actions/cache@v5
         with:
           path: |
@@ -184,9 +193,11 @@ jobs:
 
       # EasyTier 编译时要用 protoc 生成代码
       - name: Install protoc
+        if: steps.terracotta-lib.outputs.cache-hit != 'true'
         run: brew install protobuf
 
       - name: Build Terracotta for iOS
+        if: steps.terracotta-lib.outputs.cache-hit != 'true'
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/terracotta-target
         run: bash src/MaoX.iOS/Terracotta/build.sh dist/terracotta
