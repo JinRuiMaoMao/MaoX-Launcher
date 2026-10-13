@@ -126,6 +126,12 @@ public class LauncherConfig
     public string IosJitMethod { get; set; } = "auto";
     /// <summary>内置 JIT 连接的设备地址（LocalDevVPN 里的 Device IP），空 = StikJIT 默认的 10.7.0.1</summary>
     public string IosJitAddress { get; set; } = "";
+    /// <summary>手机触屏按键的自定义布局</summary>
+    public List<ControlLayout> ControlLayouts { get; set; } = [];
+    /// <summary>正在使用的布局名称，空 = 默认布局</summary>
+    public string ActiveControlLayout { get; set; } = "";
+
+    public ControlLayout CurrentControlLayout() => ControlLayouts.FirstOrDefault(l => l.Name == ActiveControlLayout);
 
     public static LauncherConfig Load()
     {
@@ -138,6 +144,7 @@ public class LauncherConfig
                 {
                     cfg.Accounts ??= [];
                     cfg.Servers ??= [];
+                    cfg.ControlLayouts ??= [];
                     if (string.IsNullOrWhiteSpace(cfg.MinecraftDir))
                         cfg.MinecraftDir = AppPaths.DefaultMinecraftDir;
                     cfg.MinecraftDir = AppPaths.Rebase(cfg.MinecraftDir);

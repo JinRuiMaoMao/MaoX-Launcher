@@ -95,7 +95,7 @@ internal static class GameHost
 
         var game = new IosGame();
         var json = config.ToJsonString();
-        var code = await OnMain(() => new GameViewController(info.GameDir, screen).LaunchAsync(json)).Unwrap();
+        var code = await OnMain(() => new GameViewController(info.GameDir, screen, launcher.Cfg.CurrentControlLayout()).LaunchAsync(json)).Unwrap();
         if (code != 0)
             throw new InvalidOperationException(code switch
             {

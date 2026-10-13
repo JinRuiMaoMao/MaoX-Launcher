@@ -90,7 +90,8 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
         mTextureView.setOpaque(true);
         root.addView(mTextureView, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
-        mControls = new ControlsView(this, mScale, mConfig.optString("gameDir"), mConfig.optJSONObject("labels"));
+        mControls = new ControlsView(this, mScale, mConfig.optString("gameDir"), mConfig.optJSONObject("labels"),
+                mConfig.optJSONObject("controls"));
         root.addView(mControls, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
         mControls.setOnGenericMotionListener((v, e) -> onMouse(e));

@@ -102,6 +102,13 @@
               </StackPanel>
               <TextBox Name="JvmBox" />
             </StackPanel>
+            <Grid Name="TouchLayoutPanel" ColumnDefinitions="*,Auto" IsVisible="False">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 触屏按键布局}" />
+                <TextBlock Name="TouchLayoutText" Classes="small dim wrap" />
+              </StackPanel>
+              <Button Grid.Column="1" Content="{c:Tr 编辑}" VerticalAlignment="Center" Click="OnEditTouchLayout" />
+            </Grid>
             <StackPanel Name="BuiltInJitPanel" Spacing="8" IsVisible="False">
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="3">

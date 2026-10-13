@@ -1,0 +1,22 @@
+{
+  "触屏按键布局": "Touch controls layout",
+  "正在使用：{0}。可以拖动按键位置，调整大小、透明度，保存多套布局": "Using: {0}. Drag buttons to move them, change size and opacity, and save several layouts",
+  "默认布局": "Default layout",
+  "我的布局 {0}": "My layout {0}",
+  "快捷栏": "Hotbar",
+  "移动": "Move",
+  "隐藏": "Hide",
+  "新建": "New",
+  "恢复默认": "Reset",
+  "大小": "Size",
+  "不透明度": "Opacity",
+  "收起": "Collapse",
+  "展开": "Expand",
+  "重命名布局": "Rename layout",
+  "布局名称：": "Layout name:",
+  "名称不能为空": "The name can't be empty",
+  "已经有同名的布局了": "A layout with this name already exists",
+  "点一下按键选中，拖动调整位置": "Tap a button to select it, drag to move it",
+  "默认布局不能修改，调整后会自动另存为新布局": "The default layout can't be changed. Your changes are saved as a new layout",
+  "已选中：{0}": "Selected: {0}"
+}

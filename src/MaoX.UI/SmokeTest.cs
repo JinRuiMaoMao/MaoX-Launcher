@@ -327,6 +327,34 @@ internal static class SmokeTest
             return "paw-art.png";
         }, required: false);
 
+        await Check("touch layout editor", async () =>
+        {
+            var cfg = window.Cfg.Clone();
+            cfg.ControlLayouts = [];
+            cfg.ActiveControlLayout = "";
+            var dialog = new Dialogs.TouchLayoutDialog(cfg);
+            var result = window.ShowDialogAsync(dialog);
+            await Task.Delay(1200);
+            ScreenshotControl(dialog, Path.Combine(output, "touch-layout-default.png"));
+            dialog.Select("jump");
+            dialog.MoveTo("jump", dialog.Bounds.Width / 2, dialog.Bounds.Height * 0.8);
+            dialog.GetVisualDescendants().OfType<Slider>().First().Value = 150;
+            dialog.Select("chat");
+            dialog.GetVisualDescendants().OfType<CheckBox>().First().IsChecked = true;
+            await Task.Delay(400);
+            ScreenshotControl(dialog, Path.Combine(output, "touch-layout-edited.png"));
+            var save = dialog.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == I18n.T("保存"));
+            save.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            if (await result is not true)
+                throw new Exception("dialog did not return true after save");
+            var layout = cfg.CurrentControlLayout() ?? throw new Exception("no active layout after save");
+            var jump = layout.Get("jump");
+            if (jump == null || Math.Abs(jump.X - 0.5) > 0.01 || Math.Abs(jump.Size - 1.5) > 0.001 || layout.Get("chat")?.Hidden != true)
+                throw new Exception("unexpected layout: " + layout.ToJson().ToJsonString());
+            await Task.Delay(300);
+            return $"{layout.Name}: {layout.ToJson().ToJsonString()}";
+        });
+
         await Check("resource card click", async () =>
         {
             window.ShowPage("resources");

@@ -20,6 +20,7 @@ internal sealed class GameViewController : UIViewController
     private static GameViewController _current;
 
     private readonly string _gameDir;
+    private readonly ControlLayout _layout;
     private SurfaceView _surface;
     private ControlsView _controls;
     private UILabel _room;
@@ -29,9 +30,10 @@ internal sealed class GameViewController : UIViewController
     private bool _launched;
     private GamepadInput _gamepad;
 
-    public GameViewController(string gameDir, ScreenInfo screen)
+    public GameViewController(string gameDir, ScreenInfo screen, ControlLayout layout)
     {
         _gameDir = gameDir;
+        _layout = layout;
         _width = screen.Width;
         _height = screen.Height;
         ModalPresentationStyle = UIModalPresentationStyle.FullScreen;
@@ -63,7 +65,7 @@ internal sealed class GameViewController : UIViewController
         {
             ["jump"] = T("跳跃"), ["sneak"] = T("潜行"), ["inventory"] = T("背包"), ["drop"] = T("丢弃"),
             ["chat"] = T("聊天"), ["view"] = T("视角"), ["pause"] = T("暂停"), ["keyboard"] = T("键盘"),
-        })
+        }, _layout)
         {
             KeyboardHidden = () => BecomeFirstResponder(),
         };

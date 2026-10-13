@@ -52,7 +52,10 @@ public class ControlsView extends View {
 
     // 摇杆
     private final RectF mStickZone = new RectF();
-    private float mStickX, mStickY, mStickRadius;
+    private final JSONObject mLayout;
+    private final float mOpacity;
+    private boolean mStickHidden;
+    private float mStickX, mStickY, mStickRadius, mKnobRadius;
     private float mKnobX, mKnobY;
     private boolean mUp, mDown, mLeft, mRight, mSprint;
 
@@ -76,6 +79,7 @@ public class ControlsView extends View {
     private static final Object NONE = new Object();
 
     private final class Button {
+        final String id;
         final String label;
         final int key;
         final boolean toggle;
@@ -86,8 +90,11 @@ public class ControlsView extends View {
         boolean round;
         boolean pressed;
         boolean latched;
+        boolean hidden;
+        float size = 1;
 
-        Button(String label, int key, boolean toggle, boolean inGame, boolean inMenu, Runnable action) {
+        Button(String id, String label, int key, boolean toggle, boolean inGame, boolean inMenu, Runnable action) {
+            this.id = id;
             this.label = label;
             this.key = key;
             this.toggle = toggle;
@@ -97,7 +104,7 @@ public class ControlsView extends View {
         }
 
         boolean visible() {
-            return !mGamepadActive && (mGrabbing ? inGame : inMenu);
+            return !hidden && !mGamepadActive && (mGrabbing ? inGame : inMenu);
         }
 
         void press(boolean down) {
@@ -120,11 +127,13 @@ public class ControlsView extends View {
 
     private final Button mJump, mSneak, mInventory, mDrop, mChat, mView, mPause, mKeyboard;
 
-    public ControlsView(Context context, float scale, String gameDir, JSONObject labels) {
+    public ControlsView(Context context, float scale, String gameDir, JSONObject labels, JSONObject layout) {
         super(context);
         mDp = context.getResources().getDisplayMetrics().density;
         mScale = scale;
         mGameDir = gameDir;
+        mLayout = layout;
+        mOpacity = layout == null ? 1f : (float) Math.max(0.2, Math.min(1, layout.optDouble("opacity", 1)));
         setFocusable(true);
         setFocusableInTouchMode(true);
         mStroke.setStyle(Paint.Style.STROKE);
@@ -134,27 +143,25 @@ public class ControlsView extends View {
         mText.setTextSize(13 * mDp);
         mText.setFakeBoldText(true);
 
-        mJump = add(label(labels, "jump", "Jump"), 32, false, true, false, null);
+        mJump = add(labels, "jump", "Jump", 32, false, true, false, null);
         mJump.round = true;
-        mSneak = add(label(labels, "sneak", "Sneak"), Keys.GLFW_KEY_LEFT_SHIFT, true, true, false, null);
+        mSneak = add(labels, "sneak", "Sneak", Keys.GLFW_KEY_LEFT_SHIFT, true, true, false, null);
         mSneak.round = true;
-        mInventory = add(label(labels, "inventory", "Inventory"), 69, false, true, false, null);
-        mDrop = add(label(labels, "drop", "Drop"), 81, false, true, false, null);
-        mChat = add(label(labels, "chat", "Chat"), 0, false, true, false, () -> {
+        mInventory = add(labels, "inventory", "Inventory", 69, false, true, false, null);
+        mDrop = add(labels, "drop", "Drop", 81, false, true, false, null);
+        mChat = add(labels, "chat", "Chat", 0, false, true, false, () -> {
             CallbackBridge.sendKeyPress(84);
             mHandler.postDelayed(() -> showKeyboard(true), 150);
         });
-        mView = add(label(labels, "view", "View"), 294, false, true, false, null);
-        mPause = add(label(labels, "pause", "Pause"), Keys.GLFW_KEY_ESCAPE, false, true, false, null);
-        mKeyboard = add(label(labels, "keyboard", "Keyboard"), 0, false, true, true, this::toggleKeyboard);
+        mView = add(labels, "view", "View", 294, false, true, false, null);
+        mPause = add(labels, "pause", "Pause", Keys.GLFW_KEY_ESCAPE, false, true, false, null);
+        mKeyboard = add(labels, "keyboard", "Keyboard", 0, false, true, true, this::toggleKeyboard);
     }
 
-    private static String label(JSONObject labels, String key, String fallback) {
-        return labels == null ? fallback : labels.optString(key, fallback);
-    }
-
-    private Button add(String label, int key, boolean toggle, boolean inGame, boolean inMenu, Runnable action) {
-        Button b = new Button(label, key, toggle, inGame, inMenu, action);
+    private Button add(JSONObject labels, String id, String fallback, int key, boolean toggle, boolean inGame,
+                       boolean inMenu, Runnable action) {
+        String label = labels == null ? fallback : labels.optString(id, fallback);
+        Button b = new Button(id, label, key, toggle, inGame, inMenu, action);
         mButtons.add(b);
         return b;
     }
@@ -185,6 +192,45 @@ public class ControlsView extends View {
         box(mChat, m, top, bw, bh);
         box(mView, m + bw + gap, top, bw, bh);
         box(mKeyboard, m + (bw + gap) * 2, top, bw, bh);
+        applyLayout(w, h);
+    }
+
+    /** 启动器里编辑过的布局：位置是中心点占屏幕宽高的比例，大小是默认大小的倍数。 */
+    private void applyLayout(int w, int h) {
+        mKnobRadius = 26 * mDp;
+        JSONObject items = mLayout == null ? null : mLayout.optJSONObject("items");
+        if (items == null) return;
+        for (Button b : mButtons) {
+            JSONObject item = items.optJSONObject(b.id);
+            if (item == null) continue;
+            b.size = layoutSize(item);
+            b.hidden = item.optBoolean("hidden", false);
+            float cx = (float) item.optDouble("x", 0.5) * w, cy = (float) item.optDouble("y", 0.5) * h;
+            float hw = b.rect.width() / 2 * b.size, hh = b.rect.height() / 2 * b.size;
+            b.rect.set(cx - hw, cy - hh, cx + hw, cy + hh);
+        }
+        JSONObject stick = items.optJSONObject("stick");
+        if (stick == null) return;
+        float size = layoutSize(stick);
+        mStickRadius *= size;
+        mKnobRadius *= size;
+        mStickX = (float) stick.optDouble("x", 0.5) * w;
+        mStickY = (float) stick.optDouble("y", 0.5) * h;
+        mKnobX = mStickX;
+        mKnobY = mStickY;
+        mStickHidden = stick.optBoolean("hidden", false);
+        float reach = mStickRadius * 1.8f;
+        if (mStickHidden) mStickZone.setEmpty();
+        else mStickZone.set(mStickX - reach, mStickY - reach, mStickX + reach, mStickY + reach);
+    }
+
+    private static float layoutSize(JSONObject item) {
+        return (float) Math.max(0.5, Math.min(2, item.optDouble("size", 1)));
+    }
+
+    /** 按布局的不透明度调整颜色的透明度。 */
+    private int fade(int color) {
+        return ((int) ((color >>> 24) * mOpacity) << 24) | (color & 0xFFFFFF);
     }
 
     private static void circle(Button b, float cx, float cy, float r) {
@@ -443,8 +489,10 @@ public class ControlsView extends View {
         for (Button b : mButtons) {
             if (!b.visible()) continue;
             boolean on = b.pressed || b.latched;
-            mFill.setColor(on ? 0x8800D9FF : 0x55000000);
-            mStroke.setColor(on ? 0xDD00D9FF : 0x88FFFFFF);
+            mFill.setColor(fade(on ? 0x8800D9FF : 0x55000000));
+            mStroke.setColor(fade(on ? 0xDD00D9FF : 0x88FFFFFF));
+            mText.setColor(fade(Color.WHITE));
+            mText.setTextSize(13 * mDp * Math.max(0.75f, Math.min(1.4f, b.size)));
             if (b.round) {
                 canvas.drawCircle(b.rect.centerX(), b.rect.centerY(), b.rect.width() / 2, mFill);
                 canvas.drawCircle(b.rect.centerX(), b.rect.centerY(), b.rect.width() / 2, mStroke);
@@ -472,13 +520,13 @@ public class ControlsView extends View {
             mStroke.setColor(Color.BLACK);
             canvas.drawPath(mArrow, mStroke);
         }
-        if (mGrabbing && !mGamepadActive) {
-            mFill.setColor(0x33000000);
-            mStroke.setColor(0x66FFFFFF);
+        if (mGrabbing && !mGamepadActive && !mStickHidden) {
+            mFill.setColor(fade(0x33000000));
+            mStroke.setColor(fade(0x66FFFFFF));
             canvas.drawCircle(mStickX, mStickY, mStickRadius, mFill);
             canvas.drawCircle(mStickX, mStickY, mStickRadius, mStroke);
-            mFill.setColor(mSprint ? 0x9900D9FF : 0x77FFFFFF);
-            canvas.drawCircle(mKnobX, mKnobY, 26 * mDp, mFill);
+            mFill.setColor(fade(mSprint ? 0x9900D9FF : 0x77FFFFFF));
+            canvas.drawCircle(mKnobX, mKnobY, mKnobRadius, mFill);
         }
     }
 

@@ -400,6 +400,7 @@ internal static class GameHost
                 ["jump"] = T("跳跃"), ["sneak"] = T("潜行"), ["inventory"] = T("背包"), ["drop"] = T("丢弃"),
                 ["chat"] = T("聊天"), ["view"] = T("视角"), ["pause"] = T("暂停"), ["keyboard"] = T("键盘"),
             },
+            ["controls"] = launcher.Cfg.CurrentControlLayout()?.ToJson(),
         };
     }
 

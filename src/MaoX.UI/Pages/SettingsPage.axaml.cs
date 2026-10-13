@@ -42,12 +42,14 @@ public partial class SettingsPage : UserControl, IPage
             foreach (var c in new Control[] { BrowseMcDirButton, OpenMcDirButton, JavaPathPanel, WindowSizePanel,
                                               AfterLaunchPanel, AutoUpdatePanel, CheckUpdateButton })
                 c.IsVisible = false;
+            TouchLayoutPanel.IsVisible = true;
         }
         _loading = true;
         var cfg = Cfg;
         McDirBox.Text = cfg.MinecraftDir;
         IsolationSwitch.IsChecked = cfg.VersionIsolation;
         AutoBackupSwitch.IsChecked = cfg.AutoBackupWorlds;
+        UpdateTouchLayoutText();
 
         var ram = Platform.TotalMemoryMb();
         RamText.Text = F("系统内存 {0:0} GB", ram / 1024.0);
@@ -479,6 +481,16 @@ public partial class SettingsPage : UserControl, IPage
     }
 
     private void OnManageAccounts(object sender, RoutedEventArgs e) => Main.ManageAccounts();
+
+    private async void OnEditTouchLayout(object sender, RoutedEventArgs e)
+    {
+        if (await Main.ShowDialogAsync(new Dialogs.TouchLayoutDialog(Cfg)) is true)
+            UpdateTouchLayoutText();
+    }
+
+    private void UpdateTouchLayoutText() =>
+        TouchLayoutText.Text = F("正在使用：{0}。可以拖动按键位置，调整大小、透明度，保存多套布局",
+                                 Cfg.CurrentControlLayout()?.Name ?? T("默认布局"));
 
     private void OnClientIdGuide(object sender, RoutedEventArgs e) => Platform.OpenUrl(Accounts.MsaAppGuide);
 

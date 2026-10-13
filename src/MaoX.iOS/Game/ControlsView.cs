@@ -1,5 +1,6 @@
 using CoreGraphics;
 using Foundation;
+using MaoX.Core;
 using ObjCRuntime;
 using UIKit;
 
@@ -17,6 +18,8 @@ internal sealed class ControlsView : UIView
     private static readonly object Stick = new(), Look = new(), Hotbar = new(), Nothing = new();
 
     private readonly string _gameDir;
+    private readonly ControlLayout _layout;
+    private readonly double _opacity;
     private readonly List<Button> _buttons = [];
     private readonly Dictionary<NativeHandle, object> _touches = [];
     private readonly UITextField _input;
@@ -25,8 +28,8 @@ internal sealed class ControlsView : UIView
 
     // 摇杆
     private CGRect _stickZone;
-    private double _stickX, _stickY, _stickRadius, _knobX, _knobY;
-    private bool _up, _down, _left, _right, _sprint;
+    private double _stickX, _stickY, _stickRadius, _knobX, _knobY, _knobRadius = 26;
+    private bool _up, _down, _left, _right, _sprint, _stickHidden;
 
     // 视角 / 鼠标（同一时间只有一根手指）
     private NativeHandle _lookTouch, _scrollTouch;
@@ -78,28 +81,30 @@ internal sealed class ControlsView : UIView
 
     private readonly Button _jump, _sneak, _inventory, _drop, _chat, _view, _pause, _keyboard;
 
-    public ControlsView(string gameDir, IReadOnlyDictionary<string, string> labels)
+    public ControlsView(string gameDir, IReadOnlyDictionary<string, string> labels, ControlLayout layout)
     {
         _gameDir = gameDir;
+        _layout = layout;
+        _opacity = layout == null ? 1 : Math.Clamp(layout.Opacity, ControlLayout.MinOpacity, 1);
         BackgroundColor = UIColor.Clear;
         Opaque = false;
         MultipleTouchEnabled = true;
         ContentMode = UIViewContentMode.Redraw;
 
-        _jump = Add(labels["jump"], Keys.Space, false, true, false, null);
+        _jump = Add("jump", labels, Keys.Space, false, true, false, null);
         _jump.Round = true;
-        _sneak = Add(labels["sneak"], Keys.LeftShift, true, true, false, null);
+        _sneak = Add("sneak", labels, Keys.LeftShift, true, true, false, null);
         _sneak.Round = true;
-        _inventory = Add(labels["inventory"], Keys.E, false, true, false, null);
-        _drop = Add(labels["drop"], Keys.Q, false, true, false, null);
-        _chat = Add(labels["chat"], 0, false, true, false, () =>
+        _inventory = Add("inventory", labels, Keys.E, false, true, false, null);
+        _drop = Add("drop", labels, Keys.Q, false, true, false, null);
+        _chat = Add("chat", labels, 0, false, true, false, () =>
         {
             Tap(Keys.T);
             NSTimer.CreateScheduledTimer(0.15, false, _ => ShowKeyboard(true));
         });
-        _view = Add(labels["view"], Keys.F5, false, true, false, null);
-        _pause = Add(labels["pause"], Keys.Escape, false, true, false, null);
-        _keyboard = Add(labels["keyboard"], 0, false, true, true, () => ShowKeyboard(!KeyboardShown));
+        _view = Add("view", labels, Keys.F5, false, true, false, null);
+        _pause = Add("pause", labels, Keys.Escape, false, true, false, null);
+        _keyboard = Add("keyboard", labels, 0, false, true, true, () => ShowKeyboard(!KeyboardShown));
 
         // 屏幕外的输入框接收输入法的文字；保留一个删不掉的空格，好让退格键一直有效
         _input = new UITextField(new CGRect(0, -40, 10, 30))
@@ -137,16 +142,18 @@ internal sealed class ControlsView : UIView
         AddSubview(_input);
     }
 
-    private sealed class Button(ControlsView owner, string label, int key, bool toggle, bool inGame, bool inMenu,
-                                Action action)
+    private sealed class Button(ControlsView owner, string id, string label, int key, bool toggle, bool inGame,
+                                bool inMenu, Action action)
     {
+        public readonly string Id = id;
         public readonly string Label = label;
         public CGRect Rect;
-        public bool Round, Pressed, Latched;
+        public bool Round, Pressed, Latched, Hidden;
+        public double Size = 1;
 
         public bool Toggle => toggle;
 
-        public bool Visible => !owner._gamepadActive && (owner._grabbing ? inGame : inMenu);
+        public bool Visible => !Hidden && !owner._gamepadActive && (owner._grabbing ? inGame : inMenu);
 
         public void Press(bool down)
         {
@@ -171,9 +178,10 @@ internal sealed class ControlsView : UIView
         }
     }
 
-    private Button Add(string label, int key, bool toggle, bool inGame, bool inMenu, Action action)
+    private Button Add(string id, IReadOnlyDictionary<string, string> labels, int key, bool toggle, bool inGame,
+                       bool inMenu, Action action)
     {
-        var b = new Button(this, label, key, toggle, inGame, inMenu, action);
+        var b = new Button(this, id, labels[id], key, toggle, inGame, inMenu, action);
         _buttons.Add(b);
         return b;
     }
@@ -217,8 +225,39 @@ internal sealed class ControlsView : UIView
         Box(_chat, left, top, bw, bh);
         Box(_view, left + bw + gap, top, bw, bh);
         Box(_keyboard, left + (bw + gap) * 2, top, bw, bh);
+        ApplyLayout(w, h);
         SetNeedsDisplay();
     }
+
+    /// <summary>启动器里编辑过的布局：位置是中心点占屏幕宽高的比例，大小是默认大小的倍数。</summary>
+    private void ApplyLayout(double w, double h)
+    {
+        _knobRadius = 26;
+        if (_layout == null)
+            return;
+        foreach (var b in _buttons)
+        {
+            if (_layout.Get(b.Id) is not { } item)
+                continue;
+            b.Size = Math.Clamp(item.Size, ControlLayout.MinSize, ControlLayout.MaxSize);
+            b.Hidden = item.Hidden;
+            double bw = b.Rect.Width * b.Size, bh = b.Rect.Height * b.Size;
+            b.Rect = new CGRect(item.X * w - bw / 2, item.Y * h - bh / 2, bw, bh);
+        }
+        if (_layout.Get("stick") is not { } stick)
+            return;
+        var size = Math.Clamp(stick.Size, ControlLayout.MinSize, ControlLayout.MaxSize);
+        _stickRadius *= size;
+        _knobRadius *= size;
+        _knobX = _stickX = stick.X * w;
+        _knobY = _stickY = stick.Y * h;
+        _stickHidden = stick.Hidden;
+        var reach = _stickRadius * 1.8;
+        _stickZone = _stickHidden ? CGRect.Empty : new CGRect(_stickX - reach, _stickY - reach, reach * 2, reach * 2);
+    }
+
+    /// <summary>按布局的不透明度调整颜色。</summary>
+    private UIColor Fade(UIColor color) => color.ColorWithAlpha(color.CGColor.Alpha * (nfloat)_opacity);
 
     private static void Circle(Button b, double cx, double cy, double r) => b.Rect = new CGRect(cx - r, cy - r, r * 2, r * 2);
 
@@ -518,12 +557,6 @@ internal sealed class ControlsView : UIView
     private static readonly UIColor AccentStroke = UIColor.FromRGBA(0, 217, 255, 0xDD);
     private static readonly UIColor IdleFill = UIColor.FromRGBA(0, 0, 0, 0x55);
     private static readonly UIColor IdleStroke = UIColor.FromRGBA(255, 255, 255, 0x88);
-    private static readonly UIStringAttributes LabelStyle = new()
-    {
-        Font = UIFont.BoldSystemFontOfSize(13),
-        ForegroundColor = UIColor.White,
-    };
-
     public override void Draw(CGRect rect)
     {
         foreach (var b in _buttons)
@@ -533,11 +566,15 @@ internal sealed class ControlsView : UIView
             var on = b.Pressed || b.Latched;
             var path = b.Round ? UIBezierPath.FromOval(b.Rect) : UIBezierPath.FromRoundedRect(b.Rect, 8);
             path.LineWidth = 1.5f;
-            (on ? AccentFill : IdleFill).SetFill();
+            Fade(on ? AccentFill : IdleFill).SetFill();
             path.Fill();
-            (on ? AccentStroke : IdleStroke).SetStroke();
+            Fade(on ? AccentStroke : IdleStroke).SetStroke();
             path.Stroke();
-            var text = new NSAttributedString(b.Label, LabelStyle);
+            var text = new NSAttributedString(b.Label, new UIStringAttributes
+            {
+                Font = UIFont.BoldSystemFontOfSize((nfloat)(13 * Math.Clamp(b.Size, 0.75, 1.4))),
+                ForegroundColor = Fade(UIColor.White),
+            });
             var size = text.Size;
             text.DrawString(new CGPoint(b.Rect.GetMidX() - size.Width / 2, b.Rect.GetMidY() - size.Height / 2));
         }
@@ -558,17 +595,18 @@ internal sealed class ControlsView : UIView
             UIColor.Black.SetStroke();
             arrow.Stroke();
         }
-        if (_grabbing && !_gamepadActive)
+        if (_grabbing && !_gamepadActive && !_stickHidden)
         {
             var ring = UIBezierPath.FromOval(new CGRect(_stickX - _stickRadius, _stickY - _stickRadius,
                                                         _stickRadius * 2, _stickRadius * 2));
             ring.LineWidth = 1.5f;
-            UIColor.FromRGBA(0, 0, 0, 0x33).SetFill();
+            Fade(UIColor.FromRGBA(0, 0, 0, 0x33)).SetFill();
             ring.Fill();
-            UIColor.FromRGBA(255, 255, 255, 0x66).SetStroke();
+            Fade(UIColor.FromRGBA(255, 255, 255, 0x66)).SetStroke();
             ring.Stroke();
-            var knob = UIBezierPath.FromOval(new CGRect(_knobX - 26, _knobY - 26, 52, 52));
-            (_sprint ? UIColor.FromRGBA(0, 217, 255, 0x99) : UIColor.FromRGBA(255, 255, 255, 0x77)).SetFill();
+            var knob = UIBezierPath.FromOval(new CGRect(_knobX - _knobRadius, _knobY - _knobRadius,
+                                                        _knobRadius * 2, _knobRadius * 2));
+            Fade(_sprint ? UIColor.FromRGBA(0, 217, 255, 0x99) : UIColor.FromRGBA(255, 255, 255, 0x77)).SetFill();
             knob.Fill();
         }
     }

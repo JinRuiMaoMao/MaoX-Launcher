@@ -604,14 +604,14 @@ public partial class MainView : UserControl
     {
         var card = new Border
         {
-            Classes = { "dialog" },
-            Width = view.DialogWidth,
+            Classes = { view.FullScreen ? "fullscreen" : "dialog" },
+            Width = view.FullScreen ? double.NaN : view.DialogWidth,
             // 内容超出屏幕高度时（手机横屏）可以滚动；自己管理滚动的对话框不再套一层
-            Child = view.ScrollsItself || view.Content is ScrollViewer
+            Child = view.FullScreen || view.ScrollsItself || view.Content is ScrollViewer
                 ? view
                 : new ScrollViewer { Content = view, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled },
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = view.FullScreen ? HorizontalAlignment.Stretch : HorizontalAlignment.Center,
+            VerticalAlignment = view.FullScreen ? VerticalAlignment.Stretch : VerticalAlignment.Center,
             Opacity = 0,
             RenderTransform = TransformOperations.Parse("scale(0.96)"),
             Transitions =
@@ -624,16 +624,19 @@ public partial class MainView : UserControl
                 },
             ],
         };
-        card[!MaxHeightProperty] = new Avalonia.Data.Binding("Bounds.Height")
+        if (!view.FullScreen)
         {
-            Source = this,
-            Converter = new Avalonia.Data.Converters.FuncValueConverter<double, double>(h => Math.Max(200, h - (Compact ? 20 : 80))),
-        };
-        card[!MaxWidthProperty] = new Avalonia.Data.Binding("Bounds.Width")
-        {
-            Source = this,
-            Converter = new Avalonia.Data.Converters.FuncValueConverter<double, double>(w => Math.Max(280, w - 24)),
-        };
+            card[!MaxHeightProperty] = new Avalonia.Data.Binding("Bounds.Height")
+            {
+                Source = this,
+                Converter = new Avalonia.Data.Converters.FuncValueConverter<double, double>(h => Math.Max(200, h - (Compact ? 20 : 80))),
+            };
+            card[!MaxWidthProperty] = new Avalonia.Data.Binding("Bounds.Width")
+            {
+                Source = this,
+                Converter = new Avalonia.Data.Converters.FuncValueConverter<double, double>(w => Math.Max(280, w - 24)),
+            };
+        }
         var backdrop = new Border
         {
             Background = Res("Overlay"),
