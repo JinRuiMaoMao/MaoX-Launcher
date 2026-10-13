@@ -245,6 +245,18 @@ internal static class IosBuiltInJit
     /// <summary>助手没有启动时附带的系统日志写到这里（“文件”App 里 MaoX Launcher/StikJIT/helper-log.txt）</summary>
     public static string HelperLog => Path.Combine(AppPaths.BaseDir, "StikJIT", "helper-log.txt");
 
+    private static string SignatureReport()
+    {
+        try
+        {
+            return CodeSignatureInfo.Report();
+        }
+        catch (Exception e)
+        {
+            return $"Code signatures: {e.Message}\n";
+        }
+    }
+
     /// <summary>多行的说明（第一行之后是系统日志）存到 HelperLog，只返回第一行和日志位置</summary>
     private static string Shorten(string detail)
     {
@@ -254,7 +266,7 @@ internal static class IosBuiltInJit
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(HelperLog)!);
-            File.WriteAllText(HelperLog, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n{detail}\n");
+            File.WriteAllText(HelperLog, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n{detail}\n\n{SignatureReport()}");
         }
         catch (Exception)
         {
