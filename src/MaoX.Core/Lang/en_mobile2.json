@@ -1,5 +1,6 @@
 {
   "触屏按键布局": "Touch controls layout",
+  "{0} 的窗口和输入改用了 SDL3，手机版运行环境暂时还不支持，请先玩 26.2 或更早的版本": "{0} switched its window and input system to SDL3, which the mobile runtime doesn't support yet. Please play 26.2 or older for now",
   "正在使用：{0}。可以拖动按键位置，调整大小、透明度，保存多套布局": "Using: {0}. Drag buttons to move them, change size and opacity, and save several layouts",
   "默认布局": "Default layout",
   "我的布局 {0}": "My layout {0}",
