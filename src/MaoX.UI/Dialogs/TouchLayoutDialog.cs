@@ -44,6 +44,13 @@ public class TouchLayoutDialog : DialogView
     private readonly TextBlock _hint = Text("", "small", "dim", "wrap");
     private readonly Slider _sizeSlider = MakeSlider(ControlLayout.MinSize * 100, ControlLayout.MaxSize * 100);
     private readonly Slider _opacitySlider = MakeSlider(ControlLayout.MinOpacity * 100, 100);
+    private readonly Slider _sensitivitySlider = MakeSlider(ControlLayout.MinSensitivity * 100, ControlLayout.MaxSensitivity * 100, 10);
+    private readonly TextBlock _sensitivityText = Text("", "small");
+    private readonly ComboBox _modeBox = new()
+    {
+        Width = 250, ItemsSource = new[] { T("经典：轻点使用，长按攻击"), T("拆分控制：准星 + 攻击 / 使用按钮") },
+    };
+    private readonly ComboBox _movementBox = new() { Width = 250, ItemsSource = new[] { T("摇杆：推到边缘疾跑"), T("方向键：双击前进疾跑") } };
     private readonly Button _collapseButton;
     private readonly TextBlock _sizeText = Text("", "small"), _opacityText = Text("", "small");
     private readonly CheckBox _hiddenBox = new() { Content = T("隐藏") };
@@ -115,6 +122,9 @@ public class TouchLayoutDialog : DialogView
                     _builtinRow,
                     _customSection,
                     Row(T("不透明度"), _opacitySlider, _opacityText, null),
+                    Row(T("灵敏度"), _sensitivitySlider, _sensitivityText, null),
+                    Row(T("操作"), _modeBox, new TextBlock(), null),
+                    Row(T("移动"), _movementBox, new TextBlock(), null),
                     buttons,
                 },
             },
@@ -192,6 +202,32 @@ public class TouchLayoutDialog : DialogView
                 return;
             EnsureCustom();
             _current.Opacity = Math.Round(_opacitySlider.Value) / 100;
+            Refresh();
+        };
+        _sensitivitySlider.ValueChanged += (_, _) =>
+        {
+            if (_updating)
+                return;
+            EnsureCustom();
+            _current.Sensitivity = Math.Round(_sensitivitySlider.Value) / 100;
+            Refresh();
+        };
+        _modeBox.SelectionChanged += (_, _) =>
+        {
+            if (_updating)
+                return;
+            EnsureCustom();
+            _current.Mode = _modeBox.SelectedIndex == 1 ? ControlLayout.Split : ControlLayout.Classic;
+            if (_selected != null && Custom(_selected) == null && !ControlLayout.Shown(_selected, _current.Mode))
+                _selected = null;
+            Refresh();
+        };
+        _movementBox.SelectionChanged += (_, _) =>
+        {
+            if (_updating)
+                return;
+            EnsureCustom();
+            _current.Movement = _movementBox.SelectedIndex == 1 ? ControlLayout.Dpad : ControlLayout.Joystick;
             Refresh();
         };
         RefreshLayoutBox();
@@ -290,7 +326,9 @@ public class TouchLayoutDialog : DialogView
 
     private string Label(string id) => Custom(id)?.Label ?? id switch
     {
-        "stick" => T("移动"),
+        "stick" => _current?.Movement == ControlLayout.Dpad ? T("方向键") : T("移动"),
+        "attack" => T("攻击"),
+        "use" => T("使用"),
         "jump" => T("跳跃"),
         "sneak" => T("潜行"),
         "inventory" => T("背包"),
@@ -641,6 +679,10 @@ public class TouchLayoutDialog : DialogView
         _hiddenBox.IsChecked = item?.Hidden == true;
         _opacitySlider.Value = (_current?.Opacity ?? 1) * 100;
         _opacityText.Text = $"{Math.Round(_opacitySlider.Value)}%";
+        _sensitivitySlider.Value = (_current?.Sensitivity ?? 1) * 100;
+        _sensitivityText.Text = $"{Math.Round(_sensitivitySlider.Value)}%";
+        _modeBox.SelectedIndex = _current?.Mode == ControlLayout.Split ? 1 : 0;
+        _movementBox.SelectedIndex = _current?.Movement == ControlLayout.Dpad ? 1 : 0;
         _updating = false;
         Render();
     }
@@ -671,8 +713,10 @@ public class TouchLayoutDialog : DialogView
             Canvas.SetLeft(view, x - w / 2);
             Canvas.SetTop(view, y - h / 2);
             var custom = Custom(id);
-            var round = custom?.Round ?? ControlLayout.BaseSize(id).Round;
-            view.CornerRadius = new CornerRadius(round ? Math.Min(w, h) / 2 : 8);
+            view.IsVisible = custom != null || ControlLayout.Shown(id, _current?.Mode ?? ControlLayout.Classic);
+            var dpad = id == "stick" && _current?.Movement == ControlLayout.Dpad;
+            var round = !dpad && (custom?.Round ?? ControlLayout.BaseSize(id).Round);
+            view.CornerRadius = new CornerRadius(round ? Math.Min(w, h) / 2 : dpad ? 14 : 8);
             var selected = id == _selected;
             view.BorderBrush = selected ? Selected : Stroke;
             view.BorderThickness = new Thickness(selected ? 2.5 : 1.5);
@@ -684,7 +728,10 @@ public class TouchLayoutDialog : DialogView
             {
                 var knob = (Ellipse)stick.Children[0];
                 knob.Width = knob.Height = w * 52 / 124;
-                ((TextBlock)stick.Children[1]).FontSize = 12 * scale;
+                knob.IsVisible = !dpad;
+                var label = (TextBlock)stick.Children[1];
+                label.FontSize = 12 * scale;
+                label.Text = Label(id);
             }
             else
             {

@@ -243,6 +243,10 @@ EXPORT int maox_launch(const char *json, void *layer) {
 
 // ---- Input from the touch UI (main thread) ----
 
+EXPORT void maox_log(const char *text) {
+    NSLog(@"[MaoX] %s", text);
+}
+
 EXPORT void maox_send_cursor(int event, float x, float y) {
     CallbackBridge_nativeSendCursorPos((char)event, x, y);
 }
@@ -252,6 +256,14 @@ EXPORT void maox_send_key(int key, int down, int mods) {
 }
 
 EXPORT void maox_send_mouse(int button, int down) {
+    // The first clicks go to the game log so touch problems can be diagnosed from it
+    static int logged;
+    if (logged < 12) {
+        logged++;
+        NSLog(@"[MaoX] mouse button=%d down=%d cursor=%.0f,%.0f window=%dx%d ready=%d callback=%d grabbing=%d queue=%d events=%zu",
+              button, down, cursorX, cursorY, windowWidth, windowHeight, isInputReady, GLFW_invoke_MouseButton != NULL,
+              isGrabbing, isUseStackQueueCall, atomic_load(&eventCounter));
+    }
     CallbackBridge_nativeSendMouseButton(button, down ? 1 : 0, 0);
 }
 

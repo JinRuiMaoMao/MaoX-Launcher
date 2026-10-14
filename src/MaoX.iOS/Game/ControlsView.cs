@@ -19,15 +19,20 @@ internal sealed class ControlsView : UIView
 
     private readonly string _gameDir;
     private readonly ControlLayout _layout;
-    private readonly double _opacity;
+    private readonly double _opacity, _sensitivity;
+    /// <summary>拆分控制：拖动只转视角，攻击 / 使用用单独的按钮；方向键代替摇杆（和基岩版一样）</summary>
+    private readonly bool _split, _dpadMode;
+    private readonly UIImpactFeedbackGenerator _haptic = new(UIImpactFeedbackStyle.Medium);
+    private readonly UIImpactFeedbackGenerator _lightHaptic = new(UIImpactFeedbackStyle.Light);
+    private int _touchLogs;
     private readonly List<Button> _buttons = [];
     private readonly Dictionary<NativeHandle, object> _touches = [];
     private readonly UITextField _input;
     private bool _grabbing;
     private int _windowWidth, _windowHeight;
 
-    // 摇杆
-    private CGRect _stickZone;
+    // 摇杆 / 方向键
+    private CGRect _stickZone, _dpadRect;
     private double _stickX, _stickY, _stickRadius, _knobX, _knobY, _knobRadius = 26;
     private bool _up, _down, _left, _right, _sprint, _stickHidden;
 
@@ -36,6 +41,11 @@ internal sealed class ControlsView : UIView
     private double _lastX, _lastY, _downX, _downY, _scrollLastY;
     private bool _moved, _holding;
     private NSTimer _longPress;
+
+    // 快捷栏：滑动换格，长按丢弃
+    private NativeHandle _hotbarTouch;
+    private int _hotbarSlot = -1;
+    private NSTimer _hotbarHold;
 
     /// <summary>界面点 → 游戏像素。</summary>
     public double PixelScale { get; set; } = 1;
@@ -79,13 +89,16 @@ internal sealed class ControlsView : UIView
 
     public bool KeyboardShown => _input.IsFirstResponder;
 
-    private readonly Button _jump, _sneak, _inventory, _drop, _chat, _view, _pause, _keyboard;
+    private readonly Button _jump, _sneak, _inventory, _drop, _chat, _view, _pause, _keyboard, _attack, _use;
 
     public ControlsView(string gameDir, IReadOnlyDictionary<string, string> labels, ControlLayout layout)
     {
         _gameDir = gameDir;
         _layout = layout;
         _opacity = layout == null ? 1 : Math.Clamp(layout.Opacity, ControlLayout.MinOpacity, 1);
+        _sensitivity = Math.Clamp(layout?.Sensitivity ?? 1, ControlLayout.MinSensitivity, ControlLayout.MaxSensitivity);
+        _split = layout?.Mode == ControlLayout.Split;
+        _dpadMode = layout?.Movement == ControlLayout.Dpad;
         BackgroundColor = UIColor.Clear;
         Opaque = false;
         MultipleTouchEnabled = true;
@@ -105,6 +118,15 @@ internal sealed class ControlsView : UIView
         _view = Add("view", labels, Keys.F5, false, true, false, null);
         _pause = Add("pause", labels, Keys.Escape, false, true, false, null);
         _keyboard = Add("keyboard", labels, 0, false, true, true, () => ShowKeyboard(!KeyboardShown));
+        // 拆分控制的攻击 / 使用按钮：按住的同时拖动可以继续转视角
+        _attack = Add("attack", labels, ControlKeys.MouseLeft, false, true, false, null);
+        _use = Add("use", labels, ControlKeys.MouseRight, false, true, false, null);
+        foreach (var b in new[] { _attack, _use })
+        {
+            b.Round = true;
+            b.Look = true;
+            b.Disabled = !_split;
+        }
         foreach (var c in layout?.Buttons ?? [])
         {
             _buttons.Add(new Button(this, c.Id, c.Label, [.. c.Keys ?? []], c.Toggle, c.InGame, c.InMenu, null)
@@ -155,14 +177,17 @@ internal sealed class ControlsView : UIView
         public readonly string Id = id;
         public readonly string Label = label;
         public CGRect Rect;
-        public bool Round, Pressed, Latched, Hidden;
+        public bool Round, Pressed, Latched, Hidden, Disabled;
+        /// <summary>按住时手指拖动也转视角（攻击 / 使用按钮）</summary>
+        public bool Look;
+        public double LastX, LastY;
         public double Size = 1;
         /// <summary>用户添加的按键（null 是内置按键）</summary>
         public ControlButton Custom;
 
         public bool Toggle => toggle;
 
-        public bool Visible => !Hidden && !owner._gamepadActive && (owner._grabbing ? inGame : inMenu);
+        public bool Visible => !Hidden && !Disabled && !owner._gamepadActive && (owner._grabbing ? inGame : inMenu);
 
         public void Press(bool down)
         {
@@ -262,14 +287,22 @@ internal sealed class ControlsView : UIView
         Circle(_sneak, jx - big - small - 22, jy + big - small, small);
 
         const double bw = 76, bh = 34, gap = 8;
-        Box(_inventory, w - right - bw, jy - big - gap - bh - 24, bw, bh);
-        Box(_drop, w - right - bw * 2 - gap, jy - big - gap - bh - 24, bw, bh);
+        var rowTop = jy - big - gap - bh - 24;
+        Box(_inventory, w - right - bw, rowTop, bw, bh);
+        Box(_drop, w - right - bw * 2 - gap, rowTop, bw, bh);
+        // 和 ControlLayout.DefaultCenter 一致
+        double ax = w - right - 36, ay = rowTop - 14 - 32;
+        Circle(_attack, ax, ay, 32);
+        Circle(_use, ax - 78, ay + 12, 32);
 
         Box(_pause, w - right - bw, top, bw, bh);
         Box(_chat, left, top, bw, bh);
         Box(_view, left + bw + gap, top, bw, bh);
         Box(_keyboard, left + (bw + gap) * 2, top, bw, bh);
         ApplyLayout(w, h);
+        _dpadRect = new CGRect(_stickX - _stickRadius, _stickY - _stickRadius, _stickRadius * 2, _stickRadius * 2);
+        if (_dpadMode)
+            _stickZone = _stickHidden ? CGRect.Empty : _dpadRect;
         SetNeedsDisplay();
     }
 
@@ -319,6 +352,7 @@ internal sealed class ControlsView : UIView
     {
         if (_grabbing == grabbing)
             return;
+        GameNative.Log($"grabbing={grabbing}");
         ReleaseAll();
         _grabbing = grabbing;
         _gamepadCursor = null;
@@ -333,6 +367,9 @@ internal sealed class ControlsView : UIView
     {
         _longPress?.Invalidate();
         _longPress = null;
+        _hotbarHold?.Invalidate();
+        _hotbarHold = null;
+        _hotbarTouch = NativeHandle.Zero;
         if (_holding)
             GameNative.SendMouse(Keys.MouseLeft, false);
         _holding = false;
@@ -387,11 +424,19 @@ internal sealed class ControlsView : UIView
 
     private void TouchDown(NativeHandle id, double x, double y)
     {
+        if (_touchLogs < 12)
+        {
+            _touchLogs++;
+            GameNative.Log($"touch {x:0},{y:0} grabbing={_grabbing} window={_windowWidth}x{_windowHeight} " +
+                           $"scale={PixelScale:0.###} view={Bounds.Width:0}x{Bounds.Height:0}");
+        }
         foreach (var b in _buttons)
         {
             if (b.Visible && b.Rect.Contains(new CGPoint(x, y)))
             {
                 _touches[id] = b;
+                b.LastX = x;
+                b.LastY = y;
                 b.Press(true);
                 return;
             }
@@ -402,13 +447,17 @@ internal sealed class ControlsView : UIView
             if (slot >= 0)
             {
                 _touches[id] = Hotbar;
-                Tap(Keys.Digit1 + slot);
+                _hotbarTouch = id;
+                SelectSlot(slot);
                 return;
             }
             if (_stickZone.Contains(new CGPoint(x, y)))
             {
                 _touches[id] = Stick;
-                UpdateStick(x, y);
+                if (_dpadMode)
+                    UpdateDpad(x, y, true);
+                else
+                    UpdateStick(x, y);
                 return;
             }
         }
@@ -430,7 +479,7 @@ internal sealed class ControlsView : UIView
         _downY = _lastY = y;
         _moved = false;
         _holding = false;
-        if (_grabbing)
+        if (_grabbing && !_split)
         {
             _longPress?.Invalidate();
             _longPress = NSTimer.CreateScheduledTimer(LongPressSeconds, false, _ =>
@@ -439,11 +488,12 @@ internal sealed class ControlsView : UIView
                 if (!_moved && _lookTouch != NativeHandle.Zero && _grabbing)
                 {
                     _holding = true;
+                    _haptic.ImpactOccurred();
                     GameNative.SendMouse(Keys.MouseLeft, true);
                 }
             });
         }
-        else
+        else if (!_grabbing)
         {
             GameNative.SendCursor(GameNative.ActionDown, (float)(x * PixelScale), (float)(y * PixelScale));
             GameNative.SendMouse(Keys.MouseLeft, true);
@@ -455,7 +505,23 @@ internal sealed class ControlsView : UIView
         _touches.TryGetValue(id, out var target);
         if (target == Stick)
         {
-            UpdateStick(x, y);
+            if (_dpadMode)
+                UpdateDpad(x, y, false);
+            else
+                UpdateStick(x, y);
+        }
+        else if (target == Hotbar)
+        {
+            var slot = HotbarSlot(x, y);
+            if (slot >= 0 && slot != _hotbarSlot)
+                SelectSlot(slot);
+        }
+        else if (target is Button { Look: true } button)
+        {
+            if (_grabbing)
+                Turn(x - button.LastX, y - button.LastY);
+            button.LastX = x;
+            button.LastY = y;
         }
         else if (id == _scrollTouch)
         {
@@ -471,11 +537,7 @@ internal sealed class ControlsView : UIView
             if (Math.Abs(x - _downX) > 8 || Math.Abs(y - _downY) > 8)
                 _moved = true;
             if (_grabbing)
-            {
-                var sens = 1.2 * PixelScale;
-                GameNative.SendCursor(GameNative.ActionMoveMotion, (float)((x - _lastX) * sens),
-                                      (float)((y - _lastY) * sens));
-            }
+                Turn(x - _lastX, y - _lastY);
             else
             {
                 GameNative.SendCursor(GameNative.ActionMove, (float)(x * PixelScale), (float)(y * PixelScale));
@@ -496,6 +558,12 @@ internal sealed class ControlsView : UIView
         {
             SetStick(0, 0);
         }
+        else if (target == Hotbar)
+        {
+            _hotbarHold?.Invalidate();
+            _hotbarHold = null;
+            _hotbarTouch = NativeHandle.Zero;
+        }
         else if (id == _scrollTouch)
         {
             _scrollTouch = NativeHandle.Zero;
@@ -510,7 +578,7 @@ internal sealed class ControlsView : UIView
                 {
                     GameNative.SendMouse(Keys.MouseLeft, false);
                 }
-                else if (!_moved && !cancel)
+                else if (!_moved && !cancel && !_split)
                 {
                     GameNative.SendMouse(Keys.MouseRight, true);
                     NSTimer.CreateScheduledTimer(0.05, false, _ => GameNative.SendMouse(Keys.MouseRight, false));
@@ -534,6 +602,49 @@ internal sealed class ControlsView : UIView
         var clamp = Math.Min(1, len) / Math.Max(len, 0.0001);
         _knobX = _stickX + dx * clamp * _stickRadius;
         _knobY = _stickY + dy * clamp * _stickRadius;
+    }
+
+    /// <summary>
+    /// 基岩版方向键：3×3 格，上下左右是 W / S / A / D，中间切换潜行；按住前进时左上、右上两格变成斜向前进。
+    /// 手指可以在格子之间滑动；双击前进疾跑由游戏本身处理。
+    /// </summary>
+    private void UpdateDpad(double x, double y, bool begin)
+    {
+        var cell = _dpadRect.Width / 3;
+        int col = (int)Math.Floor((x - _dpadRect.X) / cell), row = (int)Math.Floor((y - _dpadRect.Y) / cell);
+        var inside = col is >= 0 and <= 2 && row is >= 0 and <= 2;
+        if (inside && begin && col == 1 && row == 1)
+            _sneak.Press(true);
+        var forward = inside && row == 0 && (col == 1 || _up);
+        SetKey(Keys.W, forward, ref _up);
+        SetKey(Keys.S, inside && row == 2 && col == 1, ref _down);
+        SetKey(Keys.A, inside && col == 0 && (row == 1 || forward), ref _left);
+        SetKey(Keys.D, inside && col == 2 && (row == 1 || forward), ref _right);
+    }
+
+    /// <summary>手指在界面上移动 (dx, dy) 点时转动视角。</summary>
+    private void Turn(double dx, double dy)
+    {
+        var sens = 1.2 * PixelScale * _sensitivity;
+        GameNative.SendCursor(GameNative.ActionMoveMotion, (float)(dx * sens), (float)(dy * sens));
+    }
+
+    /// <summary>切换快捷栏格子；按住不放 0.5 秒丢出一个物品（和基岩版一样）。</summary>
+    private void SelectSlot(int slot)
+    {
+        _hotbarSlot = slot;
+        Tap(Keys.Digit1 + slot);
+        _lightHaptic.ImpactOccurred();
+        _hotbarHold?.Invalidate();
+        _hotbarHold = NSTimer.CreateScheduledTimer(0.5, false, _ =>
+        {
+            _hotbarHold = null;
+            if (_grabbing && _touches.TryGetValue(_hotbarTouch, out var target) && target == Hotbar)
+            {
+                Tap(Keys.Q);
+                _haptic.ImpactOccurred();
+            }
+        });
     }
 
     private void SetStick(double dx, double dy)
@@ -649,7 +760,11 @@ internal sealed class ControlsView : UIView
             UIColor.Black.SetStroke();
             arrow.Stroke();
         }
-        if (_grabbing && !_gamepadActive && !_stickHidden)
+        if (_grabbing && !_gamepadActive && !_stickHidden && _dpadMode)
+        {
+            DrawDpad();
+        }
+        else if (_grabbing && !_gamepadActive && !_stickHidden)
         {
             var ring = UIBezierPath.FromOval(new CGRect(_stickX - _stickRadius, _stickY - _stickRadius,
                                                         _stickRadius * 2, _stickRadius * 2));
@@ -663,6 +778,52 @@ internal sealed class ControlsView : UIView
             Fade(_sprint ? UIColor.FromRGBA(0, 217, 255, 0x99) : UIColor.FromRGBA(255, 255, 255, 0x77)).SetFill();
             knob.Fill();
         }
+    }
+
+    private void DrawDpad()
+    {
+        var cell = _dpadRect.Width / 3;
+        void Cell(int col, int row, bool on, double angle)
+        {
+            var r = new CGRect(_dpadRect.X + col * cell + 2, _dpadRect.Y + row * cell + 2, cell - 4, cell - 4);
+            var path = UIBezierPath.FromRoundedRect(r, 8);
+            path.LineWidth = 1.5f;
+            Fade(on ? AccentFill : IdleFill).SetFill();
+            path.Fill();
+            Fade(on ? AccentStroke : IdleStroke).SetStroke();
+            path.Stroke();
+            // 指向 angle 方向（0 是上，顺时针）的三角形
+            double cx = r.GetMidX(), cy = r.GetMidY(), s = cell * 0.18;
+            var arrow = new UIBezierPath();
+            for (var i = 0; i < 3; i++)
+            {
+                var a = angle + i * 2 * Math.PI / 3;
+                var p = new CGPoint(cx + Math.Sin(a) * s, cy - Math.Cos(a) * s);
+                if (i == 0)
+                    arrow.MoveTo(p);
+                else
+                    arrow.AddLineTo(p);
+            }
+            arrow.ClosePath();
+            Fade(UIColor.White).SetFill();
+            arrow.Fill();
+        }
+        Cell(1, 0, _up && !_left && !_right, 0);
+        Cell(0, 1, _left && !_up, -Math.PI / 2);
+        Cell(2, 1, _right && !_up, Math.PI / 2);
+        Cell(1, 2, _down, Math.PI);
+        if (_up)
+        {
+            Cell(0, 0, _left, -Math.PI / 4);
+            Cell(2, 0, _right, Math.PI / 4);
+        }
+        var center = new CGRect(_dpadRect.GetMidX() - cell * 0.32, _dpadRect.GetMidY() - cell * 0.32, cell * 0.64, cell * 0.64);
+        var dot = UIBezierPath.FromOval(center);
+        dot.LineWidth = 1.5f;
+        Fade(_sneak.Latched ? AccentFill : IdleFill).SetFill();
+        dot.Fill();
+        Fade(_sneak.Latched ? AccentStroke : IdleStroke).SetStroke();
+        dot.Stroke();
     }
 
     private NSAttributedString Label(string label, double fontSize) => new(label, new UIStringAttributes

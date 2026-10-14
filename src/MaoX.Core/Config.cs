@@ -149,6 +149,10 @@ public class LauncherConfig
                     {
                         layout.Items ??= [];
                         layout.Buttons ??= [];
+                        layout.Mode ??= ControlLayout.Classic;
+                        layout.Movement ??= ControlLayout.Joystick;
+                        if (layout.Sensitivity <= 0)
+                            layout.Sensitivity = 1;
                         foreach (var button in layout.Buttons)
                             button.Keys ??= [];
                     }

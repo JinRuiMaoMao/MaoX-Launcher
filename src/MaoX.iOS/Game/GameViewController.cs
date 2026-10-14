@@ -65,6 +65,7 @@ internal sealed class GameViewController : UIViewController
         {
             ["jump"] = T("跳跃"), ["sneak"] = T("潜行"), ["inventory"] = T("背包"), ["drop"] = T("丢弃"),
             ["chat"] = T("聊天"), ["view"] = T("视角"), ["pause"] = T("暂停"), ["keyboard"] = T("键盘"),
+            ["attack"] = T("攻击"), ["use"] = T("使用"),
         }, _layout)
         {
             KeyboardHidden = () => BecomeFirstResponder(),

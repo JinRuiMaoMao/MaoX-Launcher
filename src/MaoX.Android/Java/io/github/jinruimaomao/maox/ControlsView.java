@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.util.SparseArray;
+import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -51,10 +52,14 @@ public class ControlsView extends View {
     private float mCursorX = -1, mCursorY = -1;
     private final Path mArrow = new Path();
 
-    // 摇杆
+    // 摇杆 / 方向键
     private final RectF mStickZone = new RectF();
+    private final RectF mDpadRect = new RectF();
     private final JSONObject mLayout;
     private final float mOpacity;
+    private final float mSensitivity;
+    /** 拆分控制：拖动只转视角，攻击 / 使用用单独的按钮；方向键代替摇杆（和基岩版一样） */
+    private final boolean mSplit, mDpadMode;
     private boolean mStickHidden;
     private float mStickX, mStickY, mStickRadius, mKnobRadius;
     private float mKnobX, mKnobY;
@@ -67,10 +72,22 @@ public class ControlsView extends View {
     private int mScrollPointer = -1;
     private float mScrollLastY;
 
+    // 快捷栏：滑动换格，长按丢弃
+    private int mHotbarPointer = -1;
+    private int mHotbarSlot = -1;
+
     private final Runnable mLongPress = () -> {
         if (!mMoved && mLookPointer != -1 && mGrabbing) {
             mHolding = true;
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_LEFT, true);
+        }
+    };
+
+    private final Runnable mHotbarHold = () -> {
+        if (mGrabbing && mHotbarPointer != -1 && mPointers.get(mHotbarPointer) == HOTBAR) {
+            CallbackBridge.sendKeyPress(81);
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         }
     };
 
@@ -96,6 +113,10 @@ public class ControlsView extends View {
         boolean pressed;
         boolean latched;
         boolean hidden;
+        boolean disabled;
+        /** 按住时手指拖动也转视角（攻击 / 使用按钮） */
+        boolean look;
+        float lastX, lastY;
         float size = 1;
         /** 用户添加的按键（null 是内置按键） */
         JSONObject custom;
@@ -111,7 +132,7 @@ public class ControlsView extends View {
         }
 
         boolean visible() {
-            return !hidden && !mGamepadActive && (mGrabbing ? inGame : inMenu);
+            return !hidden && !disabled && !mGamepadActive && (mGrabbing ? inGame : inMenu);
         }
 
         void press(boolean down) {
@@ -153,7 +174,7 @@ public class ControlsView extends View {
         }
     }
 
-    private final Button mJump, mSneak, mInventory, mDrop, mChat, mView, mPause, mKeyboard;
+    private final Button mJump, mSneak, mInventory, mDrop, mChat, mView, mPause, mKeyboard, mAttack, mUse;
 
     public ControlsView(Context context, float scale, String gameDir, JSONObject labels, JSONObject layout) {
         super(context);
@@ -162,6 +183,9 @@ public class ControlsView extends View {
         mGameDir = gameDir;
         mLayout = layout;
         mOpacity = layout == null ? 1f : (float) Math.max(0.2, Math.min(1, layout.optDouble("opacity", 1)));
+        mSensitivity = layout == null ? 1f : (float) Math.max(0.3, Math.min(3, layout.optDouble("sensitivity", 1)));
+        mSplit = layout != null && "split".equals(layout.optString("mode"));
+        mDpadMode = layout != null && "dpad".equals(layout.optString("movement"));
         setFocusable(true);
         setFocusableInTouchMode(true);
         mStroke.setStyle(Paint.Style.STROKE);
@@ -184,6 +208,14 @@ public class ControlsView extends View {
         mView = add(labels, "view", "View", 294, false, true, false, null);
         mPause = add(labels, "pause", "Pause", Keys.GLFW_KEY_ESCAPE, false, true, false, null);
         mKeyboard = add(labels, "keyboard", "Keyboard", 0, false, true, true, this::toggleKeyboard);
+        // 拆分控制的攻击 / 使用按钮：按住的同时拖动可以继续转视角
+        mAttack = add(labels, "attack", "Attack", MOUSE_LEFT, false, true, false, null);
+        mUse = add(labels, "use", "Use", MOUSE_RIGHT, false, true, false, null);
+        for (Button b : new Button[] {mAttack, mUse}) {
+            b.round = true;
+            b.look = true;
+            b.disabled = !mSplit;
+        }
 
         JSONArray custom = layout == null ? null : layout.optJSONArray("buttons");
         for (int i = 0; custom != null && i < custom.length(); i++) {
@@ -226,8 +258,13 @@ public class ControlsView extends View {
         circle(mSneak, jx - big - small - 22 * mDp, jy + big - small, small);
 
         float bw = 76 * mDp, bh = 34 * mDp, gap = 8 * mDp;
-        box(mInventory, w - m - bw, jy - big - gap - bh - 24 * mDp, bw, bh);
-        box(mDrop, w - m - bw * 2 - gap, jy - big - gap - bh - 24 * mDp, bw, bh);
+        float rowTop = jy - big - gap - bh - 24 * mDp;
+        box(mInventory, w - m - bw, rowTop, bw, bh);
+        box(mDrop, w - m - bw * 2 - gap, rowTop, bw, bh);
+        // 和 ControlLayout.DefaultCenter 一致
+        float ar = 32 * mDp, ax = w - m - 36 * mDp, ay = rowTop - 14 * mDp - ar;
+        circle(mAttack, ax, ay, ar);
+        circle(mUse, ax - 78 * mDp, ay + 12 * mDp, ar);
 
         float top = m;
         box(mPause, w - m - bw, top, bw, bh);
@@ -235,6 +272,11 @@ public class ControlsView extends View {
         box(mView, m + bw + gap, top, bw, bh);
         box(mKeyboard, m + (bw + gap) * 2, top, bw, bh);
         applyLayout(w, h);
+        mDpadRect.set(mStickX - mStickRadius, mStickY - mStickRadius, mStickX + mStickRadius, mStickY + mStickRadius);
+        if (mDpadMode) {
+            if (mStickHidden) mStickZone.setEmpty();
+            else mStickZone.set(mDpadRect);
+        }
     }
 
     /** 启动器里编辑过的布局：位置是中心点占屏幕宽高的比例，大小是默认大小的倍数。 */
@@ -327,6 +369,8 @@ public class ControlsView extends View {
 
     private void releaseAll() {
         mHandler.removeCallbacks(mLongPress);
+        mHandler.removeCallbacks(mHotbarHold);
+        mHotbarPointer = -1;
         if (mHolding) CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_LEFT, false);
         mHolding = false;
         mLookPointer = -1;
@@ -375,6 +419,8 @@ public class ControlsView extends View {
         for (Button b : mButtons) {
             if (b.visible() && b.rect.contains(x, y)) {
                 mPointers.put(id, b);
+                b.lastX = x;
+                b.lastY = y;
                 b.press(true);
                 return;
             }
@@ -383,12 +429,14 @@ public class ControlsView extends View {
             int slot = hotbarSlot(x, y);
             if (slot >= 0) {
                 mPointers.put(id, HOTBAR);
-                CallbackBridge.sendKeyPress(49 + slot);
+                mHotbarPointer = id;
+                selectSlot(slot);
                 return;
             }
             if (mStickZone.contains(x, y)) {
                 mPointers.put(id, STICK);
-                updateStick(x, y);
+                if (mDpadMode) updateDpad(x, y, true);
+                else updateStick(x, y);
                 return;
             }
         }
@@ -411,7 +459,7 @@ public class ControlsView extends View {
         mMoved = false;
         mHolding = false;
         if (mGrabbing) {
-            mHandler.postDelayed(mLongPress, LONG_PRESS_MS);
+            if (!mSplit) mHandler.postDelayed(mLongPress, LONG_PRESS_MS);
         } else {
             CallbackBridge.sendCursorPos(x * mScale, y * mScale);
             CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_LEFT, true);
@@ -421,7 +469,16 @@ public class ControlsView extends View {
     private void pointerMove(int id, float x, float y) {
         Object target = mPointers.get(id);
         if (target == STICK) {
-            updateStick(x, y);
+            if (mDpadMode) updateDpad(x, y, false);
+            else updateStick(x, y);
+        } else if (target == HOTBAR) {
+            int slot = hotbarSlot(x, y);
+            if (slot >= 0 && slot != mHotbarSlot) selectSlot(slot);
+        } else if (target instanceof Button && ((Button) target).look) {
+            Button b = (Button) target;
+            if (mGrabbing) turn(x - b.lastX, y - b.lastY);
+            b.lastX = x;
+            b.lastY = y;
         } else if (id == mScrollPointer) {
             float dy = y - mScrollLastY;
             if (Math.abs(dy) > 24 * mDp) {
@@ -431,10 +488,7 @@ public class ControlsView extends View {
         } else if (target == LOOK && id == mLookPointer) {
             if (Math.abs(x - mDownX) > 8 * mDp || Math.abs(y - mDownY) > 8 * mDp) mMoved = true;
             if (mGrabbing) {
-                float sens = 1.2f * mScale;
-                CallbackBridge.mouseX += (x - mLastX) * sens;
-                CallbackBridge.mouseY += (y - mLastY) * sens;
-                CallbackBridge.sendCursorPos(CallbackBridge.mouseX, CallbackBridge.mouseY);
+                turn(x - mLastX, y - mLastY);
             } else {
                 CallbackBridge.sendCursorPos(x * mScale, y * mScale);
             }
@@ -450,6 +504,9 @@ public class ControlsView extends View {
             ((Button) target).press(false);
         } else if (target == STICK) {
             setStick(0, 0);
+        } else if (target == HOTBAR) {
+            mHandler.removeCallbacks(mHotbarHold);
+            mHotbarPointer = -1;
         } else if (id == mScrollPointer) {
             mScrollPointer = -1;
         } else if (target == LOOK && id == mLookPointer) {
@@ -457,7 +514,7 @@ public class ControlsView extends View {
             if (mGrabbing) {
                 if (mHolding) {
                     CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_LEFT, false);
-                } else if (!mMoved && !cancel) {
+                } else if (!mMoved && !cancel && !mSplit) {
                     CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_RIGHT, true);
                     mHandler.postDelayed(() -> CallbackBridge.sendMouseButton(Keys.GLFW_MOUSE_BUTTON_RIGHT, false), 50);
                 }
@@ -477,6 +534,39 @@ public class ControlsView extends View {
         float clamp = Math.min(1f, len) / Math.max(len, 0.0001f);
         mKnobX = mStickX + dx * clamp * mStickRadius;
         mKnobY = mStickY + dy * clamp * mStickRadius;
+    }
+
+    /**
+     * 基岩版方向键：3×3 格，上下左右是 W / S / A / D，中间切换潜行；按住前进时左上、右上两格变成斜向前进。
+     * 手指可以在格子之间滑动；双击前进疾跑由游戏本身处理。
+     */
+    private void updateDpad(float x, float y, boolean begin) {
+        float cell = mDpadRect.width() / 3;
+        int col = (int) Math.floor((x - mDpadRect.left) / cell), row = (int) Math.floor((y - mDpadRect.top) / cell);
+        boolean inside = col >= 0 && col <= 2 && row >= 0 && row <= 2;
+        if (inside && begin && col == 1 && row == 1) mSneak.press(true);
+        boolean forward = inside && row == 0 && (col == 1 || mUp);
+        setKey(87, forward, 0);
+        setKey(83, inside && row == 2 && col == 1, 1);
+        setKey(65, inside && col == 0 && (row == 1 || forward), 2);
+        setKey(68, inside && col == 2 && (row == 1 || forward), 3);
+    }
+
+    /** 手指在界面上移动 (dx, dy) 像素时转动视角。 */
+    private void turn(float dx, float dy) {
+        float sens = 1.2f * mScale * mSensitivity;
+        CallbackBridge.mouseX += dx * sens;
+        CallbackBridge.mouseY += dy * sens;
+        CallbackBridge.sendCursorPos(CallbackBridge.mouseX, CallbackBridge.mouseY);
+    }
+
+    /** 切换快捷栏格子；按住不放 0.5 秒丢出一个物品（和基岩版一样）。 */
+    private void selectSlot(int slot) {
+        mHotbarSlot = slot;
+        CallbackBridge.sendKeyPress(49 + slot);
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+        mHandler.removeCallbacks(mHotbarHold);
+        mHandler.postDelayed(mHotbarHold, 500);
     }
 
     private void setStick(float dx, float dy) {
@@ -573,7 +663,9 @@ public class ControlsView extends View {
             mStroke.setColor(Color.BLACK);
             canvas.drawPath(mArrow, mStroke);
         }
-        if (mGrabbing && !mGamepadActive && !mStickHidden) {
+        if (mGrabbing && !mGamepadActive && !mStickHidden && mDpadMode) {
+            drawDpad(canvas);
+        } else if (mGrabbing && !mGamepadActive && !mStickHidden) {
             mFill.setColor(fade(0x33000000));
             mStroke.setColor(fade(0x66FFFFFF));
             canvas.drawCircle(mStickX, mStickY, mStickRadius, mFill);
@@ -581,6 +673,48 @@ public class ControlsView extends View {
             mFill.setColor(fade(mSprint ? 0x9900D9FF : 0x77FFFFFF));
             canvas.drawCircle(mKnobX, mKnobY, mKnobRadius, mFill);
         }
+    }
+
+    private final RectF mCell = new RectF();
+
+    private void drawDpad(Canvas canvas) {
+        float cell = mDpadRect.width() / 3;
+        drawCell(canvas, cell, 1, 0, mUp && !mLeft && !mRight, 0);
+        drawCell(canvas, cell, 0, 1, mLeft && !mUp, -90);
+        drawCell(canvas, cell, 2, 1, mRight && !mUp, 90);
+        drawCell(canvas, cell, 1, 2, mDown, 180);
+        if (mUp) {
+            drawCell(canvas, cell, 0, 0, mLeft, -45);
+            drawCell(canvas, cell, 2, 0, mRight, 45);
+        }
+        boolean sneak = mSneak.latched;
+        mFill.setColor(fade(sneak ? 0x8800D9FF : 0x55000000));
+        mStroke.setColor(fade(sneak ? 0xDD00D9FF : 0x88FFFFFF));
+        canvas.drawCircle(mDpadRect.centerX(), mDpadRect.centerY(), cell * 0.32f, mFill);
+        canvas.drawCircle(mDpadRect.centerX(), mDpadRect.centerY(), cell * 0.32f, mStroke);
+    }
+
+    /** 方向键的一格，angle 是箭头方向（0 是上，顺时针，单位度）。 */
+    private void drawCell(Canvas canvas, float cell, int col, int row, boolean on, float angle) {
+        float inset = 2 * mDp;
+        mCell.set(mDpadRect.left + col * cell + inset, mDpadRect.top + row * cell + inset,
+                mDpadRect.left + (col + 1) * cell - inset, mDpadRect.top + (row + 1) * cell - inset);
+        float r = 8 * mDp;
+        mFill.setColor(fade(on ? 0x8800D9FF : 0x55000000));
+        mStroke.setColor(fade(on ? 0xDD00D9FF : 0x88FFFFFF));
+        canvas.drawRoundRect(mCell, r, r, mFill);
+        canvas.drawRoundRect(mCell, r, r, mStroke);
+        float cx = mCell.centerX(), cy = mCell.centerY(), s = cell * 0.18f;
+        mArrow.reset();
+        for (int i = 0; i < 3; i++) {
+            double a = Math.toRadians(angle) + i * 2 * Math.PI / 3;
+            float px = cx + (float) Math.sin(a) * s, py = cy - (float) Math.cos(a) * s;
+            if (i == 0) mArrow.moveTo(px, py);
+            else mArrow.lineTo(px, py);
+        }
+        mArrow.close();
+        mFill.setColor(fade(Color.WHITE));
+        canvas.drawPath(mArrow, mFill);
     }
 
     // ------------------------------------------------------------------ 输入法

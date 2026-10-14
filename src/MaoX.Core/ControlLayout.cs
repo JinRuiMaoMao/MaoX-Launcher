@@ -8,14 +8,23 @@ namespace MaoX.Core;
 /// </summary>
 public class ControlLayout
 {
-    public const double MinSize = 0.5, MaxSize = 2, MinOpacity = 0.2;
+    public const double MinSize = 0.5, MaxSize = 2, MinOpacity = 0.2, MinSensitivity = 0.3, MaxSensitivity = 3;
 
-    /// <summary>可以摆放的按键，顺序也是编辑器里的绘制顺序。</summary>
-    public static readonly string[] Ids = ["stick", "jump", "sneak", "inventory", "drop", "chat", "view", "pause", "keyboard"];
+    /// <summary>操作方式（和基岩版一样）：经典是轻点使用、长按攻击；拆分控制是拖动只转视角，用攻击 / 使用按钮操作准星对准的东西。</summary>
+    public const string Classic = "classic", Split = "split";
+    /// <summary>移动方式：摇杆（推到边缘疾跑），或基岩版的方向键（按住前进时出现斜向键，双击前进疾跑）。</summary>
+    public const string Joystick = "joystick", Dpad = "dpad";
+
+    /// <summary>可以摆放的按键，顺序也是编辑器里的绘制顺序。attack / use 只在拆分控制时显示。</summary>
+    public static readonly string[] Ids = ["stick", "jump", "sneak", "inventory", "drop", "chat", "view", "pause", "keyboard", "attack", "use"];
 
     public string Name { get; set; } = "";
     /// <summary>所有按键的不透明度（0.2–1）</summary>
     public double Opacity { get; set; } = 1;
+    public string Mode { get; set; } = Classic;
+    public string Movement { get; set; } = Joystick;
+    /// <summary>拖动转视角的灵敏度倍数（0.3–3）</summary>
+    public double Sensitivity { get; set; } = 1;
     public Dictionary<string, ControlItem> Items { get; set; } = [];
     /// <summary>用户自己添加的按键（和 Pojav / Amethyst 的自定义按键一样，可以绑定任意键）</summary>
     public List<ControlButton> Buttons { get; set; } = [];
@@ -26,8 +35,12 @@ public class ControlLayout
         "stick" => (124, 124, true),
         "jump" => (68, 68, true),
         "sneak" => (52, 52, true),
+        "attack" or "use" => (64, 64, true),
         _ => (76, 34, false),
     };
+
+    /// <summary>这个按键在当前操作方式下是否存在（攻击 / 使用按钮只在拆分控制时有）。</summary>
+    public static bool Shown(string id, string mode) => id is not ("attack" or "use") || mode == Split;
 
     /// <summary>
     /// 默认布局里按键中心的位置（dp），和游戏里 ControlsView 的默认摆法一致。
@@ -50,6 +63,8 @@ public class ControlLayout
             "chat" => (left + bw / 2, top + bh / 2),
             "view" => (left + bw * 1.5 + gap, top + bh / 2),
             "keyboard" => (left + bw * 2.5 + gap * 2, top + bh / 2),
+            "attack" => (width - right - 32 - 4, rowY - bh / 2 - 14 - 32),
+            "use" => (width - right - 32 - 4 - 64 - 14, rowY - bh / 2 - 14 - 32 + 12),
             _ => (width / 2, height / 2),
         };
     }
@@ -60,6 +75,9 @@ public class ControlLayout
     {
         Name = name,
         Opacity = Opacity,
+        Mode = Mode,
+        Movement = Movement,
+        Sensitivity = Sensitivity,
         Items = Items.ToDictionary(p => p.Key, p => p.Value with { }),
         Buttons = (Buttons ?? []).Select(b => b with { Keys = [.. b.Keys ?? []] }).ToList(),
     };
@@ -87,7 +105,12 @@ public class ControlLayout
                 ["round"] = b.Round, ["toggle"] = b.Toggle, ["inGame"] = b.InGame, ["inMenu"] = b.InMenu,
             });
         }
-        return new JsonObject { ["opacity"] = Math.Clamp(Opacity, MinOpacity, 1), ["items"] = items, ["buttons"] = buttons };
+        return new JsonObject
+        {
+            ["opacity"] = Math.Clamp(Opacity, MinOpacity, 1), ["mode"] = Mode == Split ? Split : Classic,
+            ["movement"] = Movement == Dpad ? Dpad : Joystick, ["sensitivity"] = Math.Clamp(Sensitivity, MinSensitivity, MaxSensitivity),
+            ["items"] = items, ["buttons"] = buttons,
+        };
     }
 }
 

@@ -246,9 +246,16 @@ EXPORT void pojavPumpEvents(void* window) {
             case EVENT_TYPE_KEY:
                 if (GLFW_invoke_Key) GLFW_invoke_Key(window, event.i1, event.i2, event.i3, event.i4);
                 break;
-            case EVENT_TYPE_MOUSE_BUTTON:
+            case EVENT_TYPE_MOUSE_BUTTON: {
+                static int logged;
+                if (logged < 12) {
+                    logged++;
+                    NSLog(@"[MaoX] pump mouse window=%p showing=%p button=%d action=%d cursor=%.0f,%.0f",
+                          window, (void *)showingWindow, event.i1, event.i2, cursorX, cursorY);
+                }
                 if (GLFW_invoke_MouseButton) GLFW_invoke_MouseButton(window, event.i1, event.i2, event.i3);
                 break;
+            }
             case EVENT_TYPE_SCROLL:
                 if (GLFW_invoke_Scroll) GLFW_invoke_Scroll(window, event.f1, event.f2);
                 break;

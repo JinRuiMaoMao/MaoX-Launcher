@@ -52,5 +52,14 @@
   "右 Ctrl": "Right Ctrl",
   "右 Alt": "Right Alt",
   "回车": "Enter",
-  "退格": "Backspace"
+  "退格": "Backspace",
+  "攻击": "Attack",
+  "使用": "Use",
+  "操作": "Controls",
+  "灵敏度": "Sensitivity",
+  "方向键": "D-pad",
+  "经典：轻点使用，长按攻击": "Classic: tap to use, hold to attack",
+  "拆分控制：准星 + 攻击 / 使用按钮": "Split: crosshair with attack / use buttons",
+  "摇杆：推到边缘疾跑": "Joystick: push to the edge to sprint",
+  "方向键：双击前进疾跑": "D-pad: double-tap forward to sprint"
 }

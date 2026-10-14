@@ -148,4 +148,18 @@ internal static unsafe class GameNative
     public static void SendChar(uint codepoint) => ((delegate* unmanaged<uint, void>)Fn("maox_send_char"))(codepoint);
 
     public static bool IsGrabbing() => ((delegate* unmanaged<int>)Fn("maox_is_grabbing"))() != 0;
+
+    /// <summary>写一行到游戏日志（game.log）。</summary>
+    public static void Log(string text)
+    {
+        var utf8 = Marshal.StringToCoTaskMemUTF8(text);
+        try
+        {
+            ((delegate* unmanaged<nint, void>)Fn("maox_log"))(utf8);
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem(utf8);
+        }
+    }
 }

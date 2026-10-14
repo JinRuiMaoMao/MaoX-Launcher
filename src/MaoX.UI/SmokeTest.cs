@@ -358,6 +358,9 @@ internal static class SmokeTest
             await Task.Delay(200);
             dialog.GetVisualDescendants().OfType<TextBox>().First(t => t.IsEffectivelyVisible).Text = "Use";
             dialog.GetVisualDescendants().OfType<CheckBox>().First(c => c.Content as string == I18n.T("切换模式")).IsChecked = true;
+            ComboBox Combo(string item) => dialog.GetVisualDescendants().OfType<ComboBox>().First(c => c.Items.Cast<object>().Contains(item));
+            Combo(I18n.T("拆分控制：准星 + 攻击 / 使用按钮")).SelectedIndex = 1;
+            Combo(I18n.T("方向键：双击前进疾跑")).SelectedIndex = 1;
             await Task.Delay(400);
             ScreenshotControl(dialog, Path.Combine(output, "touch-layout-edited.png"));
             var save = dialog.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == I18n.T("保存"));
@@ -371,6 +374,8 @@ internal static class SmokeTest
             if (layout.Buttons is not [{ Name: "Use", Toggle: true } button]
                 || !button.Keys.SequenceEqual([ControlKeys.MouseRight, 340]) || Math.Abs(button.X - 0.25) > 0.01)
                 throw new Exception("unexpected custom buttons: " + layout.ToJson().ToJsonString());
+            if (layout.Mode != ControlLayout.Split || layout.Movement != ControlLayout.Dpad)
+                throw new Exception("unexpected control mode: " + layout.ToJson().ToJsonString());
             await Task.Delay(300);
             return $"{layout.Name}: {layout.ToJson().ToJsonString()}";
         });
