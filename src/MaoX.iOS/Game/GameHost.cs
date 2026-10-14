@@ -318,7 +318,9 @@ internal static class GameHost
             "-Xmx", "-Xms", "-XX:+UseG1GC", "-XX:HeapDumpPath", "-Xdock", "-XstartOnFirstThread",
             "-Djava.library.path=", "-Dorg.lwjgl.opengl.libname",
         ];
-        var command = launcher.BuildCommand(info.VJson, "java", mobileInfo, server, auth).Skip(1).ToList();
+        // 游戏按 --width / --height 换算触摸坐标，必须和实际画面一样大（不能用电脑版的 854×480）
+        var command = launcher.BuildCommand(info.VJson, "java", mobileInfo, server, auth, screen.Width, screen.Height)
+                              .Skip(1).ToList();
         var mainClass = info.VJson.Str("mainClass");
         var mainIndex = command.IndexOf(mainClass);
         if (mainIndex < 0)

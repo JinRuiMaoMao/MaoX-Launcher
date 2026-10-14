@@ -227,6 +227,17 @@ EXPORT void pojavPumpEvents(void* window) {
         setInputReady = YES;
         CallbackBridge_nativeSetInputReady(YES);
     }
+    // nativeSetInputReady 发给的是 showingWindow（游戏从不调用 glfwShowWindow，一直是 0），
+    // 游戏会忽略；这里把真实画面大小直接发给游戏的窗口，否则它按启动时的窗口大小换算触摸坐标
+    static BOOL sizeSent = NO;
+    if (!sizeSent && window && windowWidth > 0 && windowHeight > 0 &&
+        (GLFW_invoke_FramebufferSize || GLFW_invoke_WindowSize)) {
+        sizeSent = YES;
+        handleFramebufferSizeJava(window, windowWidth, windowHeight);
+        if (GLFW_invoke_FramebufferSize) GLFW_invoke_FramebufferSize(window, windowWidth, windowHeight);
+        if (GLFW_invoke_WindowSize) GLFW_invoke_WindowSize(window, windowWidth, windowHeight);
+        NSLog(@"[MaoX] window %p size -> %dx%d", window, windowWidth, windowHeight);
+    }
     size_t counter = atomic_load_explicit(&eventCounter, memory_order_acquire);
     if ((cLastX != cursorX || cLastY != cursorY) && GLFW_invoke_CursorPos) {
         cLastX = cursorX;

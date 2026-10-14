@@ -800,9 +800,12 @@ public class GameLauncher
         throw new InvalidOperationException(F("找不到可用的 Java {0}，请安装后在设置中指定", required));
     }
 
-    /// <summary>server 为「主机:端口」时，游戏启动后直接进入该服务器；auth 为空时使用配置中的离线用户名。</summary>
+    /// <summary>
+    /// server 为「主机:端口」时，游戏启动后直接进入该服务器；auth 为空时使用配置中的离线用户名。
+    /// width / height 大于 0 时代替设置里的窗口大小（手机上是屏幕分辨率）。
+    /// </summary>
     public List<string> BuildCommand(JsonObject vjson, string java, PreparedGame info, string server = null,
-                                     LaunchAuth auth = null)
+                                     LaunchAuth auth = null, int width = 0, int height = 0)
     {
         var cfg = Cfg;
         if (auth == null)
@@ -810,8 +813,8 @@ public class GameLauncher
             var uid = Mc.OfflineUuid(cfg.Username);
             auth = new LaunchAuth { Name = cfg.Username, Uuid = uid, Token = uid };
         }
-        var width = cfg.WindowWidth.ToString();
-        var height = cfg.WindowHeight.ToString();
+        var widthText = (width > 0 ? width : cfg.WindowWidth).ToString();
+        var heightText = (height > 0 ? height : cfg.WindowHeight).ToString();
         var sep = Path.PathSeparator.ToString();
         var values = new Dictionary<string, string>
         {
@@ -829,8 +832,8 @@ public class GameLauncher
             ["user_type"] = auth.UserType ?? "msa",
             ["user_properties"] = "{}",
             ["version_type"] = Mc.LauncherName,
-            ["resolution_width"] = width,
-            ["resolution_height"] = height,
+            ["resolution_width"] = widthText,
+            ["resolution_height"] = heightText,
             ["natives_directory"] = info.NativesDir,
             ["launcher_name"] = Mc.LauncherName,
             ["launcher_version"] = Mc.LauncherVersion,
@@ -875,7 +878,7 @@ public class GameLauncher
             jvmArgs.AddRange(Resolve(arguments?.Arr("jvm")));
             gameArgs = vjson.Str("minecraftArguments").Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
             gameArgs.AddRange(Resolve(arguments?.Arr("game")));
-            gameArgs.AddRange(["--width", width, "--height", height]);
+            gameArgs.AddRange(["--width", widthText, "--height", heightText]);
         }
         else
         {
