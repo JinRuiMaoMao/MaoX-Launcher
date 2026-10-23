@@ -62,7 +62,7 @@ public static class GameMemory
             var mods = Mods.ModLoaders.Contains(loader.Loader)
                 ? CountMods(Path.Combine(launcher.GameDirFor(versionId), "mods"))
                 : 0;
-            return Auto(AvailableMb(), mods, loader.Loader);
+            return Clamp(Auto(AvailableMb(), mods, loader.Loader));
         }
         return Clamp(cfg.MaxMemory);
     }
@@ -107,7 +107,7 @@ public static class GameMemory
         Stage(target3 - target2, 0.4);
         Stage(target3, 0.15);
         give = Math.Round(Math.Max(give, min), 1);
-        return Clamp((int)Math.Floor(give * 1024));
+        return Math.Max(512, (int)Math.Floor(give * 1024));
     }
 
     public static int Clamp(int mb)

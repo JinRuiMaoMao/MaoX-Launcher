@@ -185,11 +185,11 @@ internal sealed class ControlsView : UIView
         }
     }
 
-    public override void RemovedFromSuperview()
+    public override void WillMoveToSuperview(UIView newSuperview)
     {
-        _motion?.StopGyroUpdates();
-        _motion?.Dispose();
-        base.RemovedFromSuperview();
+        if (newSuperview == null)
+            _motion?.StopGyroUpdates();
+        base.WillMoveToSuperview(newSuperview);
     }
 
     private sealed class Button(ControlsView owner, string id, string label, int[] keys, bool toggle, bool inGame,
