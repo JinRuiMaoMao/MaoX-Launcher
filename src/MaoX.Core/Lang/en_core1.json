@@ -162,5 +162,6 @@
   "找不到可用的 Java {0}，请安装后在设置中指定": "No usable Java {0} was found. Install it and select it in Settings",
   "使用 Java：{0}": "Using Java: {0}",
   "正在启动 {0}（玩家 {1}，最大内存 {2} MB）...": "Launching {0} (player {1}, max memory {2} MB)...",
+  "已按可用内存自动分配 {0} MB（可用 {1:0.0} GB）": "Automatically allocated {0} MB from {1:0.0} GB free memory",
   "无法启动 Java 进程": "Couldn't start the Java process"
 }

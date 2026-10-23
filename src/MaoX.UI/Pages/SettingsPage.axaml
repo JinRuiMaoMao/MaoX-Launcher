@@ -54,7 +54,21 @@
                 <Button Grid.Column="2" Content="{c:Tr 检测}" Margin="8,0,0,0" Click="OnDetectJava" />
               </Grid>
             </StackPanel>
-            <StackPanel Spacing="4">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 自动分配内存}" />
+                <TextBlock Text="{c:Tr 按可用内存和模组数量自动计算，和 PCL 一样}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="AutoMemorySwitch" Grid.Column="1" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 内存优化}" />
+                <TextBlock Text="{c:Tr 使用调优的 G1GC，减少卡顿和多余占用}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="OptimizeMemorySwitch" Grid.Column="1" />
+            </Grid>
+            <StackPanel Name="MemoryManual" Spacing="4">
               <Grid ColumnDefinitions="Auto,*,Auto">
                 <TextBlock Text="{c:Tr 最大内存}" />
                 <TextBlock Name="RamText" Grid.Column="1" Classes="small dim" Margin="10,0,0,0" VerticalAlignment="Center" />

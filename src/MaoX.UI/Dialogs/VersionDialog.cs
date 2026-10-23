@@ -100,7 +100,8 @@ public class VersionDialog : DialogView
 
         var settings = new StackPanel { Spacing = 10 };
         settings.Children.Add(SwitchRow(T("版本隔离"), T("独立的存档、模组与设置"), _isolation));
-        settings.Children.Add(SwitchRow(T("单独设置内存与 Java"), null, _custom));
+        settings.Children.Add(SwitchRow(T("单独设置内存与 Java"),
+            cfg.AutoMemoryOn ? T("关闭后不再使用全局的自动分配内存") : null, _custom));
         settings.Children.Add(_customBox);
 
         // 文件夹

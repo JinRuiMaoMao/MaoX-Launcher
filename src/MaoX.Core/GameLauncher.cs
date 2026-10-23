@@ -547,6 +547,8 @@ public class GameLauncher
             if (settings.Get("jvm_args") != null)
                 cfg.JvmArgs = settings.Str("jvm_args") ?? "";
         }
+        else if (cfg.AutoMemoryOn)
+            cfg.MaxMemory = GameMemory.Allocate(this, versionId, cfg);
         return cfg;
     }
 
@@ -970,14 +972,16 @@ public class GameLauncher
         {
             java,
             $"-Xmx{cfg.MaxMemory}m",
-            "-XX:+UseG1GC",
-            "-XX:-OmitStackTraceInFastThrow",
+        };
+        cmd.AddRange(GameMemory.JvmFlags(cfg));
+        cmd.AddRange(
+        [
             "-Dlog4j2.formatMsgNoLookups=true",
             "-Dfml.ignoreInvalidMinecraftCertificates=true",
             "-Dfml.ignorePatchDiscrepancies=true",
             "-Dstdout.encoding=UTF-8",
             "-Dstderr.encoding=UTF-8",
-        };
+        ]);
         cmd.AddRange(auth.JvmArgs ?? []);
         cmd.AddRange((cfg.JvmArgs ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries));
         cmd.AddRange(jvmArgs);
@@ -1005,6 +1009,8 @@ public class GameLauncher
     {
         var (cmd, gameDir) = await PrepareCommandAsync(versionId, server, auth);
         Log(F("正在启动 {0}（玩家 {1}，最大内存 {2} MB）...", versionId, auth?.Name ?? Cfg.Username, Cfg.MaxMemory));
+        if (Cfg.AutoMemoryOn)
+            Log(F("已按可用内存自动分配 {0} MB（可用 {1:0.0} GB）", Cfg.MaxMemory, GameMemory.AvailableMb() / 1024.0));
         var psi = new ProcessStartInfo(cmd[0])
         {
             WorkingDirectory = gameDir,
@@ -1069,6 +1075,8 @@ public class GameLauncher
         Cfg = EffectiveConfig(versionId);
         var info = await PrepareAsync(versionId);
         Log(F("正在启动 {0}（玩家 {1}，最大内存 {2} MB）...", versionId, auth?.Name ?? Cfg.Username, Cfg.MaxMemory));
+        if (Cfg.AutoMemoryOn)
+            Log(F("已按可用内存自动分配 {0} MB（可用 {1:0.0} GB）", Cfg.MaxMemory, GameMemory.AvailableMb() / 1024.0));
         return await starter(this, info, server, auth);
     }
 }

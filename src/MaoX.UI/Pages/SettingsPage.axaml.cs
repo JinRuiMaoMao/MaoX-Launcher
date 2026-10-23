@@ -51,11 +51,13 @@ public partial class SettingsPage : UserControl, IPage
         AutoBackupSwitch.IsChecked = cfg.AutoBackupWorlds;
         UpdateTouchLayoutText();
 
-        var ram = Platform.TotalMemoryMb();
+        AutoMemorySwitch.IsChecked = cfg.AutoMemoryOn;
+        OptimizeMemorySwitch.IsChecked = cfg.OptimizeMemoryOn;
+        var ram = GameMemory.TotalMb();
         RamText.Text = F("系统内存 {0:0} GB", ram / 1024.0);
         MemorySlider.Maximum = Math.Max(2048, ram / 512 * 512);
         MemorySlider.Value = Math.Clamp(cfg.MaxMemory, 512, MemorySlider.Maximum);
-        MemoryText.Text = $"{(int)MemorySlider.Value} MB";
+        RefreshMemoryLabel();
 
         SourceBox.ItemsSource = Sources.Select(s => T(s.Text)).ToList();
         SourceBox.SelectedIndex = Math.Max(0, Array.FindIndex(Sources, s => s.Key == cfg.DownloadSource));
@@ -86,11 +88,18 @@ public partial class SettingsPage : UserControl, IPage
 
         IsolationSwitch.IsCheckedChanged += (_, _) => Cfg.VersionIsolation = IsolationSwitch.IsChecked == true;
         AutoBackupSwitch.IsCheckedChanged += (_, _) => Cfg.AutoBackupWorlds = AutoBackupSwitch.IsChecked == true;
+        AutoMemorySwitch.IsCheckedChanged += (_, _) =>
+        {
+            Cfg.AutoMemory = AutoMemorySwitch.IsChecked == true;
+            RefreshMemoryLabel();
+        };
+        OptimizeMemorySwitch.IsCheckedChanged += (_, _) => Cfg.OptimizeMemory = OptimizeMemorySwitch.IsChecked == true;
         MemorySlider.ValueChanged += (_, _) =>
         {
             Cfg.MaxMemory = (int)MemorySlider.Value;
-            MemoryText.Text = $"{Cfg.MaxMemory} MB";
+            RefreshMemoryLabel();
         };
+        Main.SelectedVersionChanged += RefreshMemoryLabel;
         ThreadsSlider.ValueChanged += (_, _) =>
         {
             Cfg.DownloadThreads = (int)ThreadsSlider.Value;
@@ -117,8 +126,25 @@ public partial class SettingsPage : UserControl, IPage
         ClientIdBox.TextChanged += (_, _) => Cfg.MsaClientId = (ClientIdBox.Text ?? "").Trim();
     }
 
-    public void OnShow()
+    public void OnShow() => RefreshMemoryLabel();
+
+    private void RefreshMemoryLabel()
     {
+        var auto = Cfg.AutoMemoryOn;
+        MemoryManual.Opacity = auto ? 0.55 : 1;
+        MemorySlider.IsEnabled = !auto;
+        if (auto && !string.IsNullOrEmpty(Main.SelectedVersion))
+        {
+            var mb = GameMemory.Allocate(Main.MakeLauncher(), Main.SelectedVersion, Cfg);
+            var avail = GameMemory.AvailableMb() / 1024.0;
+            MemoryText.Text = F("约 {0} MB", mb);
+            RamText.Text = F("系统内存 {0:0} GB，可用 {1:0.0} GB", GameMemory.TotalMb() / 1024.0, avail);
+        }
+        else
+        {
+            MemoryText.Text = $"{Cfg.MaxMemory} MB";
+            RamText.Text = F("系统内存 {0:0} GB", GameMemory.TotalMb() / 1024.0);
+        }
     }
 
     // ------------------------------------------------------------------ iOS 内置 JIT（实验）

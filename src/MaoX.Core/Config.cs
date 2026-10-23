@@ -92,6 +92,12 @@ public class LauncherConfig
     public string MinecraftDir { get; set; } = AppPaths.DefaultMinecraftDir;
     public string JavaPath { get; set; } = "";
     public int MaxMemory { get; set; } = 4096;
+    /// <summary>空或 true = 按可用内存和模组数量自动分配（和 PCL 一样）；false = 使用 MaxMemory。</summary>
+    public bool? AutoMemory { get; set; }
+    /// <summary>空或 true = 使用调优的 G1GC，减少卡顿和多余占用。</summary>
+    public bool? OptimizeMemory { get; set; }
+    public bool AutoMemoryOn => AutoMemory != false;
+    public bool OptimizeMemoryOn => OptimizeMemory != false;
     public string DownloadSource { get; set; } = "auto";
     public int DownloadThreads { get; set; } = 16;
     public int WindowWidth { get; set; } = 854;
@@ -161,6 +167,8 @@ public class LauncherConfig
                     cfg.MinecraftDir = AppPaths.Rebase(cfg.MinecraftDir);
                     cfg.JavaPath = AppPaths.Rebase(cfg.JavaPath);
                     cfg.Background = AppPaths.Rebase(cfg.Background);
+                    cfg.AutoMemory ??= true;
+                    cfg.OptimizeMemory ??= true;
                     return cfg;
                 }
             }

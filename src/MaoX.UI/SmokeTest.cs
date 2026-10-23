@@ -109,6 +109,8 @@ internal static class SmokeTest
                 : string.Join(", ", javas.Select(j => $"Java {j.Major} @ {j.Path}"));
         }), required: false);
 
+        await Check("auto memory", () => Task.FromResult(CheckAutoMemory()));
+
         await Check("custom version name", () => Task.Run(() =>
         {
             var root = Path.Combine(Path.GetTempPath(), "maox-detect-loader");
@@ -529,6 +531,26 @@ internal static class SmokeTest
         using var stream = new MemoryStream();
         bitmap.Save(stream);
         return stream.ToArray();
+    }
+
+    private static string CheckAutoMemory()
+    {
+        var vanilla = GameMemory.Auto(8 * 1024, 0, null);
+        var pack = GameMemory.Auto(16 * 1024, 200, "fabric");
+        var tight = GameMemory.Auto(800, 0, null);
+        if (vanilla is < 3500 or > 5000)
+            throw new Exception($"vanilla 8 GB free → {vanilla} MB");
+        if (pack <= vanilla || pack < 8000)
+            throw new Exception($"200-mod pack 16 GB free → {pack} MB (vanilla {vanilla})");
+        if (tight < 512 || tight > 1024)
+            throw new Exception($"800 MB free → {tight} MB");
+        var flags = GameMemory.JvmFlags(new LauncherConfig { OptimizeMemory = true }).ToList();
+        if (!flags.Contains("-XX:+UseG1GC") || !flags.Contains("-XX:MaxGCPauseMillis=50"))
+            throw new Exception("missing G1GC flags: " + string.Join(' ', flags));
+        var (total, available) = GameMemory.SystemRam();
+        if (total < 512 || available < 0 || available > total + 1024)
+            throw new Exception($"system ram {available}/{total} MB");
+        return $"vanilla={vanilla}MB pack={pack}MB free={available}MB/{total}MB";
     }
 
     private static void WriteVersion(GameLauncher gl, string id, JsonObject data)
