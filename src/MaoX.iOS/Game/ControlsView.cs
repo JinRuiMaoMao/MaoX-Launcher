@@ -180,7 +180,7 @@ internal sealed class ControlsView : UIView
             {
                 if (!_grabbing || data == null)
                     return;
-                Turn(data.RotationRate.Y * 12, data.RotationRate.X * 12);
+                Turn(data.RotationRate.y * 12, data.RotationRate.x * 12);
             });
         }
     }
