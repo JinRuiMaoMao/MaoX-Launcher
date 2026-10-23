@@ -56,9 +56,11 @@ public partial class MainView : UserControl
     public DownloadPage DownloadPage { get; }
     public ResourcesPage ResourcesPage { get; }
     public MultiplayerPage MultiplayerPage { get; }
+    public ToolsPage ToolsPage { get; }
     public SettingsPage SettingsPage { get; }
+    public VersionSettingsPage VersionPage { get; }
 
-    private static readonly string[] PageOrder = ["launch", "download", "resources", "multiplayer", "settings"];
+    private static readonly string[] PageOrder = ["launch", "download", "resources", "multiplayer", "tools", "settings"];
 
     private readonly Dictionary<string, Control> _pages;
     private string _currentPage;
@@ -81,6 +83,7 @@ public partial class MainView : UserControl
     {
         Current = this;
         InitializeComponent();        Cfg = LauncherConfig.Load();
+        Http.ApplyNetwork(Cfg);
         ThemeManager.Apply(Cfg.Theme, Cfg.AccentColor);
         InitAccounts();
         VersionText.Text = "v" + Mc.LauncherVersion + "  ·  " + PlatformLabel();
@@ -88,7 +91,7 @@ public partial class MainView : UserControl
         SizeChanged += (_, e) =>
         {
             ApplyLayout(e.NewSize.Width < 960 || e.NewSize.Height < 560);
-            // 手机横屏高度不够放下 Logo + 五个导航按钮 + 头像，先收起 Logo
+            // 手机横屏高度不够放下 Logo + 导航按钮 + 头像，先收起 Logo
             Brand.IsVisible = !(Compact && e.NewSize.Height < 440);
             NavScroll.Margin = new Thickness(0, Brand.IsVisible ? 0 : 12, 0, 0);
         };
@@ -108,14 +111,18 @@ public partial class MainView : UserControl
         DownloadPage = new DownloadPage();
         ResourcesPage = new ResourcesPage();
         MultiplayerPage = new MultiplayerPage();
+        ToolsPage = new ToolsPage();
         SettingsPage = new SettingsPage();
+        VersionPage = new VersionSettingsPage();
         _pages = new Dictionary<string, Control>
         {
             ["launch"] = LaunchPage,
             ["download"] = DownloadPage,
             ["resources"] = ResourcesPage,
             ["multiplayer"] = MultiplayerPage,
+            ["tools"] = ToolsPage,
             ["settings"] = SettingsPage,
+            ["version"] = VersionPage,
         };
 
         new DispatcherTimer(TimeSpan.FromMilliseconds(60), DispatcherPriority.Background, (_, _) => FlushProgress())
@@ -144,7 +151,10 @@ public partial class MainView : UserControl
             if (Cfg.AutoCheckUpdate && Updater.CanSelfUpdate && !SmokeTest.Active)
                 DispatcherTimer.RunOnce(() => _ = CheckForUpdate(true), TimeSpan.FromSeconds(3));
             if (!SmokeTest.Active)
+            {
                 DispatcherTimer.RunOnce(LaunchFromCommandLine, TimeSpan.Zero);
+                DispatcherTimer.RunOnce(() => _ = ShowAnnouncement(), TimeSpan.FromSeconds(4));
+            }
         };
     }
 
@@ -304,6 +314,26 @@ public partial class MainView : UserControl
             Platform.OpenUrl(info.PageUrl);
     }
 
+    private async Task ShowAnnouncement()
+    {
+        try
+        {
+            var info = await Announce.FetchAsync();
+            if (info == null || info.Id == Cfg.LastAnnouncement)
+                return;
+            Cfg.LastAnnouncement = info.Id;
+            Cfg.Save();
+            var body = string.IsNullOrWhiteSpace(info.Body) ? T("打开发布页查看详情。") : info.Body;
+            if (body.Length > 800)
+                body = body[..800] + "…";
+            if (await Dialog(info.Title, body, "info", (T("打开发布页"), "page", "primary"), (T("关闭"), "close", "")) is "page")
+                Platform.OpenUrl(info.Url);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
     private static string PlatformLabel() =>
         (Platform.IsWindows ? "Windows" : Platform.IsMac ? "macOS" : Platform.IsAndroid ? "Android"
             : Platform.IsIOS ? "iOS" : "Linux")
@@ -398,7 +428,7 @@ public partial class MainView : UserControl
     /// <summary>列表类页面放不下时的最小高度（设置页和启动页自己能滚动/能放下，不需要）。</summary>
     private static readonly Dictionary<string, double> MinPageHeight = new()
     {
-        ["download"] = 470, ["resources"] = 520, ["multiplayer"] = 470,
+        ["download"] = 470, ["resources"] = 520, ["multiplayer"] = 470, ["tools"] = 520,
     };
 
     private void UpdatePageScroll()
@@ -420,12 +450,17 @@ public partial class MainView : UserControl
             return;
         if (_currentPage == "settings")
             SaveSettings();
+        if (_currentPage == "version")
+            VersionPage.Leave();
         var from = Array.IndexOf(PageOrder, _currentPage);
         var to = Array.IndexOf(PageOrder, key);
-        PageHost.IsTransitionReversed = from >= 0 && to < from;
+        if (key == "version" || _currentPage == "version")
+            PageHost.IsTransitionReversed = key != "version" && _currentPage == "version";
+        else
+            PageHost.IsTransitionReversed = from >= 0 && to < from;
         _currentPage = key;
         foreach (var child in Nav.Children.OfType<RadioButton>())
-            child.IsChecked = (string)child.Tag == key;
+            child.IsChecked = (string)child.Tag == (key == "version" ? "launch" : key);
         var page = _pages[key];
         PageHost.Content = page;
         PageScroll.Offset = default;
@@ -1003,7 +1038,7 @@ public partial class MainView : UserControl
         SelectedVersionChanged?.Invoke();
     }
 
-    public async void ManageVersion()
+    public void ManageVersion()
     {
         var version = SelectedVersion;
         if (string.IsNullOrEmpty(version))
@@ -1012,8 +1047,23 @@ public partial class MainView : UserControl
             Toast(T("请先安装一个游戏版本"), "warn");
             return;
         }
-        await ShowDialogAsync(new VersionDialog(version));
-        SelectedVersionChanged?.Invoke();
+        VersionPage.Open(version);
+        ShowPage("version");
+    }
+
+    public void SetMinecraftDir(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        path = Path.GetFullPath(path);
+        if (string.Equals(path, Path.GetFullPath(Cfg.MinecraftDir), StringComparison.OrdinalIgnoreCase))
+            return;
+        Cfg.MinecraftDir = path;
+        SaveSettings();
+        RefreshInstalled();
+        ResourcesPage.Invalidate();
+        SettingsPage.RefreshGameDirs();
+        LaunchPage.RefreshGameDirs();
     }
 
     public void OpenGameDir()
@@ -1067,6 +1117,15 @@ public partial class MainView : UserControl
         Cfg.LastVersion = version;
         if (!SaveSettings())
             return;
+        if (Cfg.PreLaunchCheckOn)
+        {
+            var issues = LaunchCheck.Run(MakeLauncher(), version, account);
+            if (LaunchCheck.HasError(issues)
+                && !await Confirm(T("启动前检查未通过"),
+                                  string.Join("\n", issues.Where(i => i.Kind != "ok").Select(i => i.Title + "：" + i.Detail)),
+                                  T("仍然启动"), "warn"))
+                return;
+        }
         Log(new string('─', 48));
         if (server != null)
             Log(F("启动后将自动进入联机房间 {0}", server));

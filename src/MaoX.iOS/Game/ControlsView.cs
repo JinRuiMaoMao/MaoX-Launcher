@@ -1,4 +1,5 @@
 using CoreGraphics;
+using CoreMotion;
 using Foundation;
 using MaoX.Core;
 using ObjCRuntime;
@@ -21,7 +22,8 @@ internal sealed class ControlsView : UIView
     private readonly ControlLayout _layout;
     private readonly double _opacity, _sensitivity;
     /// <summary>拆分控制：拖动只转视角，攻击 / 使用用单独的按钮；方向键代替摇杆（和基岩版一样）</summary>
-    private readonly bool _split, _dpadMode;
+    private readonly bool _split, _dpadMode, _gyro;
+    private readonly CMMotionManager _motion;
     private readonly UIImpactFeedbackGenerator _haptic = new(UIImpactFeedbackStyle.Medium);
     private readonly UIImpactFeedbackGenerator _lightHaptic = new(UIImpactFeedbackStyle.Light);
     private int _touchLogs;
@@ -99,6 +101,8 @@ internal sealed class ControlsView : UIView
         _sensitivity = Math.Clamp(layout?.Sensitivity ?? 1, ControlLayout.MinSensitivity, ControlLayout.MaxSensitivity);
         _split = layout?.Mode == ControlLayout.Split;
         _dpadMode = layout?.Movement == ControlLayout.Dpad;
+        _gyro = layout?.Gyro == true;
+        _motion = _gyro ? new CMMotionManager() : null;
         BackgroundColor = UIColor.Clear;
         Opaque = false;
         MultipleTouchEnabled = true;
@@ -169,6 +173,23 @@ internal sealed class ControlsView : UIView
             return false;
         };
         AddSubview(_input);
+        if (_motion is { GyroAvailable: true })
+        {
+            _motion.GyroUpdateInterval = 1 / 60.0;
+            _motion.StartGyroUpdates(NSOperationQueue.MainQueue, (data, _) =>
+            {
+                if (!_grabbing || data == null)
+                    return;
+                Turn(data.RotationRate.Y * 12, data.RotationRate.X * 12);
+            });
+        }
+    }
+
+    public override void RemovedFromSuperview()
+    {
+        _motion?.StopGyroUpdates();
+        _motion?.Dispose();
+        base.RemovedFromSuperview();
     }
 
     private sealed class Button(ControlsView owner, string id, string label, int[] keys, bool toggle, bool inGame,

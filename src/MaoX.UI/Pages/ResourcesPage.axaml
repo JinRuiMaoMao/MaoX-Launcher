@@ -39,6 +39,7 @@
           <ToggleButton Name="ModrinthTab" Classes="chip tab" Content="Modrinth" Tag="modrinth" Click="OnTabClick" />
           <ToggleButton Name="CurseForgeTab" Classes="chip tab" Content="CurseForge" Tag="curseforge" Click="OnTabClick" />
           <ToggleButton Name="LocalTab" Classes="chip tab" Content="{c:Tr 已安装}" Tag="local" Click="OnTabClick" />
+          <ToggleButton Name="FavTab" Classes="chip tab" Content="{c:Tr 收藏}" Tag="favorites" Click="OnTabClick" />
         </StackPanel>
       </Panel>
       <StackPanel Name="BrowseTools" Grid.Column="2" Orientation="Horizontal" Spacing="8">

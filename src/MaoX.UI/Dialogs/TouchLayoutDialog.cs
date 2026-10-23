@@ -54,6 +54,7 @@ public class TouchLayoutDialog : DialogView
     private readonly Button _collapseButton;
     private readonly TextBlock _sizeText = Text("", "small"), _opacityText = Text("", "small");
     private readonly CheckBox _hiddenBox = new() { Content = T("隐藏") };
+    private readonly CheckBox _gyroBox = new() { Content = T("陀螺仪转视角") };
     private string _selected;
     private string _dragId;
     private Point _dragStart, _dragOffset;
@@ -94,16 +95,18 @@ public class TouchLayoutDialog : DialogView
 
         var addButton = MakeButton(T("添加按键"), "ghost", onClick: async () => await PickKeys(AddButton()));
         var reset = MakeButton(T("恢复默认"), "ghost", onClick: Reset);
+        var export = MakeButton(T("导出"), "ghost", onClick: ExportLayout);
+        var import = MakeButton(T("导入"), "ghost", onClick: ImportLayout);
         var cancel = MakeButton(T("取消"), onClick: () => Close());
         var save = MakeButton(T("保存"), "primary", onClick: () => Save(cfg));
-        foreach (var b in new[] { addButton, reset, cancel, save })
+        foreach (var b in new[] { addButton, reset, export, import, cancel, save })
             b.MinWidth = 0;
         var buttons = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Margin = new Thickness(0, 4, 0, 0) };
         buttons.Children.Add(addButton);
         var right = new StackPanel
         {
             Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right,
-            Children = { reset, cancel, save },
+            Children = { reset, export, import, cancel, save },
         };
         Grid.SetColumn(right, 1);
         buttons.Children.Add(right);
@@ -125,6 +128,7 @@ public class TouchLayoutDialog : DialogView
                     Row(T("灵敏度"), _sensitivitySlider, _sensitivityText, null),
                     Row(T("操作"), _modeBox, new TextBlock(), null),
                     Row(T("移动"), _movementBox, new TextBlock(), null),
+                    _gyroBox,
                     buttons,
                 },
             },
@@ -229,6 +233,13 @@ public class TouchLayoutDialog : DialogView
             EnsureCustom();
             _current.Movement = _movementBox.SelectedIndex == 1 ? ControlLayout.Dpad : ControlLayout.Joystick;
             Refresh();
+        };
+        _gyroBox.IsCheckedChanged += (_, _) =>
+        {
+            if (_updating)
+                return;
+            EnsureCustom();
+            _current.Gyro = _gyroBox.IsChecked == true;
         };
         RefreshLayoutBox();
         Refresh();
@@ -639,8 +650,41 @@ public class TouchLayoutDialog : DialogView
     {
         cfg.ControlLayouts = _layouts;
         cfg.ActiveControlLayout = _current?.Name ?? "";
+        cfg.GyroLook = _current?.Gyro == true;
         cfg.Save();
         Close(true);
+    }
+
+    private async void ExportLayout()
+    {
+        EnsureCustom();
+        var path = await MainView.Current.SaveFile(T("导出触屏布局"), (_current.Name ?? "layout") + ".json", T("触屏布局"), "*.json");
+        if (path == null)
+            return;
+        File.WriteAllText(path, _current.ToJson().ToJsonString(Json.Pretty));
+        MainView.Current.Toast(T("布局已导出"));
+    }
+
+    private async void ImportLayout()
+    {
+        var path = await MainView.Current.PickFile(T("导入触屏布局"), T("触屏布局"), "*.json");
+        if (path == null)
+            return;
+        try
+        {
+            var json = Json.ReadFile(path) as System.Text.Json.Nodes.JsonObject
+                       ?? throw new InvalidDataException(T("不是有效的布局文件"));
+            var layout = ControlLayout.FromJson(json, System.IO.Path.GetFileNameWithoutExtension(path));
+            _layouts.Add(layout);
+            _current = layout;
+            RefreshLayoutBox();
+            Refresh();
+            MainView.Current.Toast(T("已导入布局"));
+        }
+        catch (Exception e)
+        {
+            await MainView.Current.Dialog(T("导入失败"), e.Message, "error");
+        }
     }
 
     // ------------------------------------------------------------------ 显示
@@ -683,6 +727,7 @@ public class TouchLayoutDialog : DialogView
         _sensitivityText.Text = $"{Math.Round(_sensitivitySlider.Value)}%";
         _modeBox.SelectedIndex = _current?.Mode == ControlLayout.Split ? 1 : 0;
         _movementBox.SelectedIndex = _current?.Movement == ControlLayout.Dpad ? 1 : 0;
+        _gyroBox.IsChecked = _current?.Gyro == true;
         _updating = false;
         Render();
     }

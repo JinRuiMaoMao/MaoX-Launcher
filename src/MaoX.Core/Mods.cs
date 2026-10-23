@@ -345,6 +345,58 @@ public static partial class Mods
 
     private static string NonEmpty(params string[] values) => values.FirstOrDefault(v => !string.IsNullOrEmpty(v));
 
+    /// <summary>从模组 jar 读取必需前置的 mod id（忽略 minecraft / java / 加载器本身）。</summary>
+    public static List<string> ReadDependencies(string path)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var zip = ZipFile.OpenRead(path);
+            var names = zip.Entries.Select(e => e.FullName).ToHashSet();
+            string Read(string member)
+            {
+                using var reader = new StreamReader(zip.GetEntry(member)!.Open(), Encoding.UTF8);
+                return reader.ReadToEnd();
+            }
+            if (names.Contains("fabric.mod.json"))
+            {
+                var data = ParseLenient(Read("fabric.mod.json"));
+                foreach (var key in new[] { "depends", "dependsOverrides" })
+                {
+                    if (data.Obj(key) is not { } obj)
+                        continue;
+                    foreach (var (id, _) in obj)
+                        ids.Add(id);
+                }
+            }
+            else if (names.Contains("quilt.mod.json"))
+            {
+                var data = ParseLenient(Read("quilt.mod.json")).Get("quilt_loader");
+                if (data.Obj("depends") is { } obj)
+                {
+                    foreach (var (id, _) in obj)
+                        ids.Add(id);
+                }
+            }
+            else
+            {
+                var toml = new[] { "META-INF/neoforge.mods.toml", "META-INF/mods.toml" }.FirstOrDefault(names.Contains);
+                if (toml != null)
+                {
+                    foreach (Match m in Regex.Matches(Read(toml), @"modId\s*=\s*[""']([^""']+)[""']"))
+                        ids.Add(m.Groups[1].Value);
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException
+                                      or JsonException or InvalidOperationException or ArgumentException)
+        {
+        }
+        ids.RemoveWhere(id => id is "minecraft" or "java" or "fabricloader" or "fabric-loader"
+            or "quilt_loader" or "forge" or "neoforge" or "fabric" or "quilt");
+        return ids.ToList();
+    }
+
     /// <summary>从模组 jar 中读取名称与版本，支持 Fabric / Quilt / Forge / NeoForge / 旧版 mcmod.info。</summary>
     public static (string Name, string Version) ReadModInfo(string path)
     {

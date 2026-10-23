@@ -56,6 +56,7 @@ public partial class LaunchPage : UserControl, IPage
         Main.SelectedVersionChanged += UpdateHero;
         Main.BusyChanged += _ => UpdateLaunchButton();
         UpdateAccount();
+        RefreshGameDirs();
         PageTabs.PreparePill(GameTabPill);
         GameTabs.LayoutUpdated += (_, _) =>
         {
@@ -318,6 +319,31 @@ public partial class LaunchPage : UserControl, IPage
         VersionBox.SelectedItem = Main.SelectedVersion;
         _updatingVersions = false;
         UpdateHero();
+    }
+
+    private bool _updatingDirs;
+
+    public void RefreshGameDirs()
+    {
+        var dirs = Main.Cfg.AllGameDirs();
+        GameDirBox.IsVisible = dirs.Count > 1;
+        if (dirs.Count <= 1)
+            return;
+        _updatingDirs = true;
+        GameDirBox.ItemsSource = dirs.Select(d => d.Name + "  ·  " + d.Path).ToList();
+        var current = Path.GetFullPath(Main.Cfg.MinecraftDir);
+        var index = dirs.FindIndex(d => string.Equals(Path.GetFullPath(d.Path), current, StringComparison.OrdinalIgnoreCase));
+        GameDirBox.SelectedIndex = Math.Max(0, index);
+        _updatingDirs = false;
+    }
+
+    private void OnGameDirChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingDirs)
+            return;
+        var dirs = Main.Cfg.AllGameDirs();
+        if (GameDirBox.SelectedIndex is >= 0 and var i && i < dirs.Count)
+            Main.SetMinecraftDir(dirs[i].Path);
     }
 
     private void OnVersionChanged(object sender, SelectionChangedEventArgs e)

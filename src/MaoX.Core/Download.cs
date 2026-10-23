@@ -62,9 +62,24 @@ public static class Http
 {
     public static readonly string UserAgent = "MaoXLauncher/" + Mc.LauncherVersion;
 
-    public static readonly HttpClient Client = CreateClient();
+    public static HttpClient Client { get; private set; } = CreateClient();
 
-    private static HttpClient CreateClient()
+    /// <summary>按配置重建 HTTP 客户端（代理、DoH）。启动时和改设置后调用。</summary>
+    public static void ApplyNetwork(LauncherConfig cfg)
+    {
+        var next = CreateClient(cfg?.Proxy, cfg?.Doh == true);
+        var old = Client;
+        Client = next;
+        try
+        {
+            old.Dispose();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private static HttpClient CreateClient(string proxy = null, bool doh = false)
     {
         var handler = new SocketsHttpHandler
         {
@@ -75,6 +90,13 @@ public static class Http
             AllowAutoRedirect = true,
             MaxAutomaticRedirections = 8,
         };
+        if (!string.IsNullOrWhiteSpace(proxy) && Uri.TryCreate(proxy.Trim(), UriKind.Absolute, out var uri))
+        {
+            handler.UseProxy = true;
+            handler.Proxy = new WebProxy(uri);
+        }
+        if (doh)
+            handler.ConnectCallback = Doh.ConnectAsync;
         var client = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
         client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
         return client;
@@ -433,6 +455,7 @@ public class Downloader
                 if (task.Sha1 != null && Convert.ToHexStringLower(sha1.GetHashAndReset()) != task.Sha1)
                     throw new DownloadException(T("SHA1 校验失败"));
                 File.Move(tmp, task.Path, true);
+                DownloadHistory.Record(task, true, null);
                 return true;
             }
             finally
@@ -481,6 +504,7 @@ public class Downloader
                 }
                 catch (Exception e) when (e is not OperationCanceledException || !cancel.IsCancellationRequested)
                 {
+                    DownloadHistory.Record(task, false, e.Message);
                     lock (failures)
                         failures.Add((task, e));
                 }

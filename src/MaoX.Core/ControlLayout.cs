@@ -25,6 +25,8 @@ public class ControlLayout
     public string Movement { get; set; } = Joystick;
     /// <summary>拖动转视角的灵敏度倍数（0.3–3）</summary>
     public double Sensitivity { get; set; } = 1;
+    /// <summary>用陀螺仪辅助转视角（手机）</summary>
+    public bool Gyro { get; set; }
     public Dictionary<string, ControlItem> Items { get; set; } = [];
     /// <summary>用户自己添加的按键（和 Pojav / Amethyst 的自定义按键一样，可以绑定任意键）</summary>
     public List<ControlButton> Buttons { get; set; } = [];
@@ -78,6 +80,7 @@ public class ControlLayout
         Mode = Mode,
         Movement = Movement,
         Sensitivity = Sensitivity,
+        Gyro = Gyro,
         Items = Items.ToDictionary(p => p.Key, p => p.Value with { }),
         Buttons = (Buttons ?? []).Select(b => b with { Keys = [.. b.Keys ?? []] }).ToList(),
     };
@@ -109,8 +112,58 @@ public class ControlLayout
         {
             ["opacity"] = Math.Clamp(Opacity, MinOpacity, 1), ["mode"] = Mode == Split ? Split : Classic,
             ["movement"] = Movement == Dpad ? Dpad : Joystick, ["sensitivity"] = Math.Clamp(Sensitivity, MinSensitivity, MaxSensitivity),
-            ["items"] = items, ["buttons"] = buttons,
+            ["gyro"] = Gyro, ["items"] = items, ["buttons"] = buttons,
         };
+    }
+
+    /// <summary>从导出的 JSON 还原一套布局（缺字段用默认值）。</summary>
+    public static ControlLayout FromJson(JsonObject json, string name)
+    {
+        var layout = new ControlLayout
+        {
+            Name = name,
+            Opacity = json.Get("opacity")?.GetValue<double>() ?? 1,
+            Mode = json.Str("mode") == Split ? Split : Classic,
+            Movement = json.Str("movement") == Dpad ? Dpad : Joystick,
+            Sensitivity = json.Get("sensitivity")?.GetValue<double>() ?? 1,
+            Gyro = json.Bool("gyro"),
+        };
+        if (json["items"] is JsonObject map)
+        {
+            foreach (var (id, node) in map)
+            {
+                if (node is not JsonObject item)
+                    continue;
+                layout.Items[id] = new ControlItem
+                {
+                    X = item.Get("x")?.GetValue<double>() ?? 0.5,
+                    Y = item.Get("y")?.GetValue<double>() ?? 0.5,
+                    Size = item.Get("size")?.GetValue<double>() ?? 1,
+                    Hidden = item.Bool("hidden"),
+                };
+            }
+        }
+        if (json["buttons"] is JsonArray buttons)
+        {
+            foreach (var node in buttons.OfType<JsonObject>())
+            {
+                layout.Buttons.Add(new ControlButton
+                {
+                    Id = node.Str("id") ?? Guid.NewGuid().ToString("N")[..8],
+                    Name = node.Str("name") ?? node.Str("label") ?? "",
+                    Keys = node.Arr("keys")?.Select(k => k.GetValue<int>()).ToList() ?? [],
+                    X = node.Get("x")?.GetValue<double>() ?? 0.5,
+                    Y = node.Get("y")?.GetValue<double>() ?? 0.5,
+                    Width = node.Get("w")?.GetValue<double>() ?? 56,
+                    Height = node.Get("h")?.GetValue<double>() ?? 56,
+                    Round = node.Bool("round"),
+                    Toggle = node.Bool("toggle"),
+                    InGame = node.Get("inGame") == null || node.Bool("inGame"),
+                    InMenu = node.Bool("inMenu"),
+                });
+            }
+        }
+        return layout;
     }
 }
 

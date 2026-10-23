@@ -24,6 +24,14 @@
                   <c:Icon Kind="folder" Size="17" />
                 </Button>
               </Grid>
+              <StackPanel Name="ExtraDirsPanel" Spacing="6">
+                <TextBlock Text="{c:Tr 额外游戏目录}" Classes="small dim" />
+                <StackPanel Name="ExtraDirsList" Spacing="6" />
+                <WrapPanel ItemSpacing="8" LineSpacing="8">
+                  <Button Name="AddDirButton" Content="{c:Tr 添加目录}" Click="OnAddExtraDir" />
+                  <Button Name="ImportLauncherButton" Content="{c:Tr 从 PCL / HMCL 导入}" Click="OnImportLaunchers" />
+                </WrapPanel>
+              </StackPanel>
             </StackPanel>
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Spacing="3">
@@ -38,6 +46,13 @@
                 <TextBlock Text="{c:Tr 启动游戏前备份玩过的存档，每个保留最新 3 份，可在版本设置的存档列表里还原}" Classes="small dim wrap" />
               </StackPanel>
               <ToggleSwitch Name="AutoBackupSwitch" Grid.Column="1" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 启动前检查}" />
+                <TextBlock Text="{c:Tr 启动游戏前检查账号、磁盘和版本文件}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="PreLaunchSwitch" Grid.Column="1" />
             </Grid>
           </StackPanel>
         </Border>
@@ -94,6 +109,17 @@
               </Grid>
               <Slider Name="ThreadsSlider" Minimum="1" Maximum="64" TickFrequency="1" IsSnapToTickEnabled="True" />
             </StackPanel>
+            <StackPanel Spacing="8">
+              <TextBlock Text="{c:Tr HTTP 代理}" />
+              <TextBox Name="ProxyBox" Watermark="http://127.0.0.1:7890" />
+            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="DNS over HTTPS" />
+                <TextBlock Text="{c:Tr 用 Cloudflare 解析域名，减轻污染}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="DohSwitch" Grid.Column="1" />
+            </Grid>
           </StackPanel>
         </Border>
 
@@ -122,6 +148,13 @@
                 <TextBlock Name="TouchLayoutText" Classes="small dim wrap" />
               </StackPanel>
               <Button Grid.Column="1" Content="{c:Tr 编辑}" VerticalAlignment="Center" Click="OnEditTouchLayout" />
+            </Grid>
+            <Grid Name="GyroPanel" ColumnDefinitions="*,Auto" IsVisible="False">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 陀螺仪转视角}" />
+                <TextBlock Text="{c:Tr 游戏中用手机陀螺仪辅助转动视角}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="GyroSwitch" Grid.Column="1" />
             </Grid>
             <StackPanel Name="BuiltInJitPanel" Spacing="8" IsVisible="False">
               <Grid ColumnDefinitions="*,Auto">

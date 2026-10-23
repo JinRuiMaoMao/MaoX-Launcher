@@ -110,6 +110,7 @@ internal static class SmokeTest
         }), required: false);
 
         await Check("auto memory", () => Task.FromResult(CheckAutoMemory()));
+        await Check("launcher extras", () => Task.FromResult(CheckExtras()));
 
         await Check("custom version name", () => Task.Run(() =>
         {
@@ -141,7 +142,7 @@ internal static class SmokeTest
             return "yweifyu → Fabric 1.20.1; merged → Fabric 1.21.1";
         }));
 
-        foreach (var page in new[] { "launch", "download", "resources", "multiplayer", "settings" })
+        foreach (var page in new[] { "launch", "download", "resources", "multiplayer", "tools", "settings" })
         {
             await Check("page " + page, async () =>
             {
@@ -551,6 +552,25 @@ internal static class SmokeTest
         if (total < 512 || available < 0 || available > total + 1024)
             throw new Exception($"system ram {available}/{total} MB");
         return $"vanilla={vanilla}MB pack={pack}MB free={available}MB/{total}MB";
+    }
+
+    private static string CheckExtras()
+    {
+        var rec = Recommended.For("fabric").ToList();
+        if (rec.Count < 4)
+            throw new Exception("recommended fabric mods: " + rec.Count);
+        var cfg = new LauncherConfig { MinecraftDir = Path.Combine(Path.GetTempPath(), "maox-extras-empty") };
+        var items = LaunchCheck.Run(new GameLauncher(cfg), "", null);
+        if (!LaunchCheck.HasError(items))
+            throw new Exception("empty version should fail launch check");
+        var clean = DiskClean.Scan(cfg.MinecraftDir);
+        if (clean.Count != 0)
+            throw new Exception("empty dir should have nothing to clean");
+        var json = new ControlLayout { Name = "test", Gyro = true, Sensitivity = 1.2 }.ToJson();
+        var back = ControlLayout.FromJson(json, "test");
+        if (!back.Gyro || Math.Abs(back.Sensitivity - 1.2) > 0.01)
+            throw new Exception("layout roundtrip gyro/sensitivity");
+        return $"recommend={rec.Count} checks={items.Count}";
     }
 
     private static void WriteVersion(GameLauncher gl, string id, JsonObject data)

@@ -1,6 +1,10 @@
 package io.github.jinruimaomao.maox;
 
 import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -35,7 +39,7 @@ import java.util.List;
  * 其余区域拖动转视角、轻点使用 / 放置、长按攻击 / 挖掘；支持多指同时操作。
  * 菜单里：手指就是鼠标，双指上下滑动滚动。
  */
-public class ControlsView extends View {
+public class ControlsView extends View implements SensorEventListener {
     private static final long LONG_PRESS_MS = 300;
 
     private final float mDp;
@@ -59,7 +63,8 @@ public class ControlsView extends View {
     private final float mOpacity;
     private final float mSensitivity;
     /** 拆分控制：拖动只转视角，攻击 / 使用用单独的按钮；方向键代替摇杆（和基岩版一样） */
-    private final boolean mSplit, mDpadMode;
+    private final boolean mSplit, mDpadMode, mGyro;
+    private SensorManager mSensors;
     private boolean mStickHidden;
     private float mStickX, mStickY, mStickRadius, mKnobRadius;
     private float mKnobX, mKnobY;
@@ -186,6 +191,7 @@ public class ControlsView extends View {
         mSensitivity = layout == null ? 1f : (float) Math.max(0.3, Math.min(3, layout.optDouble("sensitivity", 1)));
         mSplit = layout != null && "split".equals(layout.optString("mode"));
         mDpadMode = layout != null && "dpad".equals(layout.optString("movement"));
+        mGyro = layout != null && layout.optBoolean("gyro");
         setFocusable(true);
         setFocusableInTouchMode(true);
         mStroke.setStyle(Paint.Style.STROKE);
@@ -550,6 +556,35 @@ public class ControlsView extends View {
         setKey(83, inside && row == 2 && col == 1, 1);
         setKey(65, inside && col == 0 && (row == 1 || forward), 2);
         setKey(68, inside && col == 2 && (row == 1 || forward), 3);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (!mGyro)
+            return;
+        mSensors = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
+        Sensor gyro = mSensors == null ? null : mSensors.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        if (gyro != null)
+            mSensors.registerListener(this, gyro, SensorManager.SENSOR_DELAY_GAME);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (mSensors != null)
+            mSensors.unregisterListener(this);
+        super.onDetachedFromWindow();
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (!mGrabbing || event.sensor.getType() != Sensor.TYPE_GYROSCOPE)
+            return;
+        turn(event.values[1] * 12f, event.values[0] * 12f);
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
     }
 
     /** 手指在界面上移动 (dx, dy) 像素时转动视角。 */

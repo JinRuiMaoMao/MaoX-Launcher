@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -90,6 +91,21 @@ public class LauncherConfig
 
     public string Username { get; set; } = "Steve";
     public string MinecraftDir { get; set; } = AppPaths.DefaultMinecraftDir;
+    /// <summary>额外的游戏目录（分组 / 多实例），当前使用的是 <see cref="MinecraftDir"/>。</summary>
+    public List<GameDirEntry> ExtraDirs { get; set; } = [];
+    /// <summary>HTTP 代理，例如 http://127.0.0.1:7890；空 = 系统默认。</summary>
+    public string Proxy { get; set; } = "";
+    /// <summary>用 DNS over HTTPS 解析域名（Cloudflare），减轻污染。</summary>
+    public bool Doh { get; set; }
+    /// <summary>收藏的资源，格式 source:id（如 modrinth:AANobbMI）。</summary>
+    public List<string> FavoriteMods { get; set; } = [];
+    /// <summary>手机触屏用陀螺仪辅助转视角。</summary>
+    public bool GyroLook { get; set; }
+    /// <summary>启动游戏前先检查 Java、磁盘和文件。</summary>
+    public bool? PreLaunchCheck { get; set; }
+    public bool PreLaunchCheckOn => PreLaunchCheck != false;
+    /// <summary>已经看过的公告 id（GitHub Release tag）。</summary>
+    public string LastAnnouncement { get; set; } = "";
     public string JavaPath { get; set; } = "";
     public int MaxMemory { get; set; } = 4096;
     /// <summary>空或 true = 按可用内存和模组数量自动分配（和 PCL 一样）；false = 使用 MaxMemory。</summary>
@@ -151,6 +167,10 @@ public class LauncherConfig
                     cfg.Accounts ??= [];
                     cfg.Servers ??= [];
                     cfg.ControlLayouts ??= [];
+                    cfg.ExtraDirs ??= [];
+                    cfg.FavoriteMods ??= [];
+                    foreach (var dir in cfg.ExtraDirs)
+                        dir.Path = AppPaths.Rebase(dir.Path ?? "");
                     foreach (var layout in cfg.ControlLayouts)
                     {
                         layout.Items ??= [];
@@ -169,6 +189,7 @@ public class LauncherConfig
                     cfg.Background = AppPaths.Rebase(cfg.Background);
                     cfg.AutoMemory ??= true;
                     cfg.OptimizeMemory ??= true;
+                    cfg.PreLaunchCheck ??= true;
                     return cfg;
                 }
             }
@@ -189,4 +210,31 @@ public class LauncherConfig
 
     public LauncherConfig Clone() =>
         JsonSerializer.Deserialize<LauncherConfig>(JsonSerializer.Serialize(this, Options), Options);
+
+    /// <summary>当前游戏目录 + 额外目录，去重后按名称排序。</summary>
+    public List<GameDirEntry> AllGameDirs()
+    {
+        var list = new List<GameDirEntry>();
+        var seen = new HashSet<string>(Platform.IsWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        void Add(string name, string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+            path = Path.GetFullPath(path);
+            if (!seen.Add(path))
+                return;
+            list.Add(new GameDirEntry { Name = string.IsNullOrWhiteSpace(name) ? Path.GetFileName(path) : name, Path = path });
+        }
+        Add(T("默认"), MinecraftDir);
+        foreach (var dir in ExtraDirs ?? [])
+            Add(dir.Name, dir.Path);
+        return list;
+    }
+}
+
+/// <summary>一个额外的 Minecraft 游戏目录。</summary>
+public class GameDirEntry
+{
+    public string Name { get; set; } = "";
+    public string Path { get; set; } = "";
 }

@@ -299,24 +299,26 @@ public partial class ResourcesPage : UserControl, IPage
         ModrinthTab.IsChecked = _tab == "modrinth";
         CurseForgeTab.IsChecked = _tab == "curseforge";
         LocalTab.IsChecked = _tab == "local";
+        FavTab.IsChecked = _tab == "favorites";
     }
 
-    private static readonly string[] TabKeys = ["modrinth", "curseforge", "local"];
+    private static readonly string[] TabKeys = ["modrinth", "curseforge", "local", "favorites"];
 
     private ToggleButton TabButton() => _tab switch
     {
         "curseforge" => CurseForgeTab,
         "local" => LocalTab,
+        "favorites" => FavTab,
         _ => ModrinthTab,
     };
 
     private void ShowTab()
     {
         UpdateTabs();
-        var content = !Available() ? "empty" : _tab == "local" ? "local" : "browse";
+        var content = !Available() ? "empty" : _tab is "local" or "favorites" ? "local" : "browse";
         var browse = content == "browse";
         BrowseTools.IsVisible = browse;
-        LocalTools.IsVisible = content == "local";
+        LocalTools.IsVisible = _tab == "local";
         CheckUpdateButton.IsVisible = CanUpdate;
         if (!CanUpdate)
             UpdateAllButton.IsVisible = false;
@@ -336,6 +338,12 @@ public partial class ResourcesPage : UserControl, IPage
         _pillUntil = DateTime.UtcNow + PageTabs.Duration;
         PageTabs.MovePill(TabPill, TabButton(), _tabReady);
         _tabReady = true;
+
+        if (_tab == "favorites")
+        {
+            RenderFavorites();
+            return;
+        }
 
         if (browse && _tab != _source)
         {
@@ -499,11 +507,23 @@ public partial class ResourcesPage : UserControl, IPage
         button.Click += (_, _) => Install(hit, source, button);
         _cardButtons[hit.Id] = button;
 
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        var favKey = source + ":" + hit.Id;
+        var starred = (Main.Cfg.FavoriteMods ?? []).Contains(favKey);
+        var star = new Button
+        {
+            Classes = { "icon" }, Width = 36, Height = 36, Margin = new Thickness(0, 0, 8, 0),
+            Content = new Icon { Kind = "sparkle", Size = 16, Filled = starred },
+        };
+        ToolTip.SetTip(star, starred ? T("取消收藏") : T("收藏"));
+        star.Click += (_, _) => ToggleFavorite(favKey, hit.Title, star);
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
         grid.Children.Add(iconBox);
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
-        Grid.SetColumn(button, 2);
+        Grid.SetColumn(star, 2);
+        grid.Children.Add(star);
+        Grid.SetColumn(button, 3);
         grid.Children.Add(button);
         var card = new Border { Classes = { "row" }, Padding = new Thickness(16, 14), Child = grid, Cursor = new Cursor(StandardCursorType.Hand) };
         card.Tapped += (_, e) =>
@@ -613,6 +633,67 @@ public partial class ResourcesPage : UserControl, IPage
         projects.Add(hit.Id);
         MarkInstalled();
         ReloadLocal(false);
+    }
+
+    private void ToggleFavorite(string key, string title, Button star)
+    {
+        Main.Cfg.FavoriteMods ??= [];
+        if (Main.Cfg.FavoriteMods.Remove(key))
+        {
+            if (star.Content is Icon icon)
+                icon.Filled = false;
+            ToolTip.SetTip(star, T("收藏"));
+            Main.Toast(F("已取消收藏 {0}", title), "info");
+        }
+        else
+        {
+            Main.Cfg.FavoriteMods.Add(key);
+            if (star.Content is Icon icon)
+                icon.Filled = true;
+            ToolTip.SetTip(star, T("取消收藏"));
+            Main.Toast(F("已收藏 {0}", title));
+        }
+        Main.SaveSettings();
+        if (_tab == "favorites")
+            RenderFavorites();
+    }
+
+    private async void RenderFavorites()
+    {
+        LocalList.Children.Clear();
+        var keys = Main.Cfg.FavoriteMods ?? [];
+        if (keys.Count == 0)
+        {
+            LocalList.Children.Add(new TextBlock
+            {
+                Text = T("还没有收藏。在 Modrinth / CurseForge 列表里点星星即可收藏。"),
+                Classes = { "muted" }, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 30),
+            });
+            return;
+        }
+        foreach (var key in keys.ToList())
+        {
+            var parts = key.Split(':', 2);
+            if (parts.Length != 2)
+                continue;
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            row.Children.Add(new TextBlock { Text = parts[1] + "  ·  " + parts[0], VerticalAlignment = VerticalAlignment.Center });
+            var open = new Button { Content = T("打开"), Margin = new Thickness(8, 0, 0, 0) };
+            var source = parts[0];
+            var id = parts[1];
+            open.Click += (_, _) =>
+            {
+                _tab = source is "curseforge" ? "curseforge" : "modrinth";
+                _source = _tab;
+                SearchBox.Text = id;
+                ShowTab();
+                Search(true);
+            };
+            Grid.SetColumn(open, 1);
+            row.Children.Add(open);
+            LocalList.Children.Add(new Border { Classes = { "row" }, Padding = new Thickness(16, 10), Child = row });
+        }
+        await Task.CompletedTask;
     }
 
     private void MarkInstalled()

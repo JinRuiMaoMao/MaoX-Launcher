@@ -95,7 +95,9 @@ internal static class GameHost
 
         var game = new IosGame();
         var json = config.ToJsonString();
-        var code = await OnMain(() => new GameViewController(info.GameDir, screen, launcher.Cfg.CurrentControlLayout()).LaunchAsync(json)).Unwrap();
+        var layout = launcher.Cfg.CurrentControlLayout()
+                     ?? (launcher.Cfg.GyroLook ? new ControlLayout { Gyro = true } : null);
+        var code = await OnMain(() => new GameViewController(info.GameDir, screen, layout).LaunchAsync(json)).Unwrap();
         if (code != 0)
             throw new InvalidOperationException(code switch
             {

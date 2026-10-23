@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -40,16 +42,21 @@ public partial class SettingsPage : UserControl, IPage
             // 手机上游戏目录固定在应用数据目录，Java 由启动器自带，游戏总是全屏
             McDirBox.IsReadOnly = true;
             foreach (var c in new Control[] { BrowseMcDirButton, OpenMcDirButton, JavaPathPanel, WindowSizePanel,
-                                              AfterLaunchPanel, AutoUpdatePanel, CheckUpdateButton })
+                                              AfterLaunchPanel, AutoUpdatePanel, CheckUpdateButton, ExtraDirsPanel })
                 c.IsVisible = false;
-            TouchLayoutPanel.IsVisible = true;
+            TouchLayoutPanel.IsVisible = GyroPanel.IsVisible = true;
         }
         _loading = true;
         var cfg = Cfg;
         McDirBox.Text = cfg.MinecraftDir;
         IsolationSwitch.IsChecked = cfg.VersionIsolation;
         AutoBackupSwitch.IsChecked = cfg.AutoBackupWorlds;
+        PreLaunchSwitch.IsChecked = cfg.PreLaunchCheckOn;
+        ProxyBox.Text = cfg.Proxy;
+        DohSwitch.IsChecked = cfg.Doh;
+        GyroSwitch.IsChecked = cfg.GyroLook;
         UpdateTouchLayoutText();
+        RefreshGameDirs();
 
         AutoMemorySwitch.IsChecked = cfg.AutoMemoryOn;
         OptimizeMemorySwitch.IsChecked = cfg.OptimizeMemoryOn;
@@ -88,6 +95,24 @@ public partial class SettingsPage : UserControl, IPage
 
         IsolationSwitch.IsCheckedChanged += (_, _) => Cfg.VersionIsolation = IsolationSwitch.IsChecked == true;
         AutoBackupSwitch.IsCheckedChanged += (_, _) => Cfg.AutoBackupWorlds = AutoBackupSwitch.IsChecked == true;
+        PreLaunchSwitch.IsCheckedChanged += (_, _) => Cfg.PreLaunchCheck = PreLaunchSwitch.IsChecked == true;
+        DohSwitch.IsCheckedChanged += (_, _) =>
+        {
+            Cfg.Doh = DohSwitch.IsChecked == true;
+            Http.ApplyNetwork(Cfg);
+        };
+        GyroSwitch.IsCheckedChanged += (_, _) =>
+        {
+            Cfg.GyroLook = GyroSwitch.IsChecked == true;
+            var layout = Cfg.CurrentControlLayout();
+            if (layout != null)
+                layout.Gyro = Cfg.GyroLook;
+        };
+        ProxyBox.LostFocus += (_, _) =>
+        {
+            Cfg.Proxy = (ProxyBox.Text ?? "").Trim();
+            Http.ApplyNetwork(Cfg);
+        };
         AutoMemorySwitch.IsCheckedChanged += (_, _) =>
         {
             Cfg.AutoMemory = AutoMemorySwitch.IsChecked == true;
@@ -355,6 +380,60 @@ public partial class SettingsPage : UserControl, IPage
         ApplyMcDir();
         return true;
     }
+
+    public void RefreshGameDirs()
+    {
+        if (ExtraDirsList == null)
+            return;
+        ExtraDirsList.Children.Clear();
+        foreach (var dir in Cfg.ExtraDirs ?? [])
+        {
+            var path = dir.Path;
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+            row.Children.Add(new TextBlock
+            {
+                Text = (string.IsNullOrWhiteSpace(dir.Name) ? Path.GetFileName(path) : dir.Name) + "  ·  " + path,
+                TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center,
+            });
+            var use = new Button { Content = T("切换"), Margin = new Thickness(8, 0, 0, 0) };
+            use.Click += (_, _) => Main.SetMinecraftDir(path);
+            Grid.SetColumn(use, 1);
+            row.Children.Add(use);
+            var remove = new Button { Classes = { "ghost", "danger-text" }, Content = T("移除"), Margin = new Thickness(6, 0, 0, 0) };
+            remove.Click += (_, _) =>
+            {
+                Cfg.ExtraDirs.RemoveAll(d => string.Equals(d.Path, path, StringComparison.OrdinalIgnoreCase));
+                Main.SaveSettings();
+                RefreshGameDirs();
+            };
+            Grid.SetColumn(remove, 2);
+            row.Children.Add(remove);
+            ExtraDirsList.Children.Add(row);
+        }
+        if (ExtraDirsList.Children.Count == 0)
+            ExtraDirsList.Children.Add(new TextBlock { Text = T("还没有额外目录。可以添加第二个 .minecraft，或从 PCL / HMCL 导入。"), Classes = { "small", "dim", "wrap" } });
+    }
+
+    private async void OnAddExtraDir(object sender, RoutedEventArgs e)
+    {
+        var path = await Main.PickFolder(T("选择游戏目录（.minecraft）"), Cfg.MinecraftDir);
+        if (path == null)
+            return;
+        path = Path.GetFullPath(path);
+        Cfg.ExtraDirs ??= [];
+        if (string.Equals(path, Path.GetFullPath(Cfg.MinecraftDir), StringComparison.OrdinalIgnoreCase)
+            || Cfg.ExtraDirs.Any(d => string.Equals(Path.GetFullPath(d.Path ?? ""), path, StringComparison.OrdinalIgnoreCase)))
+        {
+            Main.Toast(T("这个目录已经在列表里了"), "info");
+            return;
+        }
+        Cfg.ExtraDirs.Add(new GameDirEntry { Name = Path.GetFileName(path), Path = path });
+        Main.SaveSettings();
+        RefreshGameDirs();
+        Main.LaunchPage.RefreshGameDirs();
+    }
+
+    private void OnImportLaunchers(object sender, RoutedEventArgs e) => Main.ShowPage("tools");
 
     // ------------------------------------------------------------------ 游戏目录
 

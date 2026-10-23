@@ -57,6 +57,9 @@
               <RadioButton Classes="nav" GroupName="nav" Tag="multiplayer" Click="OnNavClick">
                 <c:IconLabel Icon="people" Text="{c:Tr 联机}" Spacing="14" HorizontalAlignment="Left" />
               </RadioButton>
+              <RadioButton Classes="nav" GroupName="nav" Tag="tools" Click="OnNavClick">
+                <c:IconLabel Icon="sparkle" Text="{c:Tr 工具}" Spacing="14" HorizontalAlignment="Left" />
+              </RadioButton>
               <RadioButton Classes="nav" GroupName="nav" Tag="settings" Click="OnNavClick">
                 <c:IconLabel Icon="settings" Text="{c:Tr 设置}" Spacing="14" HorizontalAlignment="Left" />
               </RadioButton>

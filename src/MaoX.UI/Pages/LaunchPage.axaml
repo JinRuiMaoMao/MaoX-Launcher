@@ -58,6 +58,8 @@
             <StackPanel Name="VersionPanel" Spacing="7" VerticalAlignment="Bottom">
               <TextBlock Text="{c:Tr 游戏版本}" Classes="label" />
               <StackPanel Orientation="Horizontal" Spacing="6">
+                <ComboBox Name="GameDirBox" Height="38" MinWidth="140" IsVisible="False"
+                          SelectionChanged="OnGameDirChanged" />
                 <ComboBox Name="VersionBox" Height="38" PlaceholderText="{c:Tr 未安装任何版本}"
                           SelectionChanged="OnVersionChanged" />
                 <Button Classes="icon" Width="38" Height="38" ToolTip.Tip="{c:Tr 版本设置}" Click="OnVersionSettings">
