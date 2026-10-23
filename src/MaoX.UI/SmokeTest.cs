@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -107,6 +108,36 @@ internal static class SmokeTest
                 ? "no java found (will be downloaded on launch)"
                 : string.Join(", ", javas.Select(j => $"Java {j.Major} @ {j.Path}"));
         }), required: false);
+
+        await Check("custom version name", () => Task.Run(() =>
+        {
+            var root = Path.Combine(Path.GetTempPath(), "maox-detect-loader");
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+            var gl = new GameLauncher(new LauncherConfig { MinecraftDir = root });
+            WriteVersion(gl, "1.20.1", new JsonObject { ["id"] = "1.20.1" });
+            WriteVersion(gl, "yweifyu", new JsonObject
+            {
+                ["id"] = "yweifyu",
+                ["inheritsFrom"] = "1.20.1",
+                ["libraries"] = new JsonArray(new JsonObject { ["name"] = "net.fabricmc:fabric-loader:0.16.9" }),
+            });
+            WriteVersion(gl, "merged", new JsonObject
+            {
+                ["id"] = "merged",
+                ["libraries"] = new JsonArray(
+                    new JsonObject { ["name"] = "net.fabricmc:fabric-loader:0.16.10" },
+                    new JsonObject { ["name"] = "net.fabricmc:intermediary:1.21.1" }),
+            });
+            var renamed = gl.DetectLoader("yweifyu");
+            var merged = gl.DetectLoader("merged");
+            Directory.Delete(root, true);
+            if (renamed.Loader != "fabric" || renamed.Game != "1.20.1")
+                throw new Exception($"renamed version: loader={renamed.Loader} game={renamed.Game}");
+            if (merged.Loader != "fabric" || merged.Game != "1.21.1")
+                throw new Exception($"merged version: loader={merged.Loader} game={merged.Game}");
+            return "yweifyu → Fabric 1.20.1; merged → Fabric 1.21.1";
+        }));
 
         foreach (var page in new[] { "launch", "download", "resources", "multiplayer", "settings" })
         {
@@ -498,6 +529,12 @@ internal static class SmokeTest
         using var stream = new MemoryStream();
         bitmap.Save(stream);
         return stream.ToArray();
+    }
+
+    private static void WriteVersion(GameLauncher gl, string id, JsonObject data)
+    {
+        Directory.CreateDirectory(gl.VersionDir(id));
+        Json.WriteFile(gl.VersionJsonPath(id), data);
     }
 
     private static void ScreenshotControl(Control control, string path)

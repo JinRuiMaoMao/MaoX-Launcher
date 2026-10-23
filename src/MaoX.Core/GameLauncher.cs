@@ -80,6 +80,17 @@ public static partial class Mc
     [GeneratedRegex(@"\$\{(\w+)\}")]
     public static partial Regex Placeholder();
 
+    /// <summary>1.20.1、26.3、24w14a、1.21-rc1、26.3-pre-1 这类 Minecraft 版本号，不含 1.20.1-fabric 这种自定义名。</summary>
+    [GeneratedRegex(@"^(?:\d+\.\d+(?:\.\d+)?(?:-(?:pre|rc)[-.]?\d+)?|\d{2}w\d{2}[a-z]|\d+\.\d+(?:\.\d+)?-snapshot-\d+)$",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    public static partial Regex MinecraftVersionId();
+
+    [GeneratedRegex(@"--fml\.mcVersion\s+(\S+)")]
+    private static partial Regex FmlMcVersion();
+
+    public static bool LooksLikeMinecraftVersion(string value) =>
+        !string.IsNullOrEmpty(value) && MinecraftVersionId().IsMatch(value);
+
     public static bool RuleMatches(JsonNode rule, IReadOnlyDictionary<string, bool> features)
     {
         var os = rule.Obj("os");
@@ -174,6 +185,47 @@ public static partial class Mc
         if ((data.Str("minecraftArguments") ?? "").Contains("FMLTweaker"))
             return ("forge", null);
         return (null, null);
+    }
+
+    /// <summary>
+    /// 从版本 JSON 里读出真正的 Minecraft 版本号。自定义名称（改名、整合包文件夹名）不能拿去搜模组。
+    /// </summary>
+    public static string MinecraftVersionFromJson(JsonNode data)
+    {
+        if (data == null)
+            return null;
+        var args = data.Get("arguments").Items("game").Where(a => a.IsString()).Select(a => a.AsStr()).ToList();
+        var flag = args.IndexOf("--fml.mcVersion");
+        if (flag >= 0 && flag + 1 < args.Count && LooksLikeMinecraftVersion(args[flag + 1]))
+            return args[flag + 1];
+        var legacy = FmlMcVersion().Match(data.Str("minecraftArguments") ?? "");
+        if (legacy.Success && LooksLikeMinecraftVersion(legacy.Groups[1].Value))
+            return legacy.Groups[1].Value;
+
+        foreach (var lib in data.Items("libraries"))
+        {
+            var parts = (lib.Str("name") ?? "").Split(':');
+            if (parts.Length < 3)
+                continue;
+            var version = parts[2];
+            var candidate = (parts[0] + ":" + parts[1]) switch
+            {
+                "net.fabricmc:intermediary" or "net.fabricmc:yarn" or "org.quiltmc:hashed"
+                    or "org.quiltmc:intermediary" or "net.minecraft:client" => version.Split('+')[0],
+                "net.minecraftforge:forge" or "net.minecraftforge:minecraftforge" => version.Split('-')[0],
+                "optifine:OptiFine" => version.Split('_')[0],
+                _ => null,
+            };
+            if (LooksLikeMinecraftVersion(candidate))
+                return candidate;
+        }
+        foreach (var key in new[] { "jar", "inheritsFrom", "id" })
+        {
+            var value = data.Str(key);
+            if (LooksLikeMinecraftVersion(value))
+                return value;
+        }
+        return null;
     }
 
     public static JsonObject MergeVersion(JsonObject parent, JsonObject child)
@@ -422,8 +474,7 @@ public class GameLauncher
     /// <summary>返回 (加载器, 加载器版本, Minecraft 版本)，原版的加载器为 null。</summary>
     public LoaderInfo DetectLoader(string versionId)
     {
-        string loader = null, loaderVersion = null;
-        var game = versionId;
+        string loader = null, loaderVersion = null, game = null;
         var current = versionId;
         var guard = 0;
         while (!string.IsNullOrEmpty(current) && guard++ < 10)
@@ -433,9 +484,18 @@ public class GameLauncher
                 break;
             if (loader == null)
                 (loader, loaderVersion) = Mc.LoaderFromJson(data);
-            game = current;
+            game ??= Mc.MinecraftVersionFromJson(data);
+            if (game == null && Mc.LooksLikeMinecraftVersion(current))
+                game = current;
+            if (game == null)
+            {
+                var saved = VersionSettings(current).Str("game");
+                if (Mc.LooksLikeMinecraftVersion(saved))
+                    game = saved;
+            }
             current = data.Str("inheritsFrom");
         }
+        game ??= versionId;
         if (loader == "forge" && versionId.Contains("neoforge", StringComparison.OrdinalIgnoreCase))
             loader = "neoforge";
         if (loaderVersion != null && loaderVersion.EndsWith("-" + game))

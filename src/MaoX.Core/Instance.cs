@@ -81,8 +81,20 @@ public static partial class Instance
     {
         @new = CheckName(gl, @new);
         var children = Dependents(gl, old);
+        var game = gl.DetectLoader(old).Game;
+        if (!Mc.LooksLikeMinecraftVersion(game))
+            game = Mc.LooksLikeMinecraftVersion(old) ? old : null;
         Directory.Move(gl.PathOf("versions", old), gl.PathOf("versions", @new));
         Retarget(gl.PathOf("versions", @new), old, @new);
+        if (Mc.LooksLikeMinecraftVersion(game))
+        {
+            var settings = gl.VersionSettings(@new);
+            if (!Mc.LooksLikeMinecraftVersion(settings.Str("game")))
+            {
+                settings["game"] = game;
+                gl.SaveVersionSettings(@new, settings);
+            }
+        }
         foreach (var child in children)
         {
             var path = gl.VersionJsonPath(child);
