@@ -83,6 +83,8 @@ public class ModFileVersion
     public long? Size { get; set; }
     /// <summary>必需前置的项目 id。</summary>
     public List<string> Dependencies { get; set; } = [];
+    /// <summary>只有 version_id、没有 project_id 的必需前置（Modrinth）。</summary>
+    public List<string> DependencyVersions { get; set; } = [];
     /// <summary>更新日志（只有 Modrinth 提供，可能为空）。</summary>
     public string Changelog { get; set; }
 }
@@ -286,19 +288,20 @@ public static partial class Mods
         return dest;
     }
 
-    /// <summary>下载指定版本到 dir；replace 不为空时替换这些旧文件（保留第一个文件的禁用状态）。</summary>
-    internal static async Task DownloadVersionAsync(Downloader dl, ModFileVersion version, string dir,
-                                                    IReadOnlyList<LocalFile> replace)
+    /// <summary>下载指定版本到 dir；replace 不为空时替换这些旧文件（保留第一个文件的禁用状态）。返回实际写入的路径。</summary>
+    internal static async Task<string> DownloadVersionAsync(Downloader dl, ModFileVersion version, string dir,
+                                                            IReadOnlyList<LocalFile> replace)
     {
         if (string.IsNullOrEmpty(version.Url) || string.IsNullOrEmpty(version.Filename))
             throw new InvalidOperationException(T("这个版本没有可下载的文件"));
         if (replace is not { Count: > 0 })
         {
             Directory.CreateDirectory(dir);
-            await dl.DownloadManyAsync([new DownloadTask(version.Url, Path.Combine(dir, version.Filename), version.Sha1, version.Size)]);
-            return;
+            var dest = Path.Combine(dir, version.Filename);
+            await dl.DownloadManyAsync([new DownloadTask(version.Url, dest, version.Sha1, version.Size)]);
+            return dest;
         }
-        var dest = await ApplyUpdateAsync(dl, new ModUpdate
+        var path = await ApplyUpdateAsync(dl, new ModUpdate
         {
             Mod = replace[0], Filename = version.Filename, Url = version.Url, Sha1 = version.Sha1, Size = version.Size,
             Version = version.Name,
@@ -307,8 +310,90 @@ public static partial class Mods
         foreach (var old in replace.Skip(1))
         {
             if (!old.IsDir && File.Exists(old.Path)
-                && !string.Equals(Path.GetFullPath(old.Path), Path.GetFullPath(dest), comparison))
+                && !string.Equals(Path.GetFullPath(old.Path), Path.GetFullPath(path), comparison))
                 File.Delete(old.Path);
+        }
+        return path;
+    }
+
+    /// <summary>加载器 / Java / 游戏本身，不是要下载的模组。</summary>
+    public static bool IsPlatformDependency(string id) =>
+        !string.IsNullOrEmpty(id) && id.ToLowerInvariant() is "minecraft" or "java" or "fabricloader" or "fabric-loader"
+            or "quilt_loader" or "quilt-loader" or "forge" or "neoforge" or "minecraftforge";
+
+    /// <summary>jar 里的 mod id 和平台上的 slug 不一致时对一下。</summary>
+    public static string CanonicalDependencyId(string id) => (id ?? "").ToLowerInvariant() switch
+    {
+        "fabric" => "fabric-api",
+        "cloth-config2" or "cloth_config" => "cloth-config",
+        "architectury" => "architectury-api",
+        var value => value,
+    };
+
+    /// <summary>下载模组并补齐缺少的必需前置（API 声明 + jar 里写的 depends）。</summary>
+    internal static async Task<List<string>> InstallWithDependenciesAsync(
+        Downloader dl, ModFileVersion version, string dir, ISet<string> installedProjects,
+        IReadOnlyList<LocalFile> replace, Action<string> log, string kind,
+        Func<string, Task<ModFileVersion>> resolve, IEnumerable<string> extraProjectIds = null)
+    {
+        log ??= _ => { };
+        var path = await DownloadVersionAsync(dl, version, dir, replace);
+        RememberInstalled(installedProjects, version.ProjectId);
+        var installed = new List<string> { version.Filename };
+        if (kind != "mod")
+            return installed;
+
+        var queue = new Queue<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Enqueue(IEnumerable<string> ids)
+        {
+            foreach (var raw in ids ?? [])
+            {
+                var id = CanonicalDependencyId(raw);
+                if (!IsPlatformDependency(id))
+                    queue.Enqueue(id);
+            }
+        }
+        Enqueue(version.Dependencies);
+        Enqueue(extraProjectIds);
+        Enqueue(ReadDependencies(path));
+        while (queue.Count > 0)
+        {
+            var pid = queue.Dequeue();
+            if (installedProjects.Contains(pid) || !seen.Add(pid))
+                continue;
+            ModFileVersion dep;
+            try
+            {
+                dep = await resolve(pid);
+            }
+            catch (Exception)
+            {
+                dep = null;
+            }
+            if (dep?.Url == null)
+            {
+                log(F("[警告] 前置模组 {0} 没有适用于当前版本的文件，已跳过", pid));
+                continue;
+            }
+            if (!string.IsNullOrEmpty(dep.ProjectId) && installedProjects.Contains(dep.ProjectId))
+                continue;
+            var depPath = await DownloadVersionAsync(dl, dep, dir, null);
+            RememberInstalled(installedProjects, dep.ProjectId, pid);
+            installed.Add(dep.Filename);
+            log(F("已安装前置模组 {0}", dep.Filename));
+            Enqueue(dep.Dependencies);
+            Enqueue(ReadDependencies(depPath));
+        }
+        return installed;
+    }
+
+    private static void RememberInstalled(ISet<string> installedProjects, params string[] ids)
+    {
+        foreach (var id in ids)
+        {
+            if (!string.IsNullOrEmpty(id))
+                installedProjects.Add(id);
         }
     }
 
@@ -362,39 +447,64 @@ public static partial class Mods
             {
                 var data = ParseLenient(Read("fabric.mod.json"));
                 foreach (var key in new[] { "depends", "dependsOverrides" })
-                {
-                    if (data.Obj(key) is not { } obj)
-                        continue;
-                    foreach (var (id, _) in obj)
-                        ids.Add(id);
-                }
+                    AddDepends(ids, data.Get(key));
             }
             else if (names.Contains("quilt.mod.json"))
             {
-                var data = ParseLenient(Read("quilt.mod.json")).Get("quilt_loader");
-                if (data.Obj("depends") is { } obj)
-                {
-                    foreach (var (id, _) in obj)
-                        ids.Add(id);
-                }
+                AddDepends(ids, ParseLenient(Read("quilt.mod.json")).Get("quilt_loader")?.Get("depends"));
             }
             else
             {
                 var toml = new[] { "META-INF/neoforge.mods.toml", "META-INF/mods.toml" }.FirstOrDefault(names.Contains);
                 if (toml != null)
-                {
-                    foreach (Match m in Regex.Matches(Read(toml), @"modId\s*=\s*[""']([^""']+)[""']"))
-                        ids.Add(m.Groups[1].Value);
-                }
+                    AddForgeDepends(ids, Read(toml));
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException
                                       or JsonException or InvalidOperationException or ArgumentException)
         {
         }
-        ids.RemoveWhere(id => id is "minecraft" or "java" or "fabricloader" or "fabric-loader"
-            or "quilt_loader" or "forge" or "neoforge" or "fabric" or "quilt");
-        return ids.ToList();
+        return ids.Select(CanonicalDependencyId).Where(id => !IsPlatformDependency(id)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static void AddDepends(HashSet<string> ids, JsonNode node)
+    {
+        if (node is JsonObject obj)
+        {
+            foreach (var (id, _) in obj)
+                ids.Add(id);
+            return;
+        }
+        foreach (var item in (node as JsonArray).Items())
+        {
+            if (item.IsString())
+                ids.Add(item.AsStr());
+            else if (!item.Bool("optional"))
+            {
+                var id = item.Str("id");
+                if (!string.IsNullOrEmpty(id))
+                    ids.Add(id);
+            }
+        }
+    }
+
+    private static void AddForgeDepends(HashSet<string> ids, string text)
+    {
+        foreach (var block in Regex.Split(text, @"\[\[dependencies"))
+        {
+            if (block.Length == 0 || block[0] != '.')
+                continue;
+            var id = TomlValue(block, "modId");
+            if (string.IsNullOrEmpty(id))
+                continue;
+            var mandatory = TomlValue(block, "mandatory");
+            var type = TomlValue(block, "type");
+            if (string.Equals(mandatory, "false", StringComparison.OrdinalIgnoreCase)
+                || type is "optional" or "discouraged" or "incompatible")
+                continue;
+            ids.Add(id);
+        }
     }
 
     /// <summary>从模组 jar 中读取名称与版本，支持 Fabric / Quilt / Forge / NeoForge / 旧版 mcmod.info。</summary>
@@ -736,6 +846,8 @@ public class ModrinthClient : IModClient
     public async Task<JsonNode> BestVersionAsync(string projectId, string gameVersion, IReadOnlyList<string> loaders)
     {
         var versions = await ProjectVersionsAsync(projectId, gameVersion, loaders);
+        if (versions.Count == 0 && loaders is { Count: > 0 })
+            versions = await ProjectVersionsAsync(projectId, gameVersion, []);
         if (versions.Count == 0)
             return null;
         return versions.FirstOrDefault(v => v.Str("version_type") == "release") ?? versions[0];
@@ -797,35 +909,26 @@ public class ModrinthClient : IModClient
                                                         IReadOnlyList<LocalFile> replace = null,
                                                         Action<string> log = null, string kind = "mod")
     {
-        log ??= _ => { };
-        await Mods.DownloadVersionAsync(_dl, version, dir, replace);
-        installedProjects.Add(version.ProjectId);
-        var installed = new List<string> { version.Filename };
-        if (kind != "mod")
-            return installed;
-        var loaders = Mods.ModrinthLoaders(loader);
-        var queue = new Queue<string>(version.Dependencies);
-        var seen = new HashSet<string>();
-        while (queue.Count > 0)
+        var extra = new List<string>();
+        foreach (var versionId in version.DependencyVersions ?? [])
         {
-            var pid = queue.Dequeue();
-            if (installedProjects.Contains(pid) || !seen.Add(pid))
-                continue;
-            var raw = await BestVersionAsync(pid, gameVersion, loaders);
-            var dep = raw != null ? ToVersion(raw) : null;
-            if (dep?.Url == null)
+            try
             {
-                log(F("[警告] 前置模组 {0} 没有适用于当前版本的文件，已跳过", pid));
-                continue;
+                var pid = (await _dl.FetchJsonAsync($"{Mods.ModrinthApi}/version/{Web.Quote(versionId)}")).Str("project_id");
+                if (!string.IsNullOrEmpty(pid))
+                    extra.Add(pid);
             }
-            await Mods.DownloadVersionAsync(_dl, dep, dir, null);
-            installedProjects.Add(dep.ProjectId);
-            installed.Add(dep.Filename);
-            log(F("已安装前置模组 {0}", dep.Filename));
-            foreach (var id in dep.Dependencies)
-                queue.Enqueue(id);
+            catch (Exception)
+            {
+                log?.Invoke(F("[警告] 前置模组 {0} 没有适用于当前版本的文件，已跳过", versionId));
+            }
         }
-        return installed;
+        var loaders = Mods.ModrinthLoaders(loader);
+        return await Mods.InstallWithDependenciesAsync(_dl, version, dir, installedProjects, replace, log, kind, async pid =>
+        {
+            var raw = await BestVersionAsync(pid, gameVersion, loaders);
+            return raw != null ? ToVersion(raw) : null;
+        }, extra);
     }
 
     public async Task<List<(string VersionId, LocalFile File)>> InstalledVersionsAsync(string projectId,
@@ -856,8 +959,13 @@ public class ModrinthClient : IModClient
             Sha1 = file.Get("hashes").Str("sha1"),
             Size = file.Get("size") != null ? file.Long("size") : null,
             Dependencies = v.Items("dependencies")
-                .Where(d => d.Str("dependency_type") == "required" && !string.IsNullOrEmpty(d.Str("project_id")))
+                .Where(d => d.Str("dependency_type") == "required" && !string.IsNullOrEmpty(d.Str("project_id"))
+                            && !Mods.IsPlatformDependency(d.Str("project_id")))
                 .Select(d => d.Str("project_id")).ToList(),
+            DependencyVersions = v.Items("dependencies")
+                .Where(d => d.Str("dependency_type") == "required" && string.IsNullOrEmpty(d.Str("project_id"))
+                            && !string.IsNullOrEmpty(d.Str("version_id")))
+                .Select(d => d.Str("version_id")).ToList(),
             Changelog = v.Str("changelog"),
         };
     }
@@ -983,10 +1091,38 @@ public partial class CurseForgeClient : IModClient
                 parameters["gameVersion"] = gameVersion;
             parameters["pageSize"] = "50";
             var files = await GetAsync($"/mods/{modId}/files", parameters);
-            return files.Items("data").Where(f => !f.Items("gameVersions")
+            var untagged = files.Items("data").Where(f => !f.Items("gameVersions")
                 .Any(v => Mods.CfLoaderTags.Contains((v.AsStr() ?? "").ToLowerInvariant()))).ToList();
+            if (untagged.Count > 0)
+                return untagged;
+        }
+        if (kind == "mod")
+        {
+            var parameters = new Dictionary<string, string> { ["pageSize"] = "50" };
+            if (!string.IsNullOrEmpty(gameVersion))
+                parameters["gameVersion"] = gameVersion;
+            var files = (await GetAsync($"/mods/{modId}/files", parameters)).Items("data")
+                .Where(f => f.Bool("isAvailable", true)).ToList();
+            if (files.Count > 0)
+                return files;
         }
         return [];
+    }
+
+    private async Task<string> ResolveModIdAsync(string idOrSlug)
+    {
+        if (string.IsNullOrEmpty(idOrSlug))
+            return null;
+        if (idOrSlug.All(char.IsDigit))
+            return idOrSlug;
+        var data = await GetAsync("/mods/search", new Dictionary<string, string>
+        {
+            ["gameId"] = Mods.CfGameId.ToString(),
+            ["classId"] = Mods.CfClasses["mod"].ToString(),
+            ["slug"] = idOrSlug,
+            ["pageSize"] = "1",
+        });
+        return data.Items("data").FirstOrDefault()?.Get("id")?.AsStr();
     }
 
     /// <summary>最合适的文件（CurseForge 原始数据）：优先最新的正式版；没有可用文件时返回 null。</summary>
@@ -1177,34 +1313,18 @@ public partial class CurseForgeClient : IModClient
                                                         IReadOnlyList<LocalFile> replace = null,
                                                         Action<string> log = null, string kind = "mod")
     {
-        log ??= _ => { };
-        await Mods.DownloadVersionAsync(_dl, version, dir, replace);
-        installedProjects.Add(version.ProjectId);
-        var installed = new List<string> { version.Filename };
-        if (kind != "mod")
-            return installed;
-        var queue = new Queue<string>(version.Dependencies);
-        var seen = new HashSet<string>();
-        while (queue.Count > 0)
+        return await Mods.InstallWithDependenciesAsync(_dl, version, dir, installedProjects, replace, log, kind, async pid =>
         {
-            var pid = queue.Dequeue();
-            if (installedProjects.Contains(pid) || !seen.Add(pid))
-                continue;
-            var file = await BestFileAsync(pid, gameVersion, loader);
+            var id = await ResolveModIdAsync(pid);
+            if (id == null)
+                return null;
+            var file = await BestFileAsync(id, gameVersion, loader);
             if (file == null)
-            {
-                log(F("[警告] 前置模组 {0} 没有适用于当前版本的文件，已跳过", pid));
-                continue;
-            }
+                return null;
             var dep = ToVersion(file);
-            await Mods.DownloadVersionAsync(_dl, dep, dir, null);
-            installedProjects.Add(pid);
-            installed.Add(dep.Filename);
-            log(F("已安装前置模组 {0}", dep.Filename));
-            foreach (var id in dep.Dependencies)
-                queue.Enqueue(id);
-        }
-        return installed;
+            dep.ProjectId ??= id;
+            return dep;
+        });
     }
 
     public async Task<List<(string VersionId, LocalFile File)>> InstalledVersionsAsync(string projectId,
@@ -1248,7 +1368,8 @@ public partial class CurseForgeClient : IModClient
             Size = file.Get("fileLength") != null ? file.Long("fileLength") : null,
             Dependencies = file.Items("dependencies")
                 .Where(d => d.Int("relationType") == Mods.CfRequiredDependency && d.Get("modId") != null)
-                .Select(d => d.Get("modId").AsStr()).ToList(),
+                .Select(d => d.Get("modId").AsStr())
+                .Where(id => !Mods.IsPlatformDependency(id)).ToList(),
         };
     }
 }

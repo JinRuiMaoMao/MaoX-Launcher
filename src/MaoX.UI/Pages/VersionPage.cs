@@ -582,9 +582,10 @@ public class VersionSettingsPage : UserControl, IPage
         button.Content = new IconLabel { Text = T("安装中…") };
         try
         {
-            await Task.Run(() => client.InstallAsync(slug, info.Game, info.Loader, modsDir, new HashSet<string>(), Main.Log));
+            var files = await Task.Run(() => client.InstallAsync(slug, info.Game, info.Loader, modsDir, new HashSet<string>(), Main.Log));
             button.Content = new IconLabel { Icon = "check", Text = T("已安装") };
-            Main.Toast(F("已安装 {0}", title));
+            var extra = files.Count - 1;
+            Main.Toast(F("已安装 {0}", title) + (extra > 0 ? F("（含 {0} 个前置）", extra) : ""));
         }
         catch (Exception e)
         {

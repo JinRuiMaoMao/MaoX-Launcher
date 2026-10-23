@@ -311,6 +311,20 @@ internal static class SmokeTest
                 if (!files.Contains(versions[0].Filename) || files.Contains(versions[1].Filename))
                     throw new Exception("switch failed, files: " + string.Join(", ", files));
 
+                var depsDir = Path.Combine(Path.GetTempPath(), $"maox-smoke-deps-{Guid.NewGuid():N}");
+                List<string> deps;
+                try
+                {
+                    deps = await modrinth.InstallAsync("PtjYWJkn", "1.21.1", "fabric", depsDir, new HashSet<string>());
+                    if (deps.Count < 2)
+                        throw new Exception("mod dependencies not installed: " + string.Join(", ", deps));
+                }
+                finally
+                {
+                    if (Directory.Exists(depsDir))
+                        Directory.Delete(depsDir, true);
+                }
+
                 var curseforge = new CurseForgeClient(dl);
                 const string jei = "238222";
                 var filtered = (await curseforge.VersionsAsync(jei, "1.20.1", "forge")).Versions;
@@ -330,7 +344,7 @@ internal static class SmokeTest
                 dialog.Close();
                 await Task.Delay(300);
                 return $"modrinth {versions.Count} versions, switched {versions[1].Name} -> {versions[0].Name}; "
-                       + $"curseforge {filtered.Count} files for forge 1.20.1, paging {first.Versions.Count}+{second.Versions.Count}";
+                       + $"deps {deps.Count}; curseforge {filtered.Count} files for forge 1.20.1, paging {first.Versions.Count}+{second.Versions.Count}";
             }
             finally
             {
