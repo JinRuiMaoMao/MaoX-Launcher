@@ -39,6 +39,7 @@ public partial class LaunchPage : UserControl, IPage
     private int _detectId;
     private bool _detected;
     private bool _otherLaunching;
+    private DateTime _gamePillUntil;
 
     private static MainView Main => MainView.Current;
 
@@ -55,6 +56,12 @@ public partial class LaunchPage : UserControl, IPage
         Main.SelectedVersionChanged += UpdateHero;
         Main.BusyChanged += _ => UpdateLaunchButton();
         UpdateAccount();
+        PageTabs.PreparePill(GameTabPill);
+        GameTabs.LayoutUpdated += (_, _) =>
+        {
+            if (DateTime.UtcNow >= _gamePillUntil)
+                SyncGameTabPill(false);
+        };
         BuildGameTabs();
     }
 
@@ -104,12 +111,22 @@ public partial class LaunchPage : UserControl, IPage
                 games.Add((kept.Id, kept.ShortName, kept.Icon));
         }
 
+        var ids = games.Select(g => g.Id).ToList();
+        var current = GameTabs.Children.OfType<ToggleButton>().Select(b => (string)b.Tag).ToList();
+        if (ids.Count > 0 && ids.SequenceEqual(current))
+        {
+            foreach (var existing in GameTabs.Children.OfType<ToggleButton>())
+                existing.IsChecked = (string)existing.Tag == _game;
+            GameTabsScroll.IsVisible = games.Count > 1;
+            return;
+        }
+
         GameTabs.Children.Clear();
         foreach (var (id, name, icon) in games)
         {
             var tab = new ToggleButton
             {
-                Classes = { "chip" },
+                Classes = { "chip", "tab" },
                 Tag = id,
                 IsChecked = id == _game,
                 Content = new IconLabel { Icon = icon, Text = name, IconSize = 15, Spacing = 7 },
@@ -118,13 +135,20 @@ public partial class LaunchPage : UserControl, IPage
             GameTabs.Children.Add(tab);
         }
         GameTabsScroll.IsVisible = games.Count > 1;
+        SyncGameTabPill(false);
     }
 
     public void SelectGame(string id, bool remember = true)
     {
+        var changed = id != _game;
         _game = id;
         foreach (var tab in GameTabs.Children.OfType<ToggleButton>())
             tab.IsChecked = (string)tab.Tag == id;
+        if (changed)
+        {
+            _gamePillUntil = DateTime.UtcNow + PageTabs.Duration;
+            SyncGameTabPill(true);
+        }
         if (remember)
         {
             Main.Cfg.SelectedGame = id;
@@ -132,6 +156,12 @@ public partial class LaunchPage : UserControl, IPage
         }
         UpdateHero();
         DetectGames();
+    }
+
+    private void SyncGameTabPill(bool animate)
+    {
+        var tab = GameTabs.Children.OfType<ToggleButton>().FirstOrDefault(b => (string)b.Tag == _game);
+        PageTabs.MovePill(GameTabPill, tab, animate);
     }
 
     private void UpdateOtherHero(MojangGame game)

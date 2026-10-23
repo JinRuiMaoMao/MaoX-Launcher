@@ -38,6 +38,12 @@ public partial class MultiplayerPage : UserControl, IPage
     public MultiplayerPage()
     {
         InitializeComponent();
+        PageTabs.PreparePill(TabPill);
+        LayoutUpdated += (_, _) =>
+        {
+            if (DateTime.UtcNow >= _pillUntil)
+                PageTabs.MovePill(TabPill, _tab == "room" ? RoomTab : ServerTab, false);
+        };
         _tc = new Terracotta(null, Main.MakeLauncher().Dl, Main.Log);
         _poll = new DispatcherTimer();
         _poll.Tick += (_, _) =>

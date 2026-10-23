@@ -39,23 +39,29 @@
                       Margin="0,0,0,14" Opacity="0.08" IsHitTestVisible="False" Foreground="{StaticResource Text}" />
 
           <ScrollViewer Name="NavScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Name="Nav" Spacing="4">
-            <RadioButton Classes="nav" GroupName="nav" Tag="launch" Click="OnNavClick">
-              <c:IconLabel Icon="play" Text="{c:Tr 启动}" Spacing="14" HorizontalAlignment="Left" />
-            </RadioButton>
-            <RadioButton Classes="nav" GroupName="nav" Tag="download" Click="OnNavClick">
-              <c:IconLabel Icon="download" Text="{c:Tr 下载}" Spacing="14" HorizontalAlignment="Left" />
-            </RadioButton>
-            <RadioButton Classes="nav" GroupName="nav" Tag="resources" Click="OnNavClick">
-              <c:IconLabel Icon="box" Text="{c:Tr 资源}" Spacing="14" HorizontalAlignment="Left" />
-            </RadioButton>
-            <RadioButton Classes="nav" GroupName="nav" Tag="multiplayer" Click="OnNavClick">
-              <c:IconLabel Icon="people" Text="{c:Tr 联机}" Spacing="14" HorizontalAlignment="Left" />
-            </RadioButton>
-            <RadioButton Classes="nav" GroupName="nav" Tag="settings" Click="OnNavClick">
-              <c:IconLabel Icon="settings" Text="{c:Tr 设置}" Spacing="14" HorizontalAlignment="Left" />
-            </RadioButton>
-          </StackPanel>
+          <Panel>
+            <Border Name="NavPill" Classes="navpill" Opacity="0">
+              <Border Width="3" Height="18" CornerRadius="2" Background="{StaticResource Accent}"
+                      HorizontalAlignment="Left" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Name="Nav" Spacing="4">
+              <RadioButton Classes="nav" GroupName="nav" Tag="launch" Click="OnNavClick">
+                <c:IconLabel Icon="play" Text="{c:Tr 启动}" Spacing="14" HorizontalAlignment="Left" />
+              </RadioButton>
+              <RadioButton Classes="nav" GroupName="nav" Tag="download" Click="OnNavClick">
+                <c:IconLabel Icon="download" Text="{c:Tr 下载}" Spacing="14" HorizontalAlignment="Left" />
+              </RadioButton>
+              <RadioButton Classes="nav" GroupName="nav" Tag="resources" Click="OnNavClick">
+                <c:IconLabel Icon="box" Text="{c:Tr 资源}" Spacing="14" HorizontalAlignment="Left" />
+              </RadioButton>
+              <RadioButton Classes="nav" GroupName="nav" Tag="multiplayer" Click="OnNavClick">
+                <c:IconLabel Icon="people" Text="{c:Tr 联机}" Spacing="14" HorizontalAlignment="Left" />
+              </RadioButton>
+              <RadioButton Classes="nav" GroupName="nav" Tag="settings" Click="OnNavClick">
+                <c:IconLabel Icon="settings" Text="{c:Tr 设置}" Spacing="14" HorizontalAlignment="Left" />
+              </RadioButton>
+            </StackPanel>
+          </Panel>
           </ScrollViewer>
         </DockPanel>
       </Border>
@@ -64,13 +70,9 @@
       <Grid Grid.Column="1" RowDefinitions="*,Auto">
         <!-- 屏幕太矮（手机横屏）时页面按最小高度排版，可以上下滑动 -->
         <ScrollViewer Name="PageScroll" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled">
-        <TransitioningContentControl Name="PageHost" Margin="36,46,36,8">
+        <TransitioningContentControl Name="PageHost" Margin="36,46,36,8" ClipToBounds="False">
           <TransitioningContentControl.PageTransition>
-            <CompositePageTransition>
-              <CrossFade Duration="0:0:0.18" />
-              <PageSlide Duration="0:0:0.22" Orientation="Vertical" SlideInEasing="CubicEaseOut"
-                         SlideOutEasing="CubicEaseIn" />
-            </CompositePageTransition>
+            <c:SlideFadeTransition Duration="0:0:0.22" Offset="28" />
           </TransitioningContentControl.PageTransition>
         </TransitioningContentControl>
         </ScrollViewer>

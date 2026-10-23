@@ -40,6 +40,9 @@ public partial class ResourcesPage : UserControl, IPage
     private readonly SemaphoreSlim _iconSlots = new(6);
     private readonly Dictionary<string, ToggleButton> _kindChips = [];
     private bool _updatingBoxes;
+    private bool _tabReady;
+    private string _shownContent;
+    private DateTime _pillUntil;
 
     private static MainView Main => MainView.Current;
 
@@ -75,6 +78,12 @@ public partial class ResourcesPage : UserControl, IPage
             }
         };
         Main.VersionsChanged += () => _ctx = null;
+        PageTabs.PreparePill(TabPill);
+        LayoutUpdated += (_, _) =>
+        {
+            if (DateTime.UtcNow >= _pillUntil)
+                PageTabs.MovePill(TabPill, TabButton(), false);
+        };
         UpdateTabs();
     }
 
@@ -292,23 +301,42 @@ public partial class ResourcesPage : UserControl, IPage
         LocalTab.IsChecked = _tab == "local";
     }
 
+    private static readonly string[] TabKeys = ["modrinth", "curseforge", "local"];
+
+    private ToggleButton TabButton() => _tab switch
+    {
+        "curseforge" => CurseForgeTab,
+        "local" => LocalTab,
+        _ => ModrinthTab,
+    };
+
     private void ShowTab()
     {
         UpdateTabs();
-        if (!Available())
-        {
-            EmptyView.IsVisible = true;
-            BrowseView.IsVisible = LocalView.IsVisible = false;
-            BrowseTools.IsVisible = LocalTools.IsVisible = false;
-            return;
-        }
-        EmptyView.IsVisible = false;
-        var browse = _tab != "local";
-        BrowseView.IsVisible = BrowseTools.IsVisible = browse;
-        LocalView.IsVisible = LocalTools.IsVisible = !browse;
+        var content = !Available() ? "empty" : _tab == "local" ? "local" : "browse";
+        var browse = content == "browse";
+        BrowseTools.IsVisible = browse;
+        LocalTools.IsVisible = content == "local";
         CheckUpdateButton.IsVisible = CanUpdate;
         if (!CanUpdate)
             UpdateAllButton.IsVisible = false;
+
+        Control show = content switch
+        {
+            "empty" => EmptyView,
+            "local" => LocalView,
+            _ => BrowseView,
+        };
+        Control[] views = [EmptyView, BrowseView, LocalView];
+        if (_tabReady && _shownContent != content)
+            PageTabs.Swap(show, views, PageTabs.Direction(TabKeys, _shownContent ?? _tab, _tab));
+        else
+            PageTabs.ShowNow(show, views);
+        _shownContent = content;
+        _pillUntil = DateTime.UtcNow + PageTabs.Duration;
+        PageTabs.MovePill(TabPill, TabButton(), _tabReady);
+        _tabReady = true;
+
         if (browse && _tab != _source)
         {
             _source = _tab;

@@ -22,6 +22,8 @@ public partial class MultiplayerPage
     private readonly Dictionary<string, ServerState> _serverStates = new(StringComparer.OrdinalIgnoreCase);
     private bool _pinged;
     private string _tab = "room";
+    private bool _tabReady;
+    private DateTime _pillUntil;
 
     private static List<ServerEntry> Servers => Main.Cfg.Servers;
 
@@ -29,18 +31,27 @@ public partial class MultiplayerPage
 
     private void SetTab(string tab)
     {
+        var changed = _tabReady && _tab != tab;
         _tab = tab;
         var room = tab == "room";
         RoomTab.IsChecked = room;
         ServerTab.IsChecked = !room;
-        RoomView.IsVisible = Credit.IsVisible = room;
+        Credit.IsVisible = room;
         ServerTools.IsVisible = !room;
         Subtitle.Text = room
             ? T("基于陶瓦联机，无需公网 IP 就能和好友一起玩，邀请码与 HMCL、PCL 社区版互通")
             : T("收藏常玩的服务器，查看在线人数和延迟，一键启动游戏并进入");
+        Control show = room ? RoomView : Servers.Count == 0 ? (Control)ServerEmpty : ServerView;
+        Control[] views = [RoomView, ServerView, ServerEmpty];
+        if (changed)
+            PageTabs.Swap(show, views, room ? -1 : 1);
+        else
+            PageTabs.ShowNow(show, views);
+        _pillUntil = DateTime.UtcNow + PageTabs.Duration;
+        PageTabs.MovePill(TabPill, room ? RoomTab : ServerTab, changed);
+        _tabReady = true;
         if (room)
         {
-            ServerView.IsVisible = ServerEmpty.IsVisible = false;
             if (_phase == "init")
                 Bootstrap();
             Render();

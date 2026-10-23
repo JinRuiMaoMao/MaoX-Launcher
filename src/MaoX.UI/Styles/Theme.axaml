@@ -438,6 +438,38 @@
     <Setter Property="Foreground" Value="{StaticResource Accent}" />
   </Style>
 
+  <!-- 滑动指示条底下的标签：自身透明，选中色由后面的 pill 承担 -->
+  <Style Selector="ToggleButton.tab /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+  </Style>
+  <Style Selector="ToggleButton.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+  </Style>
+  <Style Selector="ToggleButton.tab:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ToggleButton.tab:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+  <Style Selector="Border.tabpill">
+    <Setter Property="Background" Value="{StaticResource AccentDim}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="17" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+  </Style>
+  <Style Selector="Border.navpill">
+    <Setter Property="Background" Value="{StaticResource Hover}" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+  </Style>
+
   <!-- 侧边栏导航 -->
   <Style Selector="RadioButton.nav">
     <Setter Property="Cursor" Value="Hand" />
@@ -480,7 +512,7 @@
     <Setter Property="Background" Value="{StaticResource Hover}" />
   </Style>
   <Style Selector="RadioButton.nav:checked /template/ Border#bar">
-    <Setter Property="Opacity" Value="1" />
+    <Setter Property="Opacity" Value="0" />
   </Style>
   <Style Selector="RadioButton.nav:checked">
     <Setter Property="Foreground" Value="{StaticResource Text}" />
@@ -696,6 +728,16 @@
     <Setter Property="Background" Value="{StaticResource GlassLog}" />
   </Style>
   <Style Selector=".hasbg ToggleButton.chip">
+    <Setter Property="Background" Value="{StaticResource GlassCard}" />
+  </Style>
+  <Style Selector=".hasbg ToggleButton.tab /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector=".hasbg Border.tabpill">
+    <Setter Property="Background" Value="{StaticResource GlassCard}" />
+    <Setter Property="BorderBrush" Value="{StaticResource GlassCardBorder}" />
+  </Style>
+  <Style Selector=".hasbg Border.navpill">
     <Setter Property="Background" Value="{StaticResource GlassCard}" />
   </Style>
 </Styles>

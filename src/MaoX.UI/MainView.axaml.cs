@@ -58,8 +58,11 @@ public partial class MainView : UserControl
     public MultiplayerPage MultiplayerPage { get; }
     public SettingsPage SettingsPage { get; }
 
+    private static readonly string[] PageOrder = ["launch", "download", "resources", "multiplayer", "settings"];
+
     private readonly Dictionary<string, Control> _pages;
     private string _currentPage;
+    private DateTime _navPillUntil;
     private readonly Dictionary<string, Bitmap> _skins = [];
     private readonly HashSet<string> _skinLoading = [];
     private readonly List<(DialogView View, Panel Layer)> _dialogs = [];
@@ -121,6 +124,12 @@ public partial class MainView : UserControl
         UpdateAccountCard();
         RefreshInstalled();
         ApplyBackground();
+        PageTabs.PreparePill(NavPill);
+        Nav.LayoutUpdated += (_, _) =>
+        {
+            if (DateTime.UtcNow >= _navPillUntil)
+                SyncNavPill(false);
+        };
         ShowPage("launch");
         AttachedToVisualTree += (_, _) =>
         {
@@ -383,6 +392,7 @@ public partial class MainView : UserControl
         PageHost.Margin = new Thickness(side, compact ? 10 : Platform.IsMobile ? 24 : 46, side, compact ? 4 : 8);
         StatusBar.Margin = new Thickness(side, compact ? 2 : 4, side - 6, compact ? 4 : 8);
         UpdatePageScroll();
+        Dispatcher.UIThread.Post(() => SyncNavPill(false), DispatcherPriority.Render);
     }
 
     /// <summary>列表类页面放不下时的最小高度（设置页和启动页自己能滚动/能放下，不需要）。</summary>
@@ -410,6 +420,9 @@ public partial class MainView : UserControl
             return;
         if (_currentPage == "settings")
             SaveSettings();
+        var from = Array.IndexOf(PageOrder, _currentPage);
+        var to = Array.IndexOf(PageOrder, key);
+        PageHost.IsTransitionReversed = from >= 0 && to < from;
         _currentPage = key;
         foreach (var child in Nav.Children.OfType<RadioButton>())
             child.IsChecked = (string)child.Tag == key;
@@ -417,7 +430,15 @@ public partial class MainView : UserControl
         PageHost.Content = page;
         PageScroll.Offset = default;
         UpdatePageScroll();
+        _navPillUntil = DateTime.UtcNow + PageTabs.Duration;
+        SyncNavPill(from >= 0);
         (page as IPage)?.OnShow();
+    }
+
+    private void SyncNavPill(bool animate)
+    {
+        var tab = Nav.Children.OfType<RadioButton>().FirstOrDefault(b => (string)b.Tag == _currentPage);
+        PageTabs.MovePill(NavPill, tab, animate);
     }
 
     private void OnNavClick(object sender, RoutedEventArgs e)
