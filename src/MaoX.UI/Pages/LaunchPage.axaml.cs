@@ -58,6 +58,7 @@ public partial class LaunchPage : UserControl, IPage
         Main.BusyChanged += _ => UpdateLaunchButton();
         UpdateAccount();
         RefreshGameDirs();
+        ApplyLiveLog();
         PageTabs.PreparePill(GameTabPill);
         GameTabs.LayoutUpdated += (_, _) =>
         {
@@ -246,9 +247,23 @@ public partial class LaunchPage : UserControl, IPage
 
     // ------------------------------------------------------------------ 日志
 
+    public void ApplyLiveLog()
+    {
+        var on = Main.Cfg.LiveLog;
+        LogCard.IsVisible = on;
+        if (on)
+            return;
+        _lines.Clear();
+        while (_pending.TryDequeue(out _))
+        {
+        }
+    }
+
     /// <summary>追加一行日志（任意线程）。kind 为 null 时按内容自动判断颜色。</summary>
     public void AppendLog(string text, string kind)
     {
+        if (!Main.Cfg.LiveLog)
+            return;
         if (kind == null)
         {
             var upper = text.ToUpperInvariant();

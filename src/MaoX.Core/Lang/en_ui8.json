@@ -53,5 +53,7 @@
   "需要重启": "Restart required",
   "重启启动器后才会切换到新的语言。": "The new language takes effect after restarting the launcher.",
   "立即重启": "Restart now",
-  "稍后": "Later"
+  "稍后": "Later",
+  "实时日志": "Live log",
+  "在启动页滚动显示游戏输出。默认关闭，避免刷屏。": "Scroll game output on the launch page. Off by default to avoid flooding the UI."
 }

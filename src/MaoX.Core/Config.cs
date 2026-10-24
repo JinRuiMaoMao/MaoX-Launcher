@@ -150,6 +150,8 @@ public class LauncherConfig
     public string WindowTitle { get; set; } = "";
     /// <summary>启动游戏前自动备份上次备份之后玩过的存档。默认关闭，避免每次启动都打包存档。</summary>
     public bool AutoBackupWorlds { get; set; }
+    /// <summary>启动页实时显示游戏输出。默认关闭，避免刷屏。</summary>
+    public bool LiveLog { get; set; }
     /// <summary>每个存档保留的自动备份份数</summary>
     public int BackupKeep { get; set; } = 3;
     public string JvmArgs { get; set; } = "";

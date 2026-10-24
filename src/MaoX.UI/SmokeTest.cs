@@ -586,6 +586,10 @@ internal static class SmokeTest
             throw new Exception("en settings: " + I18n.Lookup("en_us", "设置"));
         if (I18n.Lookup("zh_tw", "设置") != "設定")
             throw new Exception("zh_tw settings: " + I18n.Lookup("zh_tw", "设置"));
+        if (I18n.Lookup("en_us", "实时日志") != "Live log")
+            throw new Exception("en live log: " + I18n.Lookup("en_us", "实时日志"));
+        if (I18n.Lookup("zh_tw", "实时日志") != "即時日誌")
+            throw new Exception("zh_tw live log: " + I18n.Lookup("zh_tw", "实时日志"));
         var ja = I18n.Lookup("ja_jp", "启动游戏");
         if (string.IsNullOrEmpty(ja) || ja == "启动游戏")
             throw new Exception("ja launch: " + ja);
@@ -652,6 +656,8 @@ internal static class SmokeTest
             throw new Exception("liteloader missing");
         if (new LauncherConfig().AutoBackupWorlds)
             throw new Exception("auto backup should be off by default");
+        if (new LauncherConfig().LiveLog)
+            throw new Exception("live log should be off by default");
         if (ModCn.ApiQuery("钠") != "sodium" || ModCn.ExpandQuery("小地图").Count == 0)
             throw new Exception("mod cn expand: " + ModCn.ApiQuery("钠"));
         if (Homepage.PresetKey("preset:news") != "preset:news" || Homepage.Presets.Length < 4)

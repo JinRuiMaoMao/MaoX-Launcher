@@ -54,6 +54,13 @@
               </StackPanel>
               <ToggleSwitch Name="PreLaunchSwitch" Grid.Column="1" />
             </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 实时日志}" />
+                <TextBlock Text="{c:Tr 在启动页滚动显示游戏输出。默认关闭，避免刷屏。}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="LiveLogSwitch" Grid.Column="1" />
+            </Grid>
           </StackPanel>
         </Border>
 
