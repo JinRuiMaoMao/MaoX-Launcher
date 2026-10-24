@@ -1090,11 +1090,13 @@ public partial class MainView : UserControl
             && Cfg.ExtraDirs.All(d => !string.Equals(Path.GetFullPath(d.Path ?? ""), current, StringComparison.OrdinalIgnoreCase)))
             Cfg.ExtraDirs.Add(new GameDirEntry { Name = Path.GetFileName(current), Path = current });
         Cfg.MinecraftDir = path;
+        // 必须先同步设置页输入框。SaveSettings → Validate → ApplyMcDir 会按输入框写回
+        // MinecraftDir，框里还是旧路径时，刚选中的目录会被立刻还原。
+        SettingsPage.SyncMinecraftDirBox();
         SaveSettings();
         // 等 ComboBox 先把这次点击处理完，立刻重建 ItemsSource 会把选中吞掉
         Dispatcher.UIThread.Post(() =>
         {
-            SettingsPage.SyncMinecraftDirBox();
             SettingsPage.RefreshGameDirs();
             LaunchPage.RefreshGameDirs();
             RefreshInstalled();

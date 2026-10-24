@@ -432,7 +432,11 @@ public partial class SettingsPage : UserControl, IPage
         }
         Cfg.WindowWidth = w;
         Cfg.WindowHeight = h;
-        ApplyMcDir();
+        // 正在改输入框时以输入框为准；否则以已保存的目录为准，避免启动页切换后被旧文本还原。
+        if (McDirBox?.IsFocused == true)
+            ApplyMcDir();
+        else
+            SyncMinecraftDirBox();
         return true;
     }
 
@@ -506,7 +510,15 @@ public partial class SettingsPage : UserControl, IPage
             dir = AppPaths.DefaultMinecraftDir;
             McDirBox.Text = dir;
         }
-        if (dir == Cfg.MinecraftDir)
+        try
+        {
+            dir = Path.GetFullPath(dir);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        if (string.Equals(dir, Path.GetFullPath(Cfg.MinecraftDir ?? ""), StringComparison.OrdinalIgnoreCase))
             return false;
         Cfg.MinecraftDir = dir;
         return true;

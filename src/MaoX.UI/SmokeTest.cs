@@ -113,6 +113,7 @@ internal static class SmokeTest
         await Check("launcher extras", () => Task.FromResult(CheckExtras()));
         await Check("pcl extras", () => Task.FromResult(CheckPclExtras()));
         await Check("languages", () => Task.FromResult(CheckLanguages()));
+        await Check("game dir switch", () => Task.FromResult(CheckGameDirSwitch(window)));
 
         await Check("custom version name", () => Task.Run(() =>
         {
@@ -595,6 +596,46 @@ internal static class SmokeTest
             throw new Exception("ja launch: " + ja);
         I18n.SetLanguage(LauncherConfig.Load().Language);
         return $"locales={I18n.Locales.Length} follow={follow} ja={ja}";
+    }
+
+    private static string CheckGameDirSwitch(MainView window)
+    {
+        var official = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "maox-smoke-official-" + Guid.NewGuid().ToString("N")[..8]));
+        Directory.CreateDirectory(official);
+        var before = window.Cfg.MinecraftDir;
+        var added = false;
+        try
+        {
+            window.Cfg.ExtraDirs ??= [];
+            if (window.Cfg.ExtraDirs.All(d => !string.Equals(Path.GetFullPath(d.Path ?? ""), official, StringComparison.OrdinalIgnoreCase)))
+            {
+                window.Cfg.ExtraDirs.Add(new GameDirEntry { Name = "官方启动器", Path = official });
+                added = true;
+            }
+            window.SettingsPage.McDirBox.Text = before;
+            window.SetMinecraftDir(official);
+            if (!string.Equals(Path.GetFullPath(window.Cfg.MinecraftDir), official, StringComparison.OrdinalIgnoreCase))
+                throw new Exception("switch reverted to " + window.Cfg.MinecraftDir);
+            if (!string.Equals(Path.GetFullPath(window.SettingsPage.McDirBox.Text ?? ""), official, StringComparison.OrdinalIgnoreCase))
+                throw new Exception("settings box stale: " + window.SettingsPage.McDirBox.Text);
+            window.SaveSettings();
+            if (!string.Equals(Path.GetFullPath(window.Cfg.MinecraftDir), official, StringComparison.OrdinalIgnoreCase))
+                throw new Exception("save reverted to " + window.Cfg.MinecraftDir);
+            return "official";
+        }
+        finally
+        {
+            window.SetMinecraftDir(before);
+            if (added)
+                window.Cfg.ExtraDirs.RemoveAll(d => string.Equals(Path.GetFullPath(d.Path ?? ""), official, StringComparison.OrdinalIgnoreCase));
+            try
+            {
+                Directory.Delete(official, true);
+            }
+            catch (Exception)
+            {
+            }
+        }
     }
 
     private static string CheckExtras()
