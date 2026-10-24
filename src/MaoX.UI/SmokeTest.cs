@@ -146,6 +146,53 @@ internal static class SmokeTest
             return "yweifyu → Fabric 1.20.1; merged → Fabric 1.21.1";
         }));
 
+        await Check("loader skips vanilla folder", () => Task.Run(() =>
+        {
+            var root = Path.Combine(Path.GetTempPath(), "maox-loader-vanilla");
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+            var gl = new GameLauncher(new LauncherConfig { MinecraftDir = root });
+            static JsonObject Vanilla(string id) => new()
+            {
+                ["id"] = id,
+                ["downloads"] = new JsonObject
+                {
+                    ["client"] = new JsonObject { ["url"] = "http://example.invalid/" + id, ["sha1"] = "0", ["size"] = 3 },
+                },
+                ["libraries"] = new JsonArray(),
+            };
+            static JsonObject Fabric(string id, string parent) => new()
+            {
+                ["id"] = id,
+                ["inheritsFrom"] = parent,
+                ["libraries"] = new JsonArray(
+                    new JsonObject { ["name"] = "net.fabricmc:fabric-loader:0.16.9" },
+                    new JsonObject { ["name"] = "net.fabricmc:intermediary:" + parent }),
+            };
+            WriteVersion(gl, "1.20.1", Vanilla("1.20.1"));
+            File.WriteAllBytes(Path.Combine(gl.VersionDir("1.20.1"), "1.20.1.jar"), [1, 2, 3]);
+            WriteVersion(gl, "1.20.1-fabric", Fabric("1.20.1-fabric", "1.20.1"));
+            gl.AbsorbInheritedVanillaAsync("1.20.1-fabric", "1.20.1", keepVanilla: true).GetAwaiter().GetResult();
+            if (!File.Exists(gl.VersionJsonPath("1.20.1")))
+                throw new Exception("existing vanilla was deleted");
+            WriteVersion(gl, "1.21", Vanilla("1.21"));
+            File.WriteAllBytes(Path.Combine(gl.VersionDir("1.21"), "1.21.jar"), [4, 5, 6]);
+            WriteVersion(gl, "1.21-fabric", Fabric("1.21-fabric", "1.21"));
+            gl.AbsorbInheritedVanillaAsync("1.21-fabric", "1.21", keepVanilla: false).GetAwaiter().GetResult();
+            if (Directory.Exists(gl.VersionDir("1.21")))
+                throw new Exception("install-only vanilla folder remains");
+            if (!File.Exists(Path.Combine(gl.VersionDir("1.21-fabric"), "1.21-fabric.jar")))
+                throw new Exception("client jar was not copied into the loader version");
+            var flat = Json.ReadFile(gl.VersionJsonPath("1.21-fabric"));
+            if (!string.IsNullOrEmpty(flat.Str("inheritsFrom")))
+                throw new Exception("inheritsFrom was not flattened");
+            var info = gl.DetectLoader("1.21-fabric");
+            Directory.Delete(root, true);
+            if (info.Loader != "fabric" || info.Game != "1.21")
+                throw new Exception($"flattened detect: loader={info.Loader} game={info.Game}");
+            return "kept existing vanilla; discarded install-only vanilla";
+        }));
+
         foreach (var page in new[] { "launch", "download", "resources", "multiplayer", "tools", "settings" })
         {
             await Check("page " + page, async () =>

@@ -139,5 +139,7 @@
   "OptiFine 只能搭配原版或 Forge 使用。": "OptiFine can only be used with vanilla or Forge.",
   "OptiFine 会作为模组放进 mods 文件夹，与 Forge 一起加载。": "OptiFine will be placed in the mods folder and loaded together with Forge.",
   "将生成独立的 OptiFine 版本（独立版本无法加载其他模组）。": "A standalone OptiFine version will be created (standalone versions cannot load other mods).",
-  "建议 Forge 版本不低于 {0}。": " Forge {0} or later is recommended."
+  "建议 Forge 版本不低于 {0}。": " Forge {0} or later is recommended.",
+  "正在下载游戏本体 {0}...": "Downloading game jar {0}...",
+  "已并入加载器版本，不再保留独立原版 {0}": "Merged into the loader version; not keeping a separate vanilla {0} install"
 }

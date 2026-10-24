@@ -188,6 +188,10 @@ public static class Modpack
         var data = (JsonObject)Json.ReadFile(gl.VersionJsonPath(@base));
         data["id"] = name;
         Json.WriteFile(gl.VersionJsonPath(name), data);
+        var srcJar = Path.Combine(gl.VersionDir(@base), @base + ".jar");
+        var dstJar = Path.Combine(gl.VersionDir(name), name + ".jar");
+        if (created && File.Exists(srcJar))
+            File.Copy(srcJar, dstJar, true);
         if (created)
             Instance.DeleteTree(gl.VersionDir(@base));
         gl.SaveVersionSettings(name, new JsonObject

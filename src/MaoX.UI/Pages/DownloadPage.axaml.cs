@@ -133,19 +133,16 @@ public partial class DownloadPage : UserControl, IPage
         await Main.RunTask(F("安装 {0}", string.Join(" + ", parts)), async () =>
         {
             var installer = new LoaderInstaller(launcher);
-            await launcher.PrepareAsync(version);
             var installed = version;
             if (choice.Loader != null)
-            {
                 installed = await installer.InstallAsync(choice.Loader, version, choice.LoaderItem);
-                await launcher.PrepareAsync(installed);
-            }
             if (choice.OptiFine != null)
-            {
                 installed = await installer.InstallOptiFineAsync(version, choice.OptiFine,
                                                                  choice.Loader != null ? installed : null);
+            if (choice.Loader == null && choice.OptiFine == null)
+                await launcher.PrepareAsync(version);
+            else
                 await launcher.PrepareAsync(installed);
-            }
             return installed;
         }, installed =>
         {

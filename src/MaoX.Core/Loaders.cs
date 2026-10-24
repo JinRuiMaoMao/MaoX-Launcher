@@ -397,13 +397,14 @@ public partial class LoaderInstaller
 
     // ------------------------------------------------------------------ 安装
 
-    /// <summary>安装加载器，返回新版本的 id。原版需要已经安装好（或会被自动补全）。</summary>
+    /// <summary>安装加载器，返回新版本的 id。原版文件会按需补全，但不会单独留下可启动的原版文件夹。</summary>
     public async Task<string> InstallAsync(string loader, string mc, LoaderItem item)
     {
         if (loader == "optifine")
             return await InstallOptiFineAsync(mc, item);
+        var keepVanilla = File.Exists(_gl.VersionJsonPath(mc));
         if (loader == "liteloader")
-            return await InstallLiteLoaderAsync(mc, item);
+            return await CommitLoaderAsync(mc, keepVanilla, await InstallLiteLoaderAsync(mc, item));
         if (!Mc.LoaderNames.TryGetValue(loader ?? "", out var name))
             throw new LoaderException(F("不支持的模组加载器：{0}", loader));
         Log(F("正在安装 {0} {1}（Minecraft {2}）", name, item.Display, mc));
@@ -412,7 +413,7 @@ public partial class LoaderInstaller
             var meta = loader == "fabric" ? Loaders.FabricMeta : Loaders.QuiltMeta;
             var profile = await Dl.FetchJsonAsync(
                 $"{meta}/versions/loader/{Web.Quote(mc)}/{Web.Quote(item.Version)}/profile/json");
-            return WriteVersion((JsonObject)profile);
+            return await CommitLoaderAsync(mc, keepVanilla, WriteVersion((JsonObject)profile));
         }
 
         string url;
@@ -427,7 +428,13 @@ public partial class LoaderInstaller
             var v = item.Version;
             url = $"{Loaders.NeoForgeMaven}{artifact}/{v}/{artifact}-{v}-installer.jar";
         }
-        return await InstallFromInstallerAsync(mc, url, name);
+        return await CommitLoaderAsync(mc, keepVanilla, await InstallFromInstallerAsync(mc, url, name));
+    }
+
+    private async Task<string> CommitLoaderAsync(string mc, bool keepVanilla, string versionId)
+    {
+        await _gl.AbsorbInheritedVanillaAsync(versionId, mc, keepVanilla);
+        return versionId;
     }
 
     /// <summary>
@@ -455,6 +462,7 @@ public partial class LoaderInstaller
             return forgeVersion;
         }
 
+        var keepVanilla = File.Exists(_gl.VersionJsonPath(mc));
         await _gl.PrepareAsync(mc);
         var coord = $"optifine:OptiFine:{mc}_{item.Version}";
         var library = LibPath(coord);
@@ -524,7 +532,7 @@ public partial class LoaderInstaller
             };
         else
             data["minecraftArguments"] = parent.Str("minecraftArguments", "") + " --tweakClass " + Loaders.OptiFineTweaker;
-        return WriteVersion(data);
+        return await CommitLoaderAsync(mc, keepVanilla, WriteVersion(data));
     }
 
     private async Task<string> InstallLiteLoaderAsync(string mc, LoaderItem item)

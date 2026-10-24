@@ -476,6 +476,71 @@ public class GameLauncher
         return data;
     }
 
+    /// <summary>
+    /// 把 inheritsFrom 合并进加载器版本，本体 jar 拷到该版本目录。
+    /// 若原版只是这次安装带出来的、没有其他版本依赖，则删掉独立原版文件夹。
+    /// </summary>
+    public async Task AbsorbInheritedVanillaAsync(string versionId, string vanillaId, bool keepVanilla)
+    {
+        await FlattenInheritedAsync(versionId);
+        if (keepVanilla || string.IsNullOrEmpty(vanillaId) || versionId == vanillaId)
+            return;
+        DiscardOrphanVanilla(vanillaId);
+    }
+
+    public async Task FlattenInheritedAsync(string versionId)
+    {
+        var jsonPath = VersionJsonPath(versionId);
+        var data = Json.TryReadFile(jsonPath) as JsonObject;
+        var parentId = data?.Str("inheritsFrom");
+        if (string.IsNullOrEmpty(parentId))
+            return;
+
+        await EnsureVersionJsonAsync(parentId);
+        var jarId = data.Str("jar") ?? parentId;
+        var parent = LoadVersion(parentId);
+        var srcJar = PathOf("versions", jarId, jarId + ".jar");
+        var client = parent.Obj("downloads")?.Obj("client");
+        if (client != null && !File.Exists(srcJar))
+        {
+            Log(F("正在下载游戏本体 {0}...", jarId));
+            await Dl.DownloadManyAsync([new DownloadTask(client.Str("url"), srcJar, client.Str("sha1"), client.Long("size"))]);
+        }
+
+        var merged = LoadVersion(versionId);
+        merged.Remove("inheritsFrom");
+        merged.Remove("_jar");
+        var jarField = merged.Str("jar");
+        if (jarField == parentId || jarField == jarId)
+            merged.Remove("jar");
+        merged["id"] = versionId;
+
+        var dstJar = PathOf("versions", versionId, versionId + ".jar");
+        if (File.Exists(srcJar) && !SamePath(srcJar, dstJar))
+            File.Copy(srcJar, dstJar, true);
+
+        Json.WriteFile(jsonPath, merged);
+    }
+
+    public void DiscardOrphanVanilla(string vanillaId)
+    {
+        if (string.IsNullOrEmpty(vanillaId) || !File.Exists(VersionJsonPath(vanillaId)))
+            return;
+        if (Instance.Dependents(this, vanillaId).Count > 0)
+            return;
+        if (DetectLoader(vanillaId).Loader != null)
+            return;
+        var saves = Path.Combine(VersionDir(vanillaId), "saves");
+        if (Directory.Exists(saves) && Directory.EnumerateFileSystemEntries(saves).Any())
+            return;
+        Log(F("已并入加载器版本，不再保留独立原版 {0}", vanillaId));
+        Instance.DeleteTree(VersionDir(vanillaId));
+    }
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(Path.GetFullPath(a), Path.GetFullPath(b),
+            Platform.IsWindows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
     /// <summary>返回 (加载器, 加载器版本, Minecraft 版本)，原版的加载器为 null。</summary>
     public LoaderInfo DetectLoader(string versionId)
     {
