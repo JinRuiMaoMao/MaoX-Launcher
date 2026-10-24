@@ -1,0 +1,1003 @@
+[
+  {
+    "key": "en_us",
+    "name": "English",
+    "region": "US",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "af_za",
+    "name": "Afrikaans",
+    "region": "Suid-Afrika",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "esan",
+    "name": "Andalûh",
+    "region": "Andaluçía",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "enp",
+    "name": "Anglish",
+    "region": "Oned Riches",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "ast_es",
+    "name": "Asturianu",
+    "region": "Asturies",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "az_az",
+    "name": "Azərbaycanca",
+    "region": "Azərbaycan",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "id_id",
+    "name": "Bahasa Indonesia",
+    "region": "Indonesia",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "ms_my",
+    "name": "Bahasa Melayu",
+    "region": "Malaysia",
+    "parent": "id_id",
+    "rtl": false
+  },
+  {
+    "key": "tzo_mx",
+    "name": "Bats'i k'op",
+    "region": "Jobel",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "qid",
+    "name": "Bhs. Indonesia edjaän lama",
+    "region": "Indonesia tempo doeloe",
+    "parent": "id_id",
+    "rtl": false
+  },
+  {
+    "key": "be_latn",
+    "name": "Biełaruskaja",
+    "region": "Biełaruś",
+    "parent": "be_by",
+    "rtl": false
+  },
+  {
+    "key": "bar",
+    "name": "Boarisch",
+    "region": "Bayern",
+    "parent": "de_de",
+    "rtl": false
+  },
+  {
+    "key": "bs_ba",
+    "name": "Bosanski",
+    "region": "Bosna i Hercegovina",
+    "parent": "hr_hr",
+    "rtl": false
+  },
+  {
+    "key": "brb",
+    "name": "Braobans",
+    "region": "Braobant",
+    "parent": "nl_nl",
+    "rtl": false
+  },
+  {
+    "key": "br_fr",
+    "name": "Brezhoneg",
+    "region": "Breizh",
+    "parent": "fr_fr",
+    "rtl": false
+  },
+  {
+    "key": "ca_es",
+    "name": "Català",
+    "region": "Catalunya",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "val_es",
+    "name": "Català (Valencià)",
+    "region": "País Valencià",
+    "parent": "ca_es",
+    "rtl": false
+  },
+  {
+    "key": "cy_gb",
+    "name": "Cymraeg",
+    "region": "Cymru",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "qcb_es",
+    "name": "Cántabru/Montañés",
+    "region": "Cantabria",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "da_dk",
+    "name": "Dansk",
+    "region": "Danmark",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "se_no",
+    "name": "Davvisámegiella",
+    "region": "Sápmi",
+    "parent": "no_no",
+    "rtl": false
+  },
+  {
+    "key": "de_at",
+    "name": "Deitsch",
+    "region": "Österreich",
+    "parent": "de_de",
+    "rtl": false
+  },
+  {
+    "key": "de_de",
+    "name": "Deutsch",
+    "region": "Deutschland",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "et_ee",
+    "name": "Eesti keel",
+    "region": "Eesti",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "en_au",
+    "name": "English",
+    "region": "Australia",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "en_ca",
+    "name": "English",
+    "region": "Canada",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "en_nz",
+    "name": "English",
+    "region": "New Zealand",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "en_gb",
+    "name": "English",
+    "region": "United Kingdom",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "es_ar",
+    "name": "Español",
+    "region": "Argentina",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "es_cl",
+    "name": "Español",
+    "region": "Chile",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "es_ec",
+    "name": "Español",
+    "region": "Ecuador",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "es_es",
+    "name": "Español",
+    "region": "España",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "es_mx",
+    "name": "Español",
+    "region": "México",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "es_uy",
+    "name": "Español",
+    "region": "Uruguay",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "es_ve",
+    "name": "Español",
+    "region": "Venezuela",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "eo_uy",
+    "name": "Esperanto",
+    "region": "Esperantujo",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "eu_es",
+    "name": "Euskara",
+    "region": "Euskal Herria",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "fil_ph",
+    "name": "Filipino",
+    "region": "Pilipinas",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "fr_ca",
+    "name": "Français",
+    "region": "Canada",
+    "parent": "fr_fr",
+    "rtl": false
+  },
+  {
+    "key": "fr_fr",
+    "name": "Français",
+    "region": "France",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "fr_ch",
+    "name": "Français",
+    "region": "Suisse",
+    "parent": "fr_fr",
+    "rtl": false
+  },
+  {
+    "key": "fy_nl",
+    "name": "Frysk",
+    "region": "Fryslân",
+    "parent": "nl_nl",
+    "rtl": false
+  },
+  {
+    "key": "fra_de",
+    "name": "Fränggisch",
+    "region": "Franggn",
+    "parent": "de_de",
+    "rtl": false
+  },
+  {
+    "key": "fur_it",
+    "name": "Furlan",
+    "region": "Friûl",
+    "parent": "it_it",
+    "rtl": false
+  },
+  {
+    "key": "fo_fo",
+    "name": "Føroyskt",
+    "region": "Føroyar",
+    "parent": "da_dk",
+    "rtl": false
+  },
+  {
+    "key": "ga_ie",
+    "name": "Gaeilge",
+    "region": "Éire",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "gl_es",
+    "name": "Galego",
+    "region": "Galicia / Galiza",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "go_fr",
+    "name": "Galo",
+    "region": "Bertègn",
+    "parent": "fr_fr",
+    "rtl": false
+  },
+  {
+    "key": "gd_gb",
+    "name": "Gàidhlig",
+    "region": "Alba",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "hr_hr",
+    "name": "Hrvatski",
+    "region": "Hrvatska",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "hn_no",
+    "name": "Høgnorsk",
+    "region": "Norig",
+    "parent": "nn_no",
+    "rtl": false
+  },
+  {
+    "key": "io_en",
+    "name": "Ido",
+    "region": "Idia",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "ig_ng",
+    "name": "Igbo",
+    "region": "Naigeria",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "it_it",
+    "name": "Italiano",
+    "region": "Italia",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "kw_gb",
+    "name": "Kernewek",
+    "region": "Kernow",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "ksh",
+    "name": "Kölsch/Ripoarisch",
+    "region": "Rhingland",
+    "parent": "de_de",
+    "rtl": false
+  },
+  {
+    "key": "lol_us",
+    "name": "LOLCAT",
+    "region": "Kingdom of Cats",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "la_la",
+    "name": "Latina",
+    "region": "Latium",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "lv_lv",
+    "name": "Latviešu",
+    "region": "Latvija",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "lt_lt",
+    "name": "Lietuvių",
+    "region": "Lietuva",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "li_li",
+    "name": "Limburgs",
+    "region": "Limburg",
+    "parent": "nl_nl",
+    "rtl": false
+  },
+  {
+    "key": "lmo",
+    "name": "Lombard",
+    "region": "Lombardia",
+    "parent": "it_it",
+    "rtl": false
+  },
+  {
+    "key": "lb_lu",
+    "name": "Lëtzebuergesch",
+    "region": "Lëtzebuerg",
+    "parent": "de_de",
+    "rtl": false
+  },
+  {
+    "key": "hu_hu",
+    "name": "Magyar",
+    "region": "Magyarország",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "mt_mt",
+    "name": "Malti",
+    "region": "Malta",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "isv",
+    "name": "Medžuslovjansky",
+    "region": "Slovjanščina",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "nah",
+    "name": "Mēxikatlahtōlli",
+    "region": "Mēxiko",
+    "parent": "es_es",
+    "rtl": false
+  },
+  {
+    "key": "nl_nl",
+    "name": "Nederlands",
+    "region": "Nederland",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "pls",
+    "name": "Ngiiwà",
+    "region": "Ndanìꞌngà",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "no_no",
+    "name": "Norsk bokmål",
+    "region": "Norge",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "nn_no",
+    "name": "Norsk nynorsk",
+    "region": "Noreg",
+    "parent": "no_no",
+    "rtl": false
+  },
+  {
+    "key": "uz_uz",
+    "name": "O'zbekcha",
+    "region": "O'zbekiston",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "oc_fr",
+    "name": "Occitan",
+    "region": "Occitània",
+    "parent": "fr_fr",
+    "rtl": false
+  },
+  {
+    "key": "en_pt",
+    "name": "Pirate Speak",
+    "region": "The Seven Seas",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "nds_de",
+    "name": "Plattdüütsch",
+    "region": "Düütschland",
+    "parent": "de_de",
+    "rtl": false
+  },
+  {
+    "key": "pl_pl",
+    "name": "Polski",
+    "region": "Polska",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "pt_br",
+    "name": "Português",
+    "region": "Brasil",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "pt_pt",
+    "name": "Português",
+    "region": "Portugal",
+    "parent": "pt_br",
+    "rtl": false
+  },
+  {
+    "key": "qya_aa",
+    "name": "Quenya",
+    "region": "Arda",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "ro_ro",
+    "name": "Română",
+    "region": "România",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "de_ch",
+    "name": "Schwiizerdütsch",
+    "region": "Schwiiz",
+    "parent": "de_de",
+    "rtl": false
+  },
+  {
+    "key": "enws",
+    "name": "Shakespearean English",
+    "region": "Kingdom of England",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "sq_al",
+    "name": "Shqip",
+    "region": "Shqipëri",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "sk_sk",
+    "name": "Slovenčina",
+    "region": "Slovensko",
+    "parent": "cs_cz",
+    "rtl": false
+  },
+  {
+    "key": "sl_si",
+    "name": "Slovenščina",
+    "region": "Slovenija",
+    "parent": "hr_hr",
+    "rtl": false
+  },
+  {
+    "key": "so_so",
+    "name": "Soomaali",
+    "region": "Soomaaliya",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "sr_cs",
+    "name": "Srpski",
+    "region": "Srbija",
+    "parent": "hr_hr",
+    "rtl": false
+  },
+  {
+    "key": "fi_fi",
+    "name": "Suomi",
+    "region": "Suomi",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "sv_se",
+    "name": "Svenska",
+    "region": "Sverige",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "sxu",
+    "name": "Säggs’sch",
+    "region": "Saggsn",
+    "parent": "de_de",
+    "rtl": false
+  },
+  {
+    "key": "tl_ph",
+    "name": "Tagalog",
+    "region": "Pilipinas",
+    "parent": "fil_ph",
+    "rtl": false
+  },
+  {
+    "key": "vi_vn",
+    "name": "Tiếng Việt",
+    "region": "Việt Nam",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "tr_tr",
+    "name": "Türkçe",
+    "region": "Türkiye",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "vp_vl",
+    "name": "Viossa",
+    "region": "Vilant",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "nl_be",
+    "name": "Vlaams",
+    "region": "België",
+    "parent": "nl_nl",
+    "rtl": false
+  },
+  {
+    "key": "vec_it",
+    "name": "Vèneto",
+    "region": "Veneto",
+    "parent": "it_it",
+    "rtl": false
+  },
+  {
+    "key": "vro",
+    "name": "Võro",
+    "region": "Eesti",
+    "parent": "et_ee",
+    "rtl": false
+  },
+  {
+    "key": "yo_ng",
+    "name": "Yorùbá",
+    "region": "Nàìjíríà",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "jbo_en",
+    "name": "la .lojban.",
+    "region": "la jbogu'e",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "tlh_aa",
+    "name": "tlhIngan Hol",
+    "region": "tlhIngan wo'",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "tok",
+    "name": "toki pona",
+    "region": "kulupu pona",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "is_is",
+    "name": "Íslenska",
+    "region": "Ísland",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "ovd",
+    "name": "Övdalska",
+    "region": "Swerre",
+    "parent": "sv_se",
+    "rtl": false
+  },
+  {
+    "key": "cs_cz",
+    "name": "Čeština",
+    "region": "Česko",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "szl",
+    "name": "Ślōnski",
+    "region": "Gōrny Ślōnsk",
+    "parent": "pl_pl",
+    "rtl": false
+  },
+  {
+    "key": "en_ud",
+    "name": "ɥsᴉꞁᵷuƎ",
+    "region": "uʍoᗡ ǝpᴉsd∩",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "haw_us",
+    "name": "ʻŌlelo Hawaiʻi",
+    "region": "Hawaiʻi",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "el_gr",
+    "name": "Ελληνικά",
+    "region": "Ελλάδα",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "ba_ru",
+    "name": "Башҡортса",
+    "region": "Башҡортостан, Рәсәй",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "be_by",
+    "name": "Беларуская",
+    "region": "Беларусь",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "bg_bg",
+    "name": "Български",
+    "region": "България",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "hal_ua",
+    "name": "Галицка",
+    "region": "Галичина, Вкраїна",
+    "parent": "uk_ua",
+    "rtl": false
+  },
+  {
+    "key": "ky_kg",
+    "name": "Кыргызча",
+    "region": "Кыргызстан",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "mk_mk",
+    "name": "Македонски",
+    "region": "Северна Македонија",
+    "parent": "bg_bg",
+    "rtl": false
+  },
+  {
+    "key": "mn_mn",
+    "name": "Монгол",
+    "region": "Монгол Улс",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "ry_ua",
+    "name": "Руснацькый",
+    "region": "Пудкарпатя, Украина",
+    "parent": "uk_ua",
+    "rtl": false
+  },
+  {
+    "key": "ru_ru",
+    "name": "Русский",
+    "region": "Россия",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "rpr",
+    "name": "Русскій дореформенный",
+    "region": "Россійская имперія",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "sah_sah",
+    "name": "Сахалыы",
+    "region": "Cаха Сирэ",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "sr_sp",
+    "name": "Српски",
+    "region": "Србија",
+    "parent": "hr_hr",
+    "rtl": false
+  },
+  {
+    "key": "tt_ru",
+    "name": "Татарча",
+    "region": "Татарстан, Рәсәй",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "uk_ua",
+    "name": "Українська",
+    "region": "Україна",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "cv_cu",
+    "name": "Чӑвашла",
+    "region": "Чӑваш Ен, Раҫҫей",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "kk_kz",
+    "name": "Қазақша",
+    "region": "Қазақстан",
+    "parent": "ru_ru",
+    "rtl": false
+  },
+  {
+    "key": "hy_am",
+    "name": "Հայերեն",
+    "region": "Հայաստան",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "yi_de",
+    "name": "ייִדיש",
+    "region": "אשכנזיש יידן",
+    "parent": "he_il",
+    "rtl": true
+  },
+  {
+    "key": "he_il",
+    "name": "עברית",
+    "region": "ישראל",
+    "parent": "",
+    "rtl": true
+  },
+  {
+    "key": "ar_sa",
+    "name": "العربية",
+    "region": "العالم العربي",
+    "parent": "",
+    "rtl": true
+  },
+  {
+    "key": "zlm_arab",
+    "name": "بهاس ملايو",
+    "region": "مليسيا",
+    "parent": "ar_sa",
+    "rtl": true
+  },
+  {
+    "key": "fa_ir",
+    "name": "فارسی",
+    "region": "ايران",
+    "parent": "",
+    "rtl": true
+  },
+  {
+    "key": "hi_in",
+    "name": "हिंदी",
+    "region": "भारत",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "ta_in",
+    "name": "தமிழ்",
+    "region": "இந்தியா",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "kn_in",
+    "name": "ಕನ್ನಡ",
+    "region": "ಭಾರತ",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "th_th",
+    "name": "ไทย",
+    "region": "ประเทศไทย",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "lo_la",
+    "name": "ລາວ",
+    "region": "ປະເທດລາວ",
+    "parent": "th_th",
+    "rtl": false
+  },
+  {
+    "key": "ka_ge",
+    "name": "ქართული",
+    "region": "საქართველო",
+    "parent": "en_us",
+    "rtl": false
+  },
+  {
+    "key": "lzh",
+    "name": "文言",
+    "region": "華夏",
+    "parent": "zh_tw",
+    "rtl": false
+  },
+  {
+    "key": "ja_jp",
+    "name": "日本語",
+    "region": "日本",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "zh_cn",
+    "name": "简体中文",
+    "region": "中国大陆",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "zh_tw",
+    "name": "繁體中文",
+    "region": "台灣",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "zh_hk",
+    "name": "繁體中文",
+    "region": "香港特別行政區",
+    "parent": "zh_tw",
+    "rtl": false
+  },
+  {
+    "key": "ko_kr",
+    "name": "한국어",
+    "region": "대한민국",
+    "parent": "",
+    "rtl": false
+  },
+  {
+    "key": "got_de",
+    "name": "𐌲𐌿𐍄𐍂𐌰𐌶𐌳𐌰",
+    "region": "𐌲𐌿𐍄𐌸𐌹𐌿𐌳𐌰",
+    "parent": "de_de",
+    "rtl": false
+  }
+]

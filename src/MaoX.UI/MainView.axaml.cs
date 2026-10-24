@@ -82,7 +82,9 @@ public partial class MainView : UserControl
     public MainView()
     {
         Current = this;
-        InitializeComponent();        Cfg = LauncherConfig.Load();
+        InitializeComponent();
+        FlowDirection = Rtl ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        Cfg = LauncherConfig.Load();
         Http.ApplyNetwork(Cfg);
         ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
         if (!string.IsNullOrWhiteSpace(Cfg.Bgm))

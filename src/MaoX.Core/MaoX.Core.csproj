@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Lang\*.json" WithCulture="false" />
+    <EmbeddedResource Include="Lang\*.json" WithCulture="false" Exclude="Lang\_catalog.json" />
   </ItemGroup>
 
 </Project>

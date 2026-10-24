@@ -1,0 +1,14 @@
+{
+  "已取消安装陶瓦联机的系统组件": "Installation of Terracotta's system component was cancelled",
+  "开源许可": "Licences",
+  "MaoX Launcher 以 GPL-3.0 协议开源。": "MaoX Launcher is open source under the GPL-3.0 licence.",
+  "收藏常玩的服务器，查看在线人数和延迟，一键启动游戏并进入": "Save your favourite servers, check player counts and latency, and launch the game straight into them",
+  "主题色": "Accent colour",
+  "皮革颜色渐变": "Leather colour gradient",
+  "请输入两个 #RRGGBB 颜色": "Enter two #RRGGBB colours",
+  "收藏": "Favourite",
+  "取消收藏": "Unfavourite",
+  "已取消收藏 {0}": "Removed {0} from favourites",
+  "已收藏 {0}": "Saved {0} to favourites",
+  "还没有收藏。在 Modrinth / CurseForge 列表里点星星即可收藏。": "No favourites yet. Tap the star on a Modrinth or CurseForge card."
+}

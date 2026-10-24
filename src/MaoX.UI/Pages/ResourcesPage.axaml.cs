@@ -456,10 +456,10 @@ public partial class ResourcesPage : UserControl, IPage
 
     public static string FormatCount(long n) => n switch
     {
-        >= 1_000_000 when English => $"{n / 1_000_000.0:0.0}M",
-        >= 10_000 when English => $"{n / 1_000.0:0.0}K",
-        >= 100_000_000 => $"{n / 100_000_000.0:0.0} 亿",
-        >= 10_000 => $"{n / 10_000.0:0.0} 万",
+        >= 1_000_000 when !Cjk => $"{n / 1_000_000.0:0.0}M",
+        >= 10_000 when !Cjk => $"{n / 1_000.0:0.0}K",
+        >= 100_000_000 => $"{n / 100_000_000.0:0.0} {T("亿")}",
+        >= 10_000 => $"{n / 10_000.0:0.0} {T("万")}",
         _ => n.ToString(),
     };
 

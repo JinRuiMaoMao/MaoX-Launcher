@@ -713,15 +713,13 @@ public partial class SettingsPage : UserControl, IPage
             return;
         Cfg.Language = I18n.Languages[LanguageBox.SelectedIndex].Key;
         Main.SaveSettings();
-        if (I18n.Resolve(Cfg.Language) == I18n.Language)
+        var next = I18n.Resolve(Cfg.Language);
+        if (next == I18n.Language)
             return;
-        // 提示用新选的语言显示，用户可能看不懂当前语言
-        var english = I18n.Resolve(Cfg.Language) == "en";
-        var choice = await Main.Dialog(english ? "Restart required" : "需要重启",
-                                       english ? "The new language takes effect after restarting the launcher."
-                                               : "重启启动器后才会切换到新的语言。",
-                                       "info", (english ? "Restart now" : "立即重启", "restart", "primary"),
-                                       (english ? "Later" : "稍后", null, ""));
+        var choice = await Main.Dialog(I18n.Lookup(next, "需要重启"),
+                                       I18n.Lookup(next, "重启启动器后才会切换到新的语言。"),
+                                       "info", (I18n.Lookup(next, "立即重启"), "restart", "primary"),
+                                       (I18n.Lookup(next, "稍后"), null, ""));
         if (choice is "restart")
             Main.RestartLauncher();
     }

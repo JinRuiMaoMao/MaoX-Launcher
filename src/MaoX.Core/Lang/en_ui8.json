@@ -46,5 +46,12 @@
   "还有 {0} 个文件未列出": "{0} more files not listed",
   "新增": "Added",
   "已删除": "Removed",
-  "已修改": "Changed"
+  "已修改": "Changed",
+  "万": "10K",
+  "亿": "100M",
+  "语言": "Language",
+  "需要重启": "Restart required",
+  "重启启动器后才会切换到新的语言。": "The new language takes effect after restarting the launcher.",
+  "立即重启": "Restart now",
+  "稍后": "Later"
 }

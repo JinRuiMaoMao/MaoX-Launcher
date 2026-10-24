@@ -256,7 +256,7 @@
               </StackPanel>
             </StackPanel>
             <StackPanel Spacing="8">
-              <TextBlock Text="语言 / Language" />
+              <TextBlock Text="{c:Tr 语言}" />
               <ComboBox Name="LanguageBox" HorizontalAlignment="Stretch" SelectionChanged="OnLanguageChanged" />
             </StackPanel>
             <StackPanel Spacing="8">

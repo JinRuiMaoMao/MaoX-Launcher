@@ -1,5 +1,6 @@
 __pycache__/
 tools/
+src/MaoX.Core/Lang/_catalog.json
 cache/
 .minecraft/
 launcher_config.json

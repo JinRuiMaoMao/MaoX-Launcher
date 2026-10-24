@@ -112,6 +112,7 @@ internal static class SmokeTest
         await Check("auto memory", () => Task.FromResult(CheckAutoMemory()));
         await Check("launcher extras", () => Task.FromResult(CheckExtras()));
         await Check("pcl extras", () => Task.FromResult(CheckPclExtras()));
+        await Check("languages", () => Task.FromResult(CheckLanguages()));
 
         await Check("custom version name", () => Task.Run(() =>
         {
@@ -567,6 +568,29 @@ internal static class SmokeTest
         if (total < 512 || available < 0 || available > total + 1024)
             throw new Exception($"system ram {available}/{total} MB");
         return $"vanilla={vanilla}MB pack={pack}MB free={available}MB/{total}MB";
+    }
+
+    private static string CheckLanguages()
+    {
+        if (I18n.Locales.Length < 140)
+            throw new Exception("locales: " + I18n.Locales.Length);
+        if (I18n.Languages.Length != I18n.Locales.Length + 1)
+            throw new Exception("language options: " + I18n.Languages.Length);
+        if (I18n.Normalize("zh") != "zh_cn" || I18n.Normalize("en") != "en_us" || I18n.Normalize("ja") != "ja_jp"
+            || I18n.Normalize("zh-Hant") != "zh_tw" || I18n.Normalize("pt-BR") != "pt_br")
+            throw new Exception($"aliases zh={I18n.Normalize("zh")} ja={I18n.Normalize("ja")} hant={I18n.Normalize("zh-Hant")}");
+        var follow = I18n.Resolve("");
+        if (string.IsNullOrEmpty(follow) || I18n.Locales.All(l => l.Key != follow))
+            throw new Exception("follow system: " + follow);
+        if (I18n.Lookup("en_us", "设置") != "Settings")
+            throw new Exception("en settings: " + I18n.Lookup("en_us", "设置"));
+        if (I18n.Lookup("zh_tw", "设置") != "設定")
+            throw new Exception("zh_tw settings: " + I18n.Lookup("zh_tw", "设置"));
+        var ja = I18n.Lookup("ja_jp", "启动游戏");
+        if (string.IsNullOrEmpty(ja) || ja == "启动游戏")
+            throw new Exception("ja launch: " + ja);
+        I18n.SetLanguage(LauncherConfig.Load().Language);
+        return $"locales={I18n.Locales.Length} follow={follow} ja={ja}";
     }
 
     private static string CheckExtras()

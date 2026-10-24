@@ -51,9 +51,26 @@ public sealed class MojangGame
                 return AppStoreUrl;
             if (Platform.IsWindows && StoreProductId != null)
                 return "ms-windows-store://pdp/?productid=" + StoreProductId;
-            return $"https://www.minecraft.net/{(English ? "en-us" : "zh-hans")}/{WebPage}";
+            return $"https://www.minecraft.net/{SiteLang()}/{WebPage}";
         }
     }
+
+    private static string SiteLang() => Language switch
+    {
+        "zh_cn" => "zh-hans",
+        "zh_tw" or "zh_hk" or "lzh" => "zh-hant",
+        "ja_jp" => "ja-jp",
+        "ko_kr" => "ko-kr",
+        "de_de" or "de_at" or "de_ch" => "de-de",
+        "fr_fr" or "fr_ca" or "fr_ch" => "fr-fr",
+        "es_es" or "es_mx" or "es_ar" => "es-es",
+        "pt_br" => "pt-br",
+        "pt_pt" => "pt-pt",
+        "ru_ru" => "ru-ru",
+        "it_it" => "it-it",
+        "pl_pl" => "pl-pl",
+        _ => "en-us",
+    };
 
     public string DataDir => Platform.IsMobile
         ? null
