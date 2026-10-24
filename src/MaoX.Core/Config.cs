@@ -270,9 +270,11 @@ public class LauncherConfig
                 return;
             list.Add(new GameDirEntry { Name = string.IsNullOrWhiteSpace(name) ? Path.GetFileName(path) : name, Path = path });
         }
-        Add(T("默认"), MinecraftDir);
+        Add(T("默认"), AppPaths.DefaultMinecraftDir);
         foreach (var dir in ExtraDirs ?? [])
             Add(dir.Name, dir.Path);
+        Add(Path.GetFileName((MinecraftDir ?? "").TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+            MinecraftDir);
         return list;
     }
 }

@@ -5,9 +5,9 @@
              x:Class="MaoX.Pages.LaunchPage">
   <Grid RowDefinitions="Auto,Auto,*">
     <!-- 主视觉卡片 -->
-    <Border Name="Hero" Classes="card" ClipToBounds="True">
+    <Border Name="Hero" Classes="card" ClipToBounds="False">
       <Panel>
-        <c:Logo Name="Watermark" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+        <c:Logo Name="Watermark" HorizontalAlignment="Right" VerticalAlignment="Bottom" IsHitTestVisible="False"
                 BarBrush="{StaticResource WatermarkBar}" CrossBrush="{StaticResource WatermarkCross}" />
 
         <DockPanel Name="HeroDock">

@@ -331,11 +331,17 @@ public partial class LaunchPage : UserControl, IPage
         GameDirBox.IsVisible = dirs.Count > 1;
         if (dirs.Count <= 1)
             return;
-        _updatingDirs = true;
-        GameDirBox.ItemsSource = dirs.Select(d => d.Name + "  ·  " + d.Path).ToList();
+        var labels = dirs.Select(d => d.Name + "  ·  " + d.Path).ToList();
         var current = Path.GetFullPath(Main.Cfg.MinecraftDir);
         var index = dirs.FindIndex(d => string.Equals(Path.GetFullPath(d.Path), current, StringComparison.OrdinalIgnoreCase));
-        GameDirBox.SelectedIndex = Math.Max(0, index);
+        if (index < 0)
+            index = 0;
+        _updatingDirs = true;
+        var currentItems = (GameDirBox.ItemsSource as IEnumerable<string>)?.ToList();
+        if (currentItems == null || !currentItems.SequenceEqual(labels))
+            GameDirBox.ItemsSource = labels;
+        if (GameDirBox.SelectedIndex != index)
+            GameDirBox.SelectedIndex = index;
         _updatingDirs = false;
     }
 

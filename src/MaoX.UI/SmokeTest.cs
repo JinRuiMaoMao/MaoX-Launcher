@@ -609,6 +609,19 @@ internal static class SmokeTest
         var back = ControlLayout.FromJson(json, "test");
         if (!back.Gyro || Math.Abs(back.Sensitivity - 1.2) > 0.01)
             throw new Exception("layout roundtrip gyro/sensitivity");
+        var home = Path.GetFullPath(AppPaths.DefaultMinecraftDir);
+        var official = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "maox-official-mc"));
+        var dirs = new LauncherConfig
+        {
+            MinecraftDir = home,
+            ExtraDirs = [new GameDirEntry { Name = "官方启动器", Path = official }],
+        };
+        dirs.MinecraftDir = official;
+        var after = dirs.AllGameDirs();
+        if (after.Count < 2
+            || after.All(d => d.Name != "官方启动器")
+            || after.All(d => !string.Equals(Path.GetFullPath(d.Path), home, StringComparison.OrdinalIgnoreCase)))
+            throw new Exception("game dirs collapsed after switch: " + string.Join(',', after.Select(d => d.Name)));
         return $"recommend={rec.Count} checks={items.Count}";
     }
 

@@ -1081,14 +1081,25 @@ public partial class MainView : UserControl
         if (string.IsNullOrWhiteSpace(path))
             return;
         path = Path.GetFullPath(path);
-        if (string.Equals(path, Path.GetFullPath(Cfg.MinecraftDir), StringComparison.OrdinalIgnoreCase))
+        var current = Path.GetFullPath(Cfg.MinecraftDir);
+        if (string.Equals(path, current, StringComparison.OrdinalIgnoreCase))
             return;
+        Cfg.ExtraDirs ??= [];
+        var keep = AppPaths.DefaultMinecraftDir;
+        if (!string.Equals(current, Path.GetFullPath(keep), StringComparison.OrdinalIgnoreCase)
+            && Cfg.ExtraDirs.All(d => !string.Equals(Path.GetFullPath(d.Path ?? ""), current, StringComparison.OrdinalIgnoreCase)))
+            Cfg.ExtraDirs.Add(new GameDirEntry { Name = Path.GetFileName(current), Path = current });
         Cfg.MinecraftDir = path;
         SaveSettings();
-        RefreshInstalled();
-        ResourcesPage.Invalidate();
-        SettingsPage.RefreshGameDirs();
-        LaunchPage.RefreshGameDirs();
+        // 等 ComboBox 先把这次点击处理完，立刻重建 ItemsSource 会把选中吞掉
+        Dispatcher.UIThread.Post(() =>
+        {
+            SettingsPage.SyncMinecraftDirBox();
+            SettingsPage.RefreshGameDirs();
+            LaunchPage.RefreshGameDirs();
+            RefreshInstalled();
+            ResourcesPage.Invalidate();
+        });
     }
 
     public void OpenGameDir()

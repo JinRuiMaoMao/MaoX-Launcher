@@ -430,6 +430,12 @@ public partial class SettingsPage : UserControl, IPage
         return true;
     }
 
+    public void SyncMinecraftDirBox()
+    {
+        if (McDirBox != null)
+            McDirBox.Text = Cfg.MinecraftDir;
+    }
+
     public void RefreshGameDirs()
     {
         if (ExtraDirsList == null)
