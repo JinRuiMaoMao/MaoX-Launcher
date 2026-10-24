@@ -542,6 +542,9 @@
   <Style Selector="Border#LogCard">
     <Setter Property="Margin" Value="0,20,0,0" />
   </Style>
+  <Style Selector="Border#DashCard">
+    <Setter Property="Margin" Value="0,14,0,0" />
+  </Style>
   <Style Selector=".compact Border#Hero">
     <Setter Property="MinHeight" Value="0" />
   </Style>
@@ -600,6 +603,9 @@
   </Style>
   <Style Selector=".compact Border#LogCard">
     <Setter Property="Margin" Value="0,12,0,0" />
+  </Style>
+  <Style Selector=".compact Border#DashCard">
+    <Setter Property="Margin" Value="0,10,0,0" />
   </Style>
   <Style Selector=".compact RadioButton.nav /template/ ContentPresenter">
     <Setter Property="Margin" Value="0,0,3,0" />

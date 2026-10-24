@@ -63,7 +63,7 @@ public static class Homepage
     /// <summary>Key 为空是空白；preset:* 是内置；custom 只用于设置里的下拉，不会写进配置。</summary>
     public static readonly (string Key, string Name, string Hint)[] Presets =
     [
-        ("", "空白", "启动页不显示主页卡片"),
+        ("", "默认动态", "Wiki 最新 / 即将推出，以及 minecraft.net 新闻"),
         ("preset:news", "官方新闻", "Minecraft 版本更新说明"),
         ("preset:help", "常见问题", "启动器内置帮助"),
         ("preset:mcnet", "Minecraft 官网", "官网、漏洞追踪和反馈入口"),
@@ -131,7 +131,7 @@ public static class Homepage
         return Parse(await File.ReadAllTextAsync(path, cancel));
     }
 
-    private static string Plain(string html)
+    public static string Plain(string html)
     {
         if (string.IsNullOrWhiteSpace(html))
             return "";

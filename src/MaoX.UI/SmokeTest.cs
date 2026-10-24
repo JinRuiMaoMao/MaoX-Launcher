@@ -113,6 +113,7 @@ internal static class SmokeTest
         await Check("launcher extras", () => Task.FromResult(CheckExtras()));
         await Check("pcl extras", () => Task.FromResult(CheckPclExtras()));
         await Check("languages", () => Task.FromResult(CheckLanguages()));
+        await Check("site feed", () => Task.FromResult(CheckMcSiteFeed()));
         await Check("game dir switch", () => Task.FromResult(CheckGameDirSwitch(window)));
 
         await Check("custom version name", () => Task.Run(() =>
@@ -153,6 +154,8 @@ internal static class SmokeTest
                 await Task.Delay(page == "resources" ? 5000 : 1500);
                 var path = Path.Combine(output, $"page-{page}.png");
                 Screenshot(window, path);
+                if (page == "launch" && !window.Cfg.LiveLog && !window.LaunchPage.DashCard.IsVisible)
+                    throw new Exception("launch dash should be visible when live log is off");
                 if (page == "settings" && window.SettingsPage.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll)
                 {
                     scroll.ScrollToEnd();
@@ -596,6 +599,26 @@ internal static class SmokeTest
             throw new Exception("ja launch: " + ja);
         I18n.SetLanguage(LauncherConfig.Load().Language);
         return $"locales={I18n.Locales.Length} follow={follow} ja={ja}";
+    }
+
+    private static string CheckMcSiteFeed()
+    {
+        var map = McSiteFeed.ParseVersionMap("| java = 26.3\n| java-snap = 26.4 Snapshot 5\n| bedrock = 26.52\n| bedrock-preview = Preview 26.70.21\n");
+        if (map.GetValueOrDefault("java") != "26.3" || map.GetValueOrDefault("java-snap") != "26.4 Snapshot 5")
+            throw new Exception("version map: " + string.Join(',', map.Select(p => p.Key + "=" + p.Value)));
+        var drops = McSiteFeed.ParseDrops(
+            """<style>.mp-highlight-title a{color:red}</style><div class="mp-highlight-title"><a href="/w/Wilderness_Bound">Wilderness Bound</a></div><div class="mp-highlight-tag">Latest</div><div class="mp-highlight-title"><a href="/w/Fourth_Drop_2026">Fourth Drop 2026</a></div><div class="mp-highlight-tag">Upcoming</div>""");
+        if (drops.All(d => !d.Tag.Equals("Latest", StringComparison.OrdinalIgnoreCase))
+            || drops.All(d => d.Item.Title != "Wilderness Bound")
+            || drops.Any(d => d.Item.Title.Contains("position") || d.Item.Title.Contains('{')))
+            throw new Exception("drops: " + string.Join(',', drops.Select(d => d.Tag + "/" + d.Item.Title)));
+        var news = McSiteFeed.ParseNews(JsonNode.Parse(
+            """{"entries":[{"title":"Hello","text":"World","readMoreLink":"https://www.minecraft.net/article/hello"}]}"""));
+        if (news.Count != 1 || news[0].Title != "Hello" || !news[0].Url.Contains("minecraft.net"))
+            throw new Exception("news");
+        if (!McSiteFeed.WikiPage("Java Edition 26.3").EndsWith("/w/Java_Edition_26.3", StringComparison.Ordinal))
+            throw new Exception("wiki url: " + McSiteFeed.WikiPage("Java Edition 26.3"));
+        return $"versions={map.Count} drops={drops.Count}";
     }
 
     private static string CheckGameDirSwitch(MainView window)

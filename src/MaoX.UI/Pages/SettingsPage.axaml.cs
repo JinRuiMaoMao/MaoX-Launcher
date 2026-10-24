@@ -657,6 +657,7 @@ public partial class SettingsPage : UserControl, IPage
         }
         else
             Cfg.Homepage = preset.Key;
+        Main.LaunchPage.ReloadDash();
     }
 
     private void OnIsolationChanged(object sender, SelectionChangedEventArgs e)

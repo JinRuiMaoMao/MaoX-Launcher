@@ -3,7 +3,7 @@
              xmlns:c="using:MaoX.Controls"
              xmlns:p="using:MaoX.Pages"
              x:Class="MaoX.Pages.LaunchPage">
-  <Grid RowDefinitions="Auto,Auto,*">
+  <Grid Name="LaunchRoot" RowDefinitions="Auto,*">
     <!-- 主视觉卡片 -->
     <Border Name="Hero" Classes="card" ClipToBounds="False">
       <Panel>
@@ -96,15 +96,51 @@
       </Panel>
     </Border>
 
-    <Border Name="HomeCard" Grid.Row="1" Classes="card" IsVisible="False" Margin="0,14,0,0" Padding="18,14">
-      <StackPanel Spacing="10">
-        <TextBlock Text="{c:Tr 主页}" FontWeight="SemiBold" />
-        <WrapPanel Name="HomeCards" ItemSpacing="10" LineSpacing="10" />
-      </StackPanel>
+    <Border Name="DashCard" Grid.Row="1" Classes="card" Margin="0,14,0,0">
+      <Grid RowDefinitions="Auto,*" Margin="22,16,22,16">
+        <DockPanel>
+          <c:IconLabel Icon="sparkle" Text="{c:Tr 动态}" Classes="cardhead" DockPanel.Dock="Top" />
+          <WrapPanel Name="QuickActions" Margin="0,14,0,0" ItemSpacing="8" LineSpacing="8">
+            <Button Classes="ghost" Click="OnDashDownload">
+              <c:IconLabel Icon="download" Text="{c:Tr 下载版本}" IconSize="15" />
+            </Button>
+            <Button Classes="ghost" Click="OnDashResources">
+              <c:IconLabel Icon="box" Text="{c:Tr 浏览资源}" IconSize="15" />
+            </Button>
+            <Button Classes="ghost" Click="OnDashMultiplayer">
+              <c:IconLabel Icon="people" Text="{c:Tr 联机}" IconSize="15" />
+            </Button>
+            <Button Name="DashDirButton" Classes="ghost" Click="OnOpenGameDir">
+              <c:IconLabel Icon="folder" Text="{c:Tr 打开游戏目录}" IconSize="15" />
+            </Button>
+            <Button Classes="ghost" Click="OnDashTools">
+              <c:IconLabel Icon="sparkle" Text="{c:Tr 工具}" IconSize="15" />
+            </Button>
+          </WrapPanel>
+        </DockPanel>
+        <ScrollViewer Grid.Row="1" Margin="0,16,0,0">
+          <StackPanel Spacing="16">
+            <Grid Name="DashColumns" ColumnDefinitions="*,*">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="{c:Tr 最新}" FontWeight="SemiBold" Margin="0,0,0,10" />
+                <StackPanel Name="LatestList" Spacing="8" />
+              </DockPanel>
+              <DockPanel Name="UpcomingPanel" Grid.Column="1" Margin="18,0,0,0">
+                <TextBlock DockPanel.Dock="Top" Text="{c:Tr 即将推出}" FontWeight="SemiBold" Margin="0,0,0,10" />
+                <StackPanel Name="UpcomingList" Spacing="8" />
+              </DockPanel>
+            </Grid>
+            <DockPanel>
+              <TextBlock Name="NewsTitle" DockPanel.Dock="Top" Text="{c:Tr 最新新闻}" FontWeight="SemiBold" Margin="0,0,0,10" />
+              <StackPanel Name="NewsList" Spacing="8" />
+            </DockPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
     </Border>
 
     <!-- 游戏日志 -->
-    <Border Name="LogCard" Grid.Row="2" Classes="card">
+    <Border Name="LogCard" Grid.Row="1" Classes="card">
       <DockPanel>
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="20,10,10,8">
           <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">

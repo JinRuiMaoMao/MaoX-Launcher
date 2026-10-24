@@ -46,7 +46,7 @@ public partial class LaunchPage : UserControl, IPage
     public LaunchPage()
     {
         InitializeComponent();
-        OpenDirButton.IsVisible = !Platform.IsMobile;
+        OpenDirButton.IsVisible = DashDirButton.IsVisible = !Platform.IsMobile;
         HiddenButton.Classes.Set("accent", Main.Cfg.ShowHiddenVersions);
         LogList.ItemsSource = _lines;
         new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Background, (_, _) => FlushLog()).Start();
@@ -59,6 +59,8 @@ public partial class LaunchPage : UserControl, IPage
         UpdateAccount();
         RefreshGameDirs();
         ApplyLiveLog();
+        SizeChanged += (_, _) => LayoutDash();
+        LayoutDash();
         PageTabs.PreparePill(GameTabPill);
         GameTabs.LayoutUpdated += (_, _) =>
         {
@@ -72,7 +74,7 @@ public partial class LaunchPage : UserControl, IPage
     {
         UpdateHero();
         DetectGames();
-        LoadHomepage();
+        ReloadDash();
     }
 
     // ------------------------------------------------------------------ 其他 Mojang 游戏
@@ -251,12 +253,14 @@ public partial class LaunchPage : UserControl, IPage
     {
         var on = Main.Cfg.LiveLog;
         LogCard.IsVisible = on;
+        DashCard.IsVisible = !on;
         if (on)
             return;
         _lines.Clear();
         while (_pending.TryDequeue(out _))
         {
         }
+        ReloadDash();
     }
 
     /// <summary>追加一行日志（任意线程）。kind 为 null 时按内容自动判断颜色。</summary>
@@ -444,47 +448,126 @@ public partial class LaunchPage : UserControl, IPage
         Main.RefreshInstalled(Main.SelectedVersion);
     }
 
-    private async void LoadHomepage()
+    private static McSiteFeed.Snapshot _feed;
+    private static DateTime _feedAt;
+    private int _infoId;
+
+    public void ReloadDash() => LoadDashInfo();
+
+    private void LayoutDash()
     {
-        var source = Main.Cfg.Homepage;
-        if (string.IsNullOrWhiteSpace(source))
-        {
-            HomeCard.IsVisible = false;
-            HomeCards.Children.Clear();
-            return;
-        }
+        var stack = Platform.IsMobile || Main.Classes.Contains("compact") || Bounds.Width > 0 && Bounds.Width < 760;
+        DashColumns.ColumnDefinitions = stack ? new ColumnDefinitions("*") : new ColumnDefinitions("*,*");
+        DashColumns.RowDefinitions = stack ? new RowDefinitions("Auto,Auto") : new RowDefinitions("Auto");
+        Grid.SetColumn(UpcomingPanel, stack ? 0 : 1);
+        Grid.SetRow(UpcomingPanel, stack ? 1 : 0);
+        UpcomingPanel.Margin = stack ? new Thickness(0, 16, 0, 0) : new Thickness(18, 0, 0, 0);
+    }
+
+    private async void LoadDashInfo()
+    {
+        var id = ++_infoId;
+        FillList(LatestList, [new McSiteFeed.Item(T("正在获取…"), "", "")]);
+        FillList(UpcomingList, [new McSiteFeed.Item(T("正在获取…"), "", "")]);
+        NewsTitle.Text = T("最新新闻");
+        FillList(NewsList, [new McSiteFeed.Item(T("正在获取…"), "", "")]);
         try
         {
-            var cards = await Homepage.LoadAsync(source);
-            HomeCards.Children.Clear();
-            foreach (var card in cards.Take(8))
+            if (_feed == null || DateTime.UtcNow - _feedAt > TimeSpan.FromMinutes(30))
             {
-                var box = new StackPanel { Spacing = 4, MaxWidth = 260 };
-                if (card.Title.Length > 0)
-                    box.Children.Add(new TextBlock { Text = card.Title, FontWeight = FontWeight.SemiBold });
-                if (card.Text.Length > 0)
-                    box.Children.Add(new TextBlock { Text = card.Text, Classes = { "small", "muted", "wrap" } });
-                var border = new Border
-                {
-                    Classes = { "card" }, Padding = new Thickness(12, 10), Child = box, MinWidth = 180,
-                };
-                if (!string.IsNullOrWhiteSpace(card.Url))
-                {
-                    border.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
-                    var url = card.Url;
-                    border.PointerPressed += (_, _) => Platform.OpenUrl(url);
-                }
-                HomeCards.Children.Add(border);
+                _feed = await McSiteFeed.FetchAsync();
+                _feedAt = DateTime.UtcNow;
             }
-            HomeCard.IsVisible = HomeCards.Children.Count > 0;
+            if (id != _infoId)
+                return;
+            FillList(LatestList, _feed.Latest);
+            FillList(UpcomingList, _feed.Upcoming);
+            var source = (Main.Cfg.Homepage ?? "").Trim();
+            if (source.Length > 0 && !source.Equals("preset:news", StringComparison.OrdinalIgnoreCase))
+            {
+                NewsTitle.Text = T("主页");
+                try
+                {
+                    var cards = await Homepage.LoadAsync(source);
+                    if (id != _infoId)
+                        return;
+                    FillCards(cards);
+                }
+                catch (Exception e)
+                {
+                    if (id != _infoId)
+                        return;
+                    FillList(NewsList, [new McSiteFeed.Item(F("主页加载失败：{0}", e.Message), "", "")]);
+                }
+            }
+            else
+                FillNews(_feed.News);
         }
         catch (Exception e)
         {
-            HomeCards.Children.Clear();
-            HomeCards.Children.Add(new TextBlock { Text = F("主页加载失败：{0}", e.Message), Classes = { "muted", "wrap" } });
-            HomeCard.IsVisible = true;
+            if (id != _infoId)
+                return;
+            FillList(LatestList, []);
+            FillList(UpcomingList, []);
+            FillList(NewsList, [new McSiteFeed.Item(F("动态加载失败：{0}", e.Message), "", "")]);
         }
     }
+
+    private void FillNews(List<McSiteFeed.Item> items)
+    {
+        if (items.Count == 0)
+        {
+            FillFaq();
+            return;
+        }
+        NewsTitle.Text = T("最新新闻");
+        FillList(NewsList, items);
+    }
+
+    private void FillFaq()
+    {
+        NewsTitle.Text = T("常见问题");
+        FillList(NewsList, HelpFaq.Items.Take(4).Select(i => new McSiteFeed.Item(T(i.Q), T(i.A), "")).ToList());
+    }
+
+    private void FillCards(List<Homepage.Card> cards)
+    {
+        FillList(NewsList, cards.Take(8).Select(c => new McSiteFeed.Item(c.Title, c.Text, c.Url)).ToList());
+        if (NewsList.Children.Count == 0)
+            FillFaq();
+    }
+
+    private static void FillList(StackPanel list, IReadOnlyList<McSiteFeed.Item> items)
+    {
+        list.Children.Clear();
+        foreach (var item in items)
+        {
+            var box = new StackPanel { Spacing = 3 };
+            if (item.Title.Length > 0)
+                box.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
+            if (item.Text.Length > 0)
+                box.Children.Add(new TextBlock { Text = item.Text, Classes = { "small", "muted", "wrap" } });
+            var row = new Border { Classes = { "row" }, Padding = new Thickness(12, 10), Child = box };
+            if (!string.IsNullOrWhiteSpace(item.Url))
+            {
+                row.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+                var url = item.Url;
+                row.PointerPressed += (_, e) =>
+                {
+                    if (e.GetCurrentPoint(row).Properties.IsLeftButtonPressed)
+                        Platform.OpenUrl(url);
+                };
+            }
+            list.Children.Add(row);
+        }
+        if (list.Children.Count == 0)
+            list.Children.Add(new TextBlock { Text = T("暂时没有内容"), Classes = { "muted" } });
+    }
+
+    private void OnDashDownload(object sender, RoutedEventArgs e) => Main.ShowPage("download");
+    private void OnDashResources(object sender, RoutedEventArgs e) => Main.ShowPage("resources");
+    private void OnDashMultiplayer(object sender, RoutedEventArgs e) => Main.ShowPage("multiplayer");
+    private void OnDashTools(object sender, RoutedEventArgs e) => Main.ShowPage("tools");
 
     // ------------------------------------------------------------------ 启动
 
