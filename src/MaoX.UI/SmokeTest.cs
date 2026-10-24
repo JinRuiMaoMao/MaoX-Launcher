@@ -608,6 +608,9 @@ internal static class SmokeTest
             throw new Exception("mod cn sodium");
         if (HelpFaq.Items.Length < 4 || SkinSites.All.Length < 3)
             throw new Exception("help/skins");
+        if (!LauncherAudio.Extensions.Contains(".mp3") || !LauncherAudio.Extensions.Contains(".flac")
+            || !LauncherAudio.PickerPatterns.Contains("*.ogg"))
+            throw new Exception("audio extensions");
         if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
             throw new Exception("liteloader missing");
         return $"cards={cards.Count} isolation={mode} faq={HelpFaq.Items.Length}";

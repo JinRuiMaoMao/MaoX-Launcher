@@ -646,7 +646,7 @@ public partial class SettingsPage : UserControl, IPage
 
     private async void OnBrowseBgm(object sender, RoutedEventArgs e)
     {
-        var path = await Main.PickFile(T("选择背景音乐"), "WAV", "*.wav");
+        var path = await Main.PickFile(T("选择背景音乐"), T("音频"), LauncherAudio.PickerPatterns);
         if (path != null)
             ApplyBgm(path);
     }
@@ -655,7 +655,7 @@ public partial class SettingsPage : UserControl, IPage
 
     private async void OnBrowseSfx(object sender, RoutedEventArgs e)
     {
-        var path = await Main.PickFile(T("选择启动音效"), "WAV", "*.wav");
+        var path = await Main.PickFile(T("选择启动音效"), T("音频"), LauncherAudio.PickerPatterns);
         if (path != null)
         {
             Cfg.LaunchSfx = path;

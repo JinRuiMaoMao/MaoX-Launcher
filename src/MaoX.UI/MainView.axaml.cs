@@ -1331,5 +1331,6 @@ public partial class MainView : UserControl
             // 忽略
         }
         MultiplayerPage.Shutdown();
+        LauncherAudio.StopAll();
     }
 }

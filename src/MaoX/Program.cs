@@ -13,6 +13,7 @@ internal static class Program
         if (home >= 0 && home + 1 < args.Length)
             Environment.SetEnvironmentVariable("MAOX_HOME", args[home + 1]);
         I18n.SetLanguage(LauncherConfig.Load().Language);
+        DesktopAudio.Register();
         AppDomain.CurrentDomain.UnhandledException += (_, e) => App.WriteCrashLog(e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
         try

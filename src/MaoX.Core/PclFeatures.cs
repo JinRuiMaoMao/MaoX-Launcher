@@ -315,32 +315,67 @@ public static class Feedback
     }
 }
 
-/// <summary>启动器背景音乐和启动音效（Windows 播放 .wav；其他平台忽略）。</summary>
+/// <summary>启动器背景音乐和启动音效。桌面端由宿主注册解码器（MP3 / FLAC / OGG / M4A 等），没有时回退到 Windows 的 wav。</summary>
 public static class LauncherAudio
 {
+    public static readonly string[] Extensions =
+        [".mp3", ".wav", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".wma", ".aiff", ".aif", ".mp4", ".opus"];
+
+    public static readonly string[] PickerPatterns = Extensions.Select(e => "*" + e).ToArray();
+
+    /// <summary>桌面程序注册：播放文件。loop 为背景音乐，否则是一次性音效，两者互不影响。</summary>
+    public static Action<string, bool> PlayImpl { get; set; }
+
+    /// <summary>只停背景音乐（清除 BGM 时）。</summary>
+    public static Action StopImpl { get; set; }
+
+    /// <summary>退出启动器时停掉所有声音。</summary>
+    public static Action StopAllImpl { get; set; }
+
     public static void Play(string path, bool loop)
     {
         path = AppPaths.Rebase((path ?? "").Trim());
-        if (!Platform.IsWindows || string.IsNullOrEmpty(path) || !File.Exists(path))
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return;
-        try
+        if (PlayImpl != null)
         {
-            Native.PlaySound(null, IntPtr.Zero, 0);
-            var flags = Native.Filename | Native.Async | (loop ? Native.Loop : 0);
-            Native.PlaySound(path, IntPtr.Zero, flags);
+            PlayImpl(path, loop);
+            return;
         }
-        catch (Exception)
-        {
-        }
+        PlayWavFallback(path, loop);
     }
 
     public static void Stop()
+    {
+        if (StopImpl != null)
+        {
+            StopImpl();
+            return;
+        }
+        PlayWavFallback(null, false);
+    }
+
+    public static void StopAll()
+    {
+        if (StopAllImpl != null)
+        {
+            StopAllImpl();
+            return;
+        }
+        Stop();
+    }
+
+    private static void PlayWavFallback(string path, bool loop)
     {
         if (!Platform.IsWindows)
             return;
         try
         {
             Native.PlaySound(null, IntPtr.Zero, 0);
+            if (string.IsNullOrEmpty(path))
+                return;
+            var flags = Native.Filename | Native.Async | (loop ? Native.Loop : 0);
+            Native.PlaySound(path, IntPtr.Zero, flags);
         }
         catch (Exception)
         {

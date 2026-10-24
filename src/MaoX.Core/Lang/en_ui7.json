@@ -33,6 +33,8 @@
   "JSON 文件路径或网址": "JSON file path or URL",
   "背景音乐": "Background music",
   "仅支持 wav": "WAV only",
+  "MP3、WAV、FLAC、OGG、M4A 等": "MP3, WAV, FLAC, OGG, M4A, and more",
+  "音频": "Audio",
   "启动音效": "Launch sound",
   "选择背景音乐": "Choose background music",
   "选择启动音效": "Choose launch sound",

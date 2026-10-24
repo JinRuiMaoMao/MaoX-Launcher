@@ -127,9 +127,9 @@ public class LauncherConfig
     public bool ShowHiddenVersions { get; set; }
     /// <summary>自定义主页 JSON 文件路径或 URL。</summary>
     public string Homepage { get; set; } = "";
-    /// <summary>背景音乐 .wav 路径。</summary>
+    /// <summary>背景音乐路径（MP3 / WAV / FLAC / OGG / M4A 等）。</summary>
     public string Bgm { get; set; } = "";
-    /// <summary>启动游戏时的音效 .wav 路径。</summary>
+    /// <summary>启动游戏时的音效路径（常见音频格式）。</summary>
     public string LaunchSfx { get; set; } = "";
     /// <summary>节日自动换主题色。</summary>
     public bool? HolidayTheme { get; set; }
