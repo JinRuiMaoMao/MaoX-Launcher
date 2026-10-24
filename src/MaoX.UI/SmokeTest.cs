@@ -111,6 +111,7 @@ internal static class SmokeTest
 
         await Check("auto memory", () => Task.FromResult(CheckAutoMemory()));
         await Check("launcher extras", () => Task.FromResult(CheckExtras()));
+        await Check("pcl extras", () => Task.FromResult(CheckPclExtras()));
 
         await Check("custom version name", () => Task.Run(() =>
         {
@@ -585,6 +586,31 @@ internal static class SmokeTest
         if (!back.Gyro || Math.Abs(back.Sensitivity - 1.2) > 0.01)
             throw new Exception("layout roundtrip gyro/sensitivity");
         return $"recommend={rec.Count} checks={items.Count}";
+    }
+
+    private static string CheckPclExtras()
+    {
+        var cards = Homepage.Parse("""{"cards":[{"title":"Hello","text":"World","url":"https://example.com"}]}""");
+        if (cards.Count != 1 || cards[0].Title != "Hello")
+            throw new Exception("homepage parse: " + cards.Count);
+        if (Isolation.Normalize("nope") != Isolation.Isolate || Isolation.FromLegacy(false) != Isolation.Off)
+            throw new Exception("isolation normalize");
+        var cfg = new LauncherConfig { IsolationMode = "full", VersionIsolation = false };
+        var mode = Isolation.Resolve(new JsonObject(), cfg);
+        if (mode != Isolation.Full)
+            throw new Exception("isolation resolve: " + mode);
+        var local = Isolation.Resolve(new JsonObject { ["isolation"] = false }, cfg);
+        if (local != Isolation.Off)
+            throw new Exception("isolation version override: " + local);
+        if (Holiday.AccentOrNull(new DateTime(2026, 12, 25)) != "#FACC15")
+            throw new Exception("holiday christmas");
+        if (ModCn.Title("sodium", "Sodium") is not { Length: > 6 })
+            throw new Exception("mod cn sodium");
+        if (HelpFaq.Items.Length < 4 || SkinSites.All.Length < 3)
+            throw new Exception("help/skins");
+        if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
+            throw new Exception("liteloader missing");
+        return $"cards={cards.Count} isolation={mode} faq={HelpFaq.Items.Length}";
     }
 
     private static void WriteVersion(GameLauncher gl, string id, JsonObject data)

@@ -33,13 +33,21 @@ public class VersionSettingsPage : UserControl, IPage
     private string _version;
     private GameLauncher _gl;
     private JsonObject _settings;
-    private bool _isolationInitial;
-    private ToggleSwitch _isolation;
+    private ComboBox _isolation;
     private ToggleSwitch _custom;
+    private ToggleSwitch _star;
+    private ToggleSwitch _hide;
     private StackPanel _customBox;
     private Slider _memory;
     private ComboBox _java;
+    private ComboBox _priority;
     private TextBox _jvm;
+    private TextBox _group;
+    private TextBox _note;
+    private TextBox _icon;
+    private TextBox _windowTitle;
+    private TextBox _preCmd;
+    private TextBox _postCmd;
     private readonly Dictionary<string, string> _javaMap = [];
     private readonly Dictionary<string, ToggleButton> _chips = [];
     private readonly Dictionary<string, Control> _panels = [];
@@ -119,6 +127,7 @@ public class VersionSettingsPage : UserControl, IPage
         try
         {
             Save();
+            Main.RefreshInstalled(_version);
         }
         catch (Exception e)
         {
@@ -187,9 +196,31 @@ public class VersionSettingsPage : UserControl, IPage
         var played = PlayTime.Describe(_gl, _version);
         _subtitle.Text = _gl.DescribeVersion(_version) + (played == "" ? "" : "  ·  " + played);
 
-        var isolation = _settings.BoolOrNull("isolation");
-        _isolation = new ToggleSwitch { IsChecked = _isolationInitial = isolation ?? cfg.VersionIsolation };
+        var mode = Isolation.Resolve(_settings, cfg);
+        var follow = !_settings.ContainsKey("isolation_mode") && !_settings.ContainsKey("isolation");
+        _isolation = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        var isolationItems = new List<string> { FollowGlobal };
+        isolationItems.AddRange(Isolation.Modes.Select(m => T(m.Text)));
+        _isolation.ItemsSource = isolationItems;
+        _isolation.SelectedIndex = follow ? 0 : 1 + Math.Max(0, Array.FindIndex(Isolation.Modes, m => m.Key == mode));
         _custom = new ToggleSwitch { IsChecked = _settings.Bool("custom") };
+        var meta = cfg.VersionMetas.GetValueOrDefault(_version) ?? new VersionMeta();
+        _star = new ToggleSwitch { IsChecked = meta.Star };
+        _hide = new ToggleSwitch { IsChecked = meta.Hide };
+        _group = new TextBox { Text = meta.Group, Watermark = T("例如：整合包、原版") };
+        _note = new TextBox { Text = meta.Note, Watermark = T("给自己看的备注") };
+        _icon = new TextBox { Text = meta.Icon, Watermark = T("图片路径") };
+        _windowTitle = new TextBox { Text = _settings.Str("window_title"), Watermark = T("留空跟随全局") };
+        _priority = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        var priItems = new List<string> { FollowGlobal };
+        priItems.AddRange(LaunchExtras.Priorities.Select(p => T(p.Text)));
+        _priority.ItemsSource = priItems;
+        var pri = _settings.Str("priority");
+        _priority.SelectedIndex = string.IsNullOrEmpty(pri)
+            ? 0
+            : 1 + Math.Max(0, Array.FindIndex(LaunchExtras.Priorities, p => p.Key == pri));
+        _preCmd = new TextBox { Text = _settings.Str("pre_command"), Watermark = T("留空跟随全局") };
+        _postCmd = new TextBox { Text = _settings.Str("post_command"), Watermark = T("留空跟随全局") };
         _memory = new Slider { Minimum = 512, TickFrequency = 256, IsSnapToTickEnabled = true };
         var ram = Platform.TotalMemoryMb();
         _memory.Maximum = Math.Max(2048, ram / 512 * 512);
@@ -236,7 +267,24 @@ public class VersionSettingsPage : UserControl, IPage
         _custom.IsCheckedChanged += (_, _) => _customBox.IsVisible = _custom.IsChecked == true;
 
         var settings = new StackPanel { Spacing = 10 };
-        settings.Children.Add(SwitchRow(T("版本隔离"), T("独立的存档、模组与设置"), _isolation));
+        settings.Children.Add(new TextBlock { Text = T("版本隔离"), Classes = { "small", "muted" } });
+        settings.Children.Add(_isolation);
+        settings.Children.Add(SwitchRow(T("收藏"), T("启动页版本列表排在最前"), _star));
+        settings.Children.Add(SwitchRow(T("隐藏"), T("默认不出现在启动页的版本列表里"), _hide));
+        settings.Children.Add(new TextBlock { Text = T("分组"), Classes = { "small", "muted" } });
+        settings.Children.Add(_group);
+        settings.Children.Add(new TextBlock { Text = T("备注"), Classes = { "small", "muted" } });
+        settings.Children.Add(_note);
+        settings.Children.Add(new TextBlock { Text = T("图标"), Classes = { "small", "muted" } });
+        settings.Children.Add(_icon);
+        settings.Children.Add(new TextBlock { Text = T("游戏窗口标题"), Classes = { "small", "muted" } });
+        settings.Children.Add(_windowTitle);
+        settings.Children.Add(new TextBlock { Text = T("进程优先级"), Classes = { "small", "muted" } });
+        settings.Children.Add(_priority);
+        settings.Children.Add(new TextBlock { Text = T("启动前命令"), Classes = { "small", "muted" } });
+        settings.Children.Add(_preCmd);
+        settings.Children.Add(new TextBlock { Text = T("启动后命令"), Classes = { "small", "muted" } });
+        settings.Children.Add(_postCmd);
         settings.Children.Add(SwitchRow(T("单独设置内存与 Java"),
             cfg.AutoMemoryOn ? T("关闭后不再使用全局的自动分配内存") : null, _custom));
         settings.Children.Add(_customBox);
@@ -264,7 +312,7 @@ public class VersionSettingsPage : UserControl, IPage
 
         var modded = Mods.ModLoaders.Contains(_gl.DetectLoader(_version).Loader);
         _files = new VersionFilesCard(GameDir, modded);
-        _isolation.IsCheckedChanged += (_, _) => _files.Reload();
+        _isolation.SelectionChanged += (_, _) => _files.Reload();
 
         _worldCount = new TextBlock { Classes = { "accent", "bold" } };
         _worlds = new StackPanel { Spacing = 6 };
@@ -338,8 +386,34 @@ public class VersionSettingsPage : UserControl, IPage
             return;
         var latest = _gl.VersionSettings(_version);
         var s = (JsonObject)latest.DeepClone();
-        if (_isolation.IsChecked != _isolationInitial || s.ContainsKey("isolation"))
-            s["isolation"] = _isolation.IsChecked == true;
+        if (_isolation.SelectedIndex <= 0)
+        {
+            s.Remove("isolation");
+            s.Remove("isolation_mode");
+        }
+        else
+        {
+            var mode = Isolation.Modes[_isolation.SelectedIndex - 1].Key;
+            s["isolation_mode"] = mode;
+            s["isolation"] = Isolation.Isolates(mode);
+        }
+        s["window_title"] = (_windowTitle.Text ?? "").Trim();
+        s["pre_command"] = (_preCmd.Text ?? "").Trim();
+        s["post_command"] = (_postCmd.Text ?? "").Trim();
+        if (_priority.SelectedIndex <= 0)
+            s.Remove("priority");
+        else
+            s["priority"] = LaunchExtras.Priorities[_priority.SelectedIndex - 1].Key;
+        var meta = Main.Cfg.VersionMetas.GetValueOrDefault(_version) ?? new VersionMeta();
+        meta.Star = _star.IsChecked == true;
+        meta.Hide = _hide.IsChecked == true;
+        meta.Group = (_group.Text ?? "").Trim();
+        meta.Note = (_note.Text ?? "").Trim();
+        meta.Icon = (_icon.Text ?? "").Trim();
+        if (!meta.Star && !meta.Hide && meta.Group.Length == 0 && meta.Note.Length == 0 && meta.Icon.Length == 0)
+            Main.Cfg.VersionMetas.Remove(_version);
+        else
+            Main.Cfg.VersionMetas[_version] = meta;
         s["custom"] = _custom.IsChecked == true;
         if (_custom.IsChecked == true)
         {
@@ -776,6 +850,8 @@ public class VersionSettingsPage : UserControl, IPage
             await Main.Dialog(T("重命名失败"), F("无法重命名（文件可能正被占用）：{0}", e.Message), "error");
             return;
         }
+        if (Main.Cfg.VersionMetas.Remove(_version, out var meta))
+            Main.Cfg.VersionMetas[name] = meta;
         Main.Toast(F("已重命名为 {0}", name));
         Main.RefreshInstalled(name);
         Open(name);
@@ -786,8 +862,14 @@ public class VersionSettingsPage : UserControl, IPage
         if (await Main.ShowDialogAsync(new InputDialog(T("复制版本"), T("新版本的名称（会复制版本文件夹中的全部内容，包括存档和模组）："),
                                                        _version + " 副本", Validator(""), T("复制", "version"))) is not string name)
             return;
+        var src = _version;
         await Main.RunTask(T("复制版本"), () => Instance.DuplicateAsync(_gl, _version, name, Main.Progress), created =>
         {
+            if (Main.Cfg.VersionMetas.TryGetValue(src, out var meta))
+                Main.Cfg.VersionMetas[created] = new VersionMeta
+                {
+                    Star = meta.Star, Hide = meta.Hide, Group = meta.Group, Note = meta.Note, Icon = meta.Icon,
+                };
             Main.RefreshInstalled(created);
             Main.Toast(F("已复制为 {0}", created));
         });
@@ -814,6 +896,7 @@ public class VersionSettingsPage : UserControl, IPage
         {
             await Main.Dialog(T("删除失败"), F("部分文件无法删除（可能正被占用）：{0}", e.Message), "error");
         }
+        Main.Cfg.VersionMetas.Remove(_version);
         Main.RefreshInstalled();
         Main.Toast(F("已删除 {0}", _version));
         Back();

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Text.Json.Nodes;
 using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
@@ -16,6 +17,7 @@ public static class Updater
     public const string RepoUrl = "https://github.com/" + Repo;
     public const string ReleasesUrl = RepoUrl + "/releases";
     private const string LatestApi = "https://api.github.com/repos/" + Repo + "/releases/latest";
+    private const string ReleasesApi = "https://api.github.com/repos/" + Repo + "/releases";
 
     /// <summary>当前平台在 Release 中对应的文件名，不支持的平台为 null。</summary>
     public static string AssetName =>
@@ -77,13 +79,16 @@ public static class Updater
         return Version.TryParse(text, out version);
     }
 
-    /// <summary>检查最新发布。没有更新（或还没有任何发布）时返回 null。</summary>
-    public static async Task<UpdateInfo> CheckAsync(CancellationToken cancel = default)
+    /// <summary>检查最新发布。没有更新（或还没有任何发布）时返回 null。preview 时包含预发布。</summary>
+    public static Task<UpdateInfo> CheckAsync(CancellationToken cancel = default) =>
+        CheckAsync(false, cancel);
+
+    public static async Task<UpdateInfo> CheckAsync(bool preview, CancellationToken cancel = default)
     {
         HttpResult result;
         try
         {
-            result = await Http.SendAsync(LatestApi, headers: new Dictionary<string, string>
+            result = await Http.SendAsync(preview ? ReleasesApi : LatestApi, headers: new Dictionary<string, string>
             {
                 ["Accept"] = "application/vnd.github+json",
                 ["X-GitHub-Api-Version"] = "2022-11-28",
@@ -99,7 +104,11 @@ public static class Updater
             throw new DownloadException(T("GitHub 访问次数过多，请稍后再试"));
         if (!result.Ok)
             throw new DownloadException(F("检查更新失败（HTTP {0}）", result.Status));
-        var json = result.Json();
+        var json = preview
+            ? result.Json().AsArray()?.FirstOrDefault(n => n != null)
+            : result.Json();
+        if (json == null)
+            return null;
         var version = (json.Str("tag_name") ?? "").Trim().TrimStart('v', 'V');
         if (!IsNewer(version, Mc.LauncherVersion))
             return null;

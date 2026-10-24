@@ -3,7 +3,7 @@
              xmlns:c="using:MaoX.Controls"
              xmlns:p="using:MaoX.Pages"
              x:Class="MaoX.Pages.LaunchPage">
-  <Grid RowDefinitions="Auto,*">
+  <Grid RowDefinitions="Auto,Auto,*">
     <!-- 主视觉卡片 -->
     <Border Name="Hero" Classes="card" ClipToBounds="True">
       <Panel>
@@ -62,6 +62,10 @@
                           SelectionChanged="OnGameDirChanged" />
                 <ComboBox Name="VersionBox" Height="38" PlaceholderText="{c:Tr 未安装任何版本}"
                           SelectionChanged="OnVersionChanged" />
+                <Button Name="HiddenButton" Classes="icon" Width="38" Height="38"
+                        ToolTip.Tip="{c:Tr 显示隐藏的版本}" Click="OnToggleHidden">
+                  <c:Icon Kind="layers" Size="18" />
+                </Button>
                 <Button Classes="icon" Width="38" Height="38" ToolTip.Tip="{c:Tr 版本设置}" Click="OnVersionSettings">
                   <c:Icon Kind="settings" Size="18" />
                 </Button>
@@ -86,8 +90,15 @@
       </Panel>
     </Border>
 
+    <Border Name="HomeCard" Grid.Row="1" Classes="card" IsVisible="False" Margin="0,14,0,0" Padding="18,14">
+      <StackPanel Spacing="10">
+        <TextBlock Text="{c:Tr 主页}" FontWeight="SemiBold" />
+        <WrapPanel Name="HomeCards" ItemSpacing="10" LineSpacing="10" />
+      </StackPanel>
+    </Border>
+
     <!-- 游戏日志 -->
-    <Border Name="LogCard" Grid.Row="1" Classes="card">
+    <Border Name="LogCard" Grid.Row="2" Classes="card">
       <DockPanel>
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="20,10,10,8">
           <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">

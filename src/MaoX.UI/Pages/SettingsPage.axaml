@@ -33,13 +33,13 @@
                 </WrapPanel>
               </StackPanel>
             </StackPanel>
-            <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="8">
               <StackPanel Spacing="3">
                 <TextBlock Text="{c:Tr 版本隔离}" />
-                <TextBlock Text="{c:Tr 每个版本独立存档、模组和设置}" Classes="small dim" />
+                <TextBlock Text="{c:Tr 控制存档、模组和设置是否按版本分开}" Classes="small dim wrap" />
               </StackPanel>
-              <ToggleSwitch Name="IsolationSwitch" Grid.Column="1" />
-            </Grid>
+              <ComboBox Name="IsolationBox" HorizontalAlignment="Stretch" SelectionChanged="OnIsolationChanged" />
+            </StackPanel>
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Spacing="3" Margin="0,0,14,0">
                 <TextBlock Text="{c:Tr 自动备份存档}" />
@@ -68,6 +68,12 @@
                 <Button Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseJava" />
                 <Button Grid.Column="2" Content="{c:Tr 检测}" Margin="8,0,0,0" Click="OnDetectJava" />
               </Grid>
+              <WrapPanel ItemSpacing="8" LineSpacing="8">
+                <Button Content="{c:Tr '下载 JDK 8'}" Click="OnDownloadJdk8" />
+                <Button Content="{c:Tr '下载 JDK 17'}" Click="OnDownloadJdk17" />
+                <Button Content="{c:Tr '下载 JDK 21'}" Click="OnDownloadJdk21" />
+              </WrapPanel>
+              <TextBlock Text="{c:Tr 从 Adoptium 下载并放到启动器 tools 目录，之后可在上方选中}" Classes="small dim wrap" />
             </StackPanel>
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Spacing="3" Margin="0,0,14,0">
@@ -120,6 +126,20 @@
               </StackPanel>
               <ToggleSwitch Name="DohSwitch" Grid.Column="1" />
             </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 优先 IPv6}" />
+                <TextBlock Text="{c:Tr 解析域名时先尝试 IPv6 地址}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="Ipv6Switch" Grid.Column="1" />
+            </Grid>
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{c:Tr 下载限速}" />
+                <TextBlock Name="SpeedLimitText" Grid.Column="1" Classes="accent bold" />
+              </Grid>
+              <Slider Name="SpeedLimitSlider" Minimum="0" Maximum="20480" TickFrequency="256" IsSnapToTickEnabled="True" />
+            </StackPanel>
           </StackPanel>
         </Border>
 
@@ -141,6 +161,22 @@
                 <TextBlock Text="{c:Tr 以空格分隔}" Classes="small dim" VerticalAlignment="Center" />
               </StackPanel>
               <TextBox Name="JvmBox" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+              <TextBlock Text="{c:Tr 游戏窗口标题}" />
+              <TextBox Name="WindowTitleBox" Watermark="{c:Tr 留空使用默认}" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+              <TextBlock Text="{c:Tr 进程优先级}" />
+              <ComboBox Name="PriorityBox" HorizontalAlignment="Stretch" SelectionChanged="OnPriorityChanged" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+              <TextBlock Text="{c:Tr 启动前命令}" />
+              <TextBox Name="PreCmdBox" Watermark="{c:Tr 游戏启动前执行}" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+              <TextBlock Text="{c:Tr 启动后命令}" />
+              <TextBox Name="PostCmdBox" Watermark="{c:Tr 游戏进程起来后执行}" />
             </StackPanel>
             <Grid Name="TouchLayoutPanel" ColumnDefinitions="*,Auto" IsVisible="False">
               <StackPanel Spacing="3" Margin="0,0,14,0">
@@ -255,6 +291,33 @@
               </Grid>
               <Slider Name="MaskSlider" Minimum="0" Maximum="90" TickFrequency="5" IsSnapToTickEnabled="True" />
             </StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3" Margin="0,0,14,0">
+                <TextBlock Text="{c:Tr 节日主题}" />
+                <TextBlock Text="{c:Tr 圣诞节、春节等自动换主题色}" Classes="small dim wrap" />
+              </StackPanel>
+              <ToggleSwitch Name="HolidaySwitch" Grid.Column="1" />
+            </Grid>
+            <StackPanel Spacing="8">
+              <TextBlock Text="{c:Tr 自定义主页}" />
+              <TextBox Name="HomepageBox" Watermark="{c:Tr JSON 文件路径或网址}" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+              <TextBlock Text="{c:Tr 背景音乐}" />
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBox Name="BgmBox" Watermark="{c:Tr 仅支持 wav}" />
+                <Button Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseBgm" />
+                <Button Grid.Column="2" Content="{c:Tr 清除}" Margin="8,0,0,0" Click="OnClearBgm" />
+              </Grid>
+            </StackPanel>
+            <StackPanel Spacing="8">
+              <TextBlock Text="{c:Tr 启动音效}" />
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBox Name="SfxBox" Watermark="{c:Tr 仅支持 wav}" />
+                <Button Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseSfx" />
+                <Button Grid.Column="2" Content="{c:Tr 清除}" Margin="8,0,0,0" Click="OnClearSfx" />
+              </Grid>
+            </StackPanel>
           </StackPanel>
         </Border>
 
@@ -268,6 +331,7 @@
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
               <StackPanel Name="AutoUpdatePanel" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <ComboBox Name="ChannelBox" MinWidth="110" SelectionChanged="OnChannelChanged" />
                 <TextBlock Text="{c:Tr 自动检查更新}" VerticalAlignment="Center" />
                 <ToggleSwitch Name="AutoUpdateSwitch" OnContent="" OffContent="" MinWidth="0" />
               </StackPanel>

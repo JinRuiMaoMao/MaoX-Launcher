@@ -97,6 +97,7 @@ public partial class ResourcesPage : UserControl, IPage
 
     public void OnShow()
     {
+        _ = ModCn.EnsureAsync();
         var launcher = Main.MakeLauncher();
         var versions = launcher.InstalledVersions();
         var modded = versions.Where(v => Mods.ModLoaders.Contains(launcher.DetectLoader(v).Loader)).ToList();
@@ -472,7 +473,7 @@ public partial class ResourcesPage : UserControl, IPage
         if (!string.IsNullOrEmpty(hit.IconUrl))
             LoadIcon(hit.IconUrl, iconBox);
 
-        var title = new TextBlock { Text = hit.Title, FontWeight = FontWeight.SemiBold, FontSize = 15 };
+        var title = new TextBlock { Text = ModCn.Title(hit.Slug, hit.Title), FontWeight = FontWeight.SemiBold, FontSize = 15 };
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         titleRow.Children.Add(title);
         if (!string.IsNullOrEmpty(hit.Author))

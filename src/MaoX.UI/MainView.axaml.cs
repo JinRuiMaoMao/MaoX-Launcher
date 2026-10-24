@@ -84,7 +84,23 @@ public partial class MainView : UserControl
         Current = this;
         InitializeComponent();        Cfg = LauncherConfig.Load();
         Http.ApplyNetwork(Cfg);
-        ThemeManager.Apply(Cfg.Theme, Cfg.AccentColor);
+        ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
+        if (!string.IsNullOrWhiteSpace(Cfg.Bgm))
+            LauncherAudio.Play(Cfg.Bgm, true);
+        var egg = 0;
+        DateTime eggAt = default;
+        Brand.PointerPressed += (_, _) =>
+        {
+            if ((DateTime.UtcNow - eggAt).TotalSeconds > 5)
+                egg = 0;
+            eggAt = DateTime.UtcNow;
+            if (++egg < 8)
+                return;
+            egg = 0;
+            Toast(T("喵～发现彩蛋了"), "info");
+            if (BrandLogo is { } logo)
+                logo.Opacity = logo.Opacity < 1 ? 1 : 0.35;
+        };
         InitAccounts();
         VersionText.Text = "v" + Mc.LauncherVersion + "  ·  " + PlatformLabel();
         ApplyLayout(false);
@@ -207,7 +223,7 @@ public partial class MainView : UserControl
             UpdateInfo info;
             try
             {
-                info = await Updater.CheckAsync();
+                info = await Updater.CheckAsync(Cfg.UpdateChannel == "preview");
             }
             catch (Exception e)
             {
@@ -1022,6 +1038,13 @@ public partial class MainView : UserControl
     public void RefreshInstalled(string select = null)
     {
         var versions = new GameLauncher(Cfg).InstalledVersions();
+        var metas = Cfg.VersionMetas ?? [];
+        versions = versions
+            .Where(v => Cfg.ShowHiddenVersions || metas.GetValueOrDefault(v)?.Hide != true)
+            .OrderByDescending(v => metas.GetValueOrDefault(v)?.Star == true)
+            .ThenBy(v => metas.GetValueOrDefault(v)?.Group ?? "", StringComparer.OrdinalIgnoreCase)
+            .ThenBy(v => v, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         InstalledList = versions;
         Installed = [.. versions];
         var target = select ?? SelectedVersion ?? Cfg.LastVersion;
@@ -1117,6 +1140,8 @@ public partial class MainView : UserControl
         Cfg.LastVersion = version;
         if (!SaveSettings())
             return;
+        if (!string.IsNullOrWhiteSpace(Cfg.LaunchSfx))
+            LauncherAudio.Play(Cfg.LaunchSfx, false);
         if (Cfg.PreLaunchCheckOn)
         {
             var issues = LaunchCheck.Run(MakeLauncher(), version, account);
@@ -1151,6 +1176,9 @@ public partial class MainView : UserControl
         LaunchPage.OnGameStateChanged();
         var started = DateTime.Now;
         _ = Task.Run(() => WatchGame(process, version, gameDir, since, started));
+        var post = new GameLauncher(Cfg).SettingOrGlobal(version, "post_command", Cfg.PostLaunchCommand);
+        if (!string.IsNullOrWhiteSpace(post))
+            _ = Task.Run(() => LaunchExtras.RunCommand(post, gameDir, msg => Dispatcher.UIThread.Post(() => Log(msg))));
         if (HostWindow is not { } window)
             return;
         switch (Cfg.AfterLaunch)

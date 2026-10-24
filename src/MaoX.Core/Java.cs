@@ -176,10 +176,11 @@ public static partial class JavaManager
         {
             patterns.Add("/usr/lib/jvm/*");
         }
-        foreach (var dir in runtimeDirs)
+        foreach (var dir in runtimeDirs.Append(AppPaths.ToolsDir))
         {
             patterns.Add(Path.Combine(dir, "*"));
             patterns.Add(Path.Combine(dir, "*", "jre.bundle", "Contents", "Home"));
+            patterns.Add(Path.Combine(dir, "*", "Contents", "Home"));
         }
         foreach (var pattern in patterns)
             homes.AddRange(Glob(pattern));

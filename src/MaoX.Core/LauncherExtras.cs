@@ -21,6 +21,9 @@ public static class Doh
     private static readonly Dictionary<string, (IPAddress Ip, long Until)> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object Lock = new();
 
+    public static bool UseDoh { get; set; }
+    public static bool PreferIpv6 { get; set; }
+
     static Doh() => Resolver.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/dns-json");
 
     public static async ValueTask<Stream> ConnectAsync(SocketsHttpConnectionContext context, CancellationToken cancel)
@@ -52,29 +55,46 @@ public static class Doh
         }
         try
         {
-            var url = "https://1.1.1.1/dns-query?name=" + Uri.EscapeDataString(host) + "&type=A";
-            using var response = await Resolver.GetAsync(url, cancel);
-            response.EnsureSuccessStatusCode();
-            var json = JsonNode.Parse(await response.Content.ReadAsStringAsync(cancel));
-            foreach (var answer in json.Items("Answer"))
+            if (PreferIpv6)
             {
-                if (answer.Int("type") == 1 && IPAddress.TryParse(answer.Str("data"), out var ip))
-                {
-                    var ttl = Math.Clamp(answer.Int("TTL", 300), 30, 3600);
-                    lock (Lock)
-                        Cache[host] = (ip, Environment.TickCount64 + ttl * 1000);
-                    return ip;
-                }
+                var v6 = await QueryAsync(host, "AAAA", 28, cancel);
+                if (v6 != null)
+                    return v6;
             }
+            var v4 = await QueryAsync(host, "A", 1, cancel);
+            if (v4 != null)
+                return v4;
         }
         catch (Exception)
         {
         }
-        var fallback = (await Dns.GetHostAddressesAsync(host, cancel)).FirstOrDefault()
+        var addrs = await Dns.GetHostAddressesAsync(host, cancel);
+        if (PreferIpv6)
+            addrs = addrs.OrderByDescending(a => a.AddressFamily == AddressFamily.InterNetworkV6).ToArray();
+        var fallback = addrs.FirstOrDefault()
                        ?? throw new HttpRequestException(F("无法解析域名 {0}", host));
         lock (Lock)
             Cache[host] = (fallback, Environment.TickCount64 + 60_000);
         return fallback;
+    }
+
+    private static async Task<IPAddress> QueryAsync(string host, string type, int typeCode, CancellationToken cancel)
+    {
+        var url = "https://1.1.1.1/dns-query?name=" + Uri.EscapeDataString(host) + "&type=" + type;
+        using var response = await Resolver.GetAsync(url, cancel);
+        response.EnsureSuccessStatusCode();
+        var json = JsonNode.Parse(await response.Content.ReadAsStringAsync(cancel));
+        foreach (var answer in json.Items("Answer"))
+        {
+            if (answer.Int("type") == typeCode && IPAddress.TryParse(answer.Str("data"), out var ip))
+            {
+                var ttl = Math.Clamp(answer.Int("TTL", 300), 30, 3600);
+                lock (Lock)
+                    Cache[host] = (ip, Environment.TickCount64 + ttl * 1000);
+                return ip;
+            }
+        }
+        return null;
     }
 }
 

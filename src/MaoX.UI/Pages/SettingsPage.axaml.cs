@@ -25,6 +25,11 @@ public partial class SettingsPage : UserControl, IPage
         ("keep", "保持不变"), ("minimize", "最小化启动器"), ("hide", "隐藏启动器，游戏退出后恢复"),
     ];
 
+    private static readonly (string Key, string Text)[] UpdateChannels =
+    [
+        ("stable", "正式版"), ("preview", "预览版"),
+    ];
+
     private readonly Dictionary<string, string> _javaMap = [];
     private List<JavaInfo> _detected = [];
 
@@ -49,11 +54,26 @@ public partial class SettingsPage : UserControl, IPage
         _loading = true;
         var cfg = Cfg;
         McDirBox.Text = cfg.MinecraftDir;
-        IsolationSwitch.IsChecked = cfg.VersionIsolation;
+        IsolationBox.ItemsSource = Isolation.Modes.Select(m => T(m.Text)).ToList();
+        IsolationBox.SelectedIndex = Math.Max(0, Array.FindIndex(Isolation.Modes, m => m.Key == Isolation.Normalize(cfg.IsolationMode)));
         AutoBackupSwitch.IsChecked = cfg.AutoBackupWorlds;
         PreLaunchSwitch.IsChecked = cfg.PreLaunchCheckOn;
         ProxyBox.Text = cfg.Proxy;
         DohSwitch.IsChecked = cfg.Doh;
+        Ipv6Switch.IsChecked = cfg.PreferIpv6;
+        SpeedLimitSlider.Value = Math.Clamp(cfg.DownloadSpeedLimit, 0, 20480);
+        RefreshSpeedLimit();
+        WindowTitleBox.Text = cfg.WindowTitle;
+        PriorityBox.ItemsSource = LaunchExtras.Priorities.Select(p => T(p.Text)).ToList();
+        PriorityBox.SelectedIndex = Math.Max(0, Array.FindIndex(LaunchExtras.Priorities, p => p.Key == cfg.ProcessPriority));
+        PreCmdBox.Text = cfg.PreLaunchCommand;
+        PostCmdBox.Text = cfg.PostLaunchCommand;
+        HolidaySwitch.IsChecked = cfg.HolidayThemeOn;
+        HomepageBox.Text = cfg.Homepage;
+        BgmBox.Text = cfg.Bgm;
+        SfxBox.Text = cfg.LaunchSfx;
+        ChannelBox.ItemsSource = UpdateChannels.Select(c => T(c.Text)).ToList();
+        ChannelBox.SelectedIndex = Math.Max(0, Array.FindIndex(UpdateChannels, c => c.Key == cfg.UpdateChannel));
         GyroSwitch.IsChecked = cfg.GyroLook;
         UpdateTouchLayoutText();
         RefreshGameDirs();
@@ -93,7 +113,6 @@ public partial class SettingsPage : UserControl, IPage
         LoadBuiltInJit();
         _loading = false;
 
-        IsolationSwitch.IsCheckedChanged += (_, _) => Cfg.VersionIsolation = IsolationSwitch.IsChecked == true;
         AutoBackupSwitch.IsCheckedChanged += (_, _) => Cfg.AutoBackupWorlds = AutoBackupSwitch.IsChecked == true;
         PreLaunchSwitch.IsCheckedChanged += (_, _) => Cfg.PreLaunchCheck = PreLaunchSwitch.IsChecked == true;
         DohSwitch.IsCheckedChanged += (_, _) =>
@@ -101,6 +120,28 @@ public partial class SettingsPage : UserControl, IPage
             Cfg.Doh = DohSwitch.IsChecked == true;
             Http.ApplyNetwork(Cfg);
         };
+        Ipv6Switch.IsCheckedChanged += (_, _) =>
+        {
+            Cfg.PreferIpv6 = Ipv6Switch.IsChecked == true;
+            Http.ApplyNetwork(Cfg);
+        };
+        SpeedLimitSlider.ValueChanged += (_, _) =>
+        {
+            Cfg.DownloadSpeedLimit = (int)SpeedLimitSlider.Value;
+            Http.ApplyNetwork(Cfg);
+            RefreshSpeedLimit();
+        };
+        WindowTitleBox.TextChanged += (_, _) => Cfg.WindowTitle = (WindowTitleBox.Text ?? "").Trim();
+        PreCmdBox.TextChanged += (_, _) => Cfg.PreLaunchCommand = (PreCmdBox.Text ?? "").Trim();
+        PostCmdBox.TextChanged += (_, _) => Cfg.PostLaunchCommand = (PostCmdBox.Text ?? "").Trim();
+        HolidaySwitch.IsCheckedChanged += (_, _) =>
+        {
+            Cfg.HolidayTheme = HolidaySwitch.IsChecked == true;
+            ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
+        };
+        HomepageBox.LostFocus += (_, _) => Cfg.Homepage = (HomepageBox.Text ?? "").Trim();
+        BgmBox.LostFocus += (_, _) => ApplyBgm((BgmBox.Text ?? "").Trim());
+        SfxBox.LostFocus += (_, _) => Cfg.LaunchSfx = (SfxBox.Text ?? "").Trim();
         GyroSwitch.IsCheckedChanged += (_, _) =>
         {
             Cfg.GyroLook = GyroSwitch.IsChecked == true;
@@ -345,7 +386,7 @@ public partial class SettingsPage : UserControl, IPage
 
     private void ApplyTheme()
     {
-        ThemeManager.Apply(Cfg.Theme, Cfg.AccentColor);
+        ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
         UpdateThemeControls();
         Main.SaveSettings();
     }
@@ -550,6 +591,82 @@ public partial class SettingsPage : UserControl, IPage
             return;
         Cfg.JavaPath = path;
         FillJava(_detected);
+    }
+
+    private void OnDownloadJdk8(object sender, RoutedEventArgs e) => DownloadJdk(8);
+    private void OnDownloadJdk17(object sender, RoutedEventArgs e) => DownloadJdk(17);
+    private void OnDownloadJdk21(object sender, RoutedEventArgs e) => DownloadJdk(21);
+
+    private void DownloadJdk(int feature)
+    {
+        _ = Main.RunTask(F("下载 JDK {0}", feature), async () =>
+        {
+            var java = await JavaAdoptium.InstallAsync(feature, Main.MakeLauncher().Dl);
+            return java;
+        }, java =>
+        {
+            Cfg.JavaPath = java;
+            DetectJavaInBackground();
+            Main.Toast(F("已安装 JDK {0}", feature));
+        });
+    }
+
+    private void OnIsolationChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || IsolationBox.SelectedIndex < 0)
+            return;
+        Cfg.IsolationMode = Isolation.Modes[IsolationBox.SelectedIndex].Key;
+        Cfg.VersionIsolation = Isolation.Isolates(Cfg.IsolationMode);
+    }
+
+    private void OnPriorityChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && PriorityBox.SelectedIndex >= 0)
+            Cfg.ProcessPriority = LaunchExtras.Priorities[PriorityBox.SelectedIndex].Key;
+    }
+
+    private void OnChannelChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && ChannelBox.SelectedIndex >= 0)
+            Cfg.UpdateChannel = UpdateChannels[ChannelBox.SelectedIndex].Key;
+    }
+
+    private void RefreshSpeedLimit() =>
+        SpeedLimitText.Text = Cfg.DownloadSpeedLimit <= 0 ? T("不限制") : $"{Cfg.DownloadSpeedLimit} KB/s";
+
+    private void ApplyBgm(string path)
+    {
+        Cfg.Bgm = path;
+        BgmBox.Text = path;
+        if (string.IsNullOrEmpty(path))
+            LauncherAudio.Stop();
+        else
+            LauncherAudio.Play(path, true);
+    }
+
+    private async void OnBrowseBgm(object sender, RoutedEventArgs e)
+    {
+        var path = await Main.PickFile(T("选择背景音乐"), "WAV", "*.wav");
+        if (path != null)
+            ApplyBgm(path);
+    }
+
+    private void OnClearBgm(object sender, RoutedEventArgs e) => ApplyBgm("");
+
+    private async void OnBrowseSfx(object sender, RoutedEventArgs e)
+    {
+        var path = await Main.PickFile(T("选择启动音效"), "WAV", "*.wav");
+        if (path != null)
+        {
+            Cfg.LaunchSfx = path;
+            SfxBox.Text = path;
+        }
+    }
+
+    private void OnClearSfx(object sender, RoutedEventArgs e)
+    {
+        Cfg.LaunchSfx = "";
+        SfxBox.Text = "";
     }
 
     // ------------------------------------------------------------------ 下载、账号、个性化

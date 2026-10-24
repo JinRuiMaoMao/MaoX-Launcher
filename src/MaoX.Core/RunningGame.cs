@@ -14,10 +14,15 @@ public abstract class RunningGame
 
     public abstract Task<int> WaitForExitAsync();
 
+    /// <summary>电脑上的 Java 子进程；手机上为 null。</summary>
+    public virtual Process Native => null;
+
     public static RunningGame Of(Process process) => new ProcessGame(process);
 
     private sealed class ProcessGame(Process process) : RunningGame
     {
+        public override Process Native => process;
+
         public override bool HasExited => process.HasExited;
 
         public override void Kill() => process.Kill(true);

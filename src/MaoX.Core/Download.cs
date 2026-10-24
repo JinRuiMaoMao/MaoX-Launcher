@@ -64,10 +64,13 @@ public static class Http
 
     public static HttpClient Client { get; private set; } = CreateClient();
 
-    /// <summary>按配置重建 HTTP 客户端（代理、DoH）。启动时和改设置后调用。</summary>
+    /// <summary>按配置重建 HTTP 客户端（代理、DoH、IPv6）。启动时和改设置后调用。</summary>
     public static void ApplyNetwork(LauncherConfig cfg)
     {
-        var next = CreateClient(cfg?.Proxy, cfg?.Doh == true);
+        Doh.UseDoh = cfg?.Doh == true;
+        Doh.PreferIpv6 = cfg?.PreferIpv6 == true;
+        Downloader.SpeedLimitKbs = Math.Max(0, cfg?.DownloadSpeedLimit ?? 0);
+        var next = CreateClient(cfg?.Proxy, cfg?.Doh == true, cfg?.PreferIpv6 == true);
         var old = Client;
         Client = next;
         try
@@ -79,7 +82,7 @@ public static class Http
         }
     }
 
-    private static HttpClient CreateClient(string proxy = null, bool doh = false)
+    private static HttpClient CreateClient(string proxy = null, bool doh = false, bool ipv6 = false)
     {
         var handler = new SocketsHttpHandler
         {
@@ -97,6 +100,8 @@ public static class Http
         }
         if (doh)
             handler.ConnectCallback = Doh.ConnectAsync;
+        else if (ipv6)
+            handler.ConnectCallback = Ipv6Connect.ConnectAsync;
         var client = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
         client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
         return client;
@@ -259,6 +264,37 @@ public class Downloader
     public int Threads { get; }
     public int Retries { get; }
     public int Timeout { get; }
+
+    /// <summary>全局下载限速 KB/s，0 = 不限制。</summary>
+    public static int SpeedLimitKbs { get; set; }
+
+    private static readonly object LimitLock = new();
+    private static long _limitWindowStart;
+    private static long _limitWindowBytes;
+
+    internal static async Task ThrottleAsync(int read, CancellationToken cancel)
+    {
+        var kbs = SpeedLimitKbs;
+        if (kbs <= 0 || read <= 0)
+            return;
+        var budget = kbs * 1024L;
+        TimeSpan delay;
+        lock (LimitLock)
+        {
+            var now = Environment.TickCount64;
+            if (_limitWindowStart == 0 || now - _limitWindowStart >= 1000)
+            {
+                _limitWindowStart = now;
+                _limitWindowBytes = 0;
+            }
+            _limitWindowBytes += read;
+            if (_limitWindowBytes <= budget)
+                return;
+            delay = TimeSpan.FromMilliseconds(Math.Min(4000, (_limitWindowBytes - budget) * 1000.0 / budget));
+        }
+        if (delay > TimeSpan.Zero)
+            await Task.Delay(delay, cancel);
+    }
 
     /// <summary>下载中换源时写日志，没有时不记</summary>
     public Action<string> Log { get; set; }
@@ -446,6 +482,7 @@ public class Downloader
                         sha1.AppendData(buffer, 0, read);
                         await output.WriteAsync(buffer.AsMemory(0, read), cts.Token);
                         meter?.Add(read);
+                        await ThrottleAsync(read, cts.Token);
                         if (mirror)
                             Interlocked.Add(ref _mirrorBytes, read);
                         else

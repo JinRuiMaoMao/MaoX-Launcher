@@ -38,6 +38,10 @@ public class ToolsPage : UserControl, IPage
         if (!Platform.IsMobile)
             _body.Children.Add(VersionDialog.SubCard(T("本地服务器"), "signal", ServerCard()));
         _body.Children.Add(VersionDialog.SubCard(T("实验室"), "sparkle", LabsCard()));
+        _body.Children.Add(VersionDialog.SubCard(T("官方新闻"), "flag", NewsCard()));
+        _body.Children.Add(VersionDialog.SubCard(T("帮助"), "info", HelpCard()));
+        _body.Children.Add(VersionDialog.SubCard(T("反馈"), "file", FeedbackCard()));
+        _body.Children.Add(VersionDialog.SubCard(T("赞助"), "sparkle", SponsorCard()));
         _body.Children.Add(VersionDialog.SubCard(T("公告"), "flag", AnnounceCard()));
         if (!Platform.IsMobile)
             _body.Children.Add(VersionDialog.SubCard(T("手柄"), "game", GamepadCard()));
@@ -345,6 +349,105 @@ public class ToolsPage : UserControl, IPage
         {
             return false;
         }
+    }
+
+    private Control NewsCard()
+    {
+        var list = new StackPanel { Spacing = 8 };
+        var hint = new TextBlock { Text = T("Minecraft 官方更新说明。"), Classes = { "muted", "wrap" } };
+        var load = DialogView.MakeButton(T("刷新新闻"), icon: "refresh", onClick: () => _ = LoadNews(list));
+        _ = LoadNews(list);
+        return new StackPanel { Spacing = 8, Children = { hint, load, list } };
+    }
+
+    private async Task LoadNews(StackPanel list)
+    {
+        list.Children.Clear();
+        list.Children.Add(new TextBlock { Text = T("正在获取…"), Classes = { "muted" } });
+        try
+        {
+            var items = await VanillaNews.FetchAsync();
+            list.Children.Clear();
+            foreach (var item in items.Take(6))
+            {
+                var body = item.Body.Replace("\r", "").Replace("\n", " ");
+                if (body.Length > 160)
+                    body = body[..160] + "…";
+                var box = new StackPanel { Spacing = 2 };
+                box.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeight.SemiBold });
+                if (body.Length > 0)
+                    box.Children.Add(new TextBlock { Text = body, Classes = { "small", "muted", "wrap" } });
+                list.Children.Add(box);
+            }
+            if (list.Children.Count == 0)
+                list.Children.Add(new TextBlock { Text = T("暂时没有新闻"), Classes = { "muted" } });
+        }
+        catch (Exception e)
+        {
+            list.Children.Clear();
+            list.Children.Add(new TextBlock { Text = F("获取失败：{0}", e.Message), Classes = { "muted", "wrap" } });
+        }
+    }
+
+    private static Control HelpCard()
+    {
+        var box = new StackPanel { Spacing = 10 };
+        foreach (var (q, a) in HelpFaq.Items)
+        {
+            box.Children.Add(new TextBlock { Text = T(q), FontWeight = FontWeight.SemiBold });
+            box.Children.Add(new TextBlock { Text = T(a), Classes = { "muted", "wrap" } });
+        }
+        return box;
+    }
+
+    private Control FeedbackCard()
+    {
+        var hint = new TextBlock
+        {
+            Text = T("把当前版本的 latest.log 上传到 mclo.gs，方便分享给别人排查问题。"),
+            Classes = { "muted", "wrap" },
+        };
+        var go = DialogView.MakeButton(T("上传游戏日志"), icon: "upload", onClick: () => _ = UploadLog());
+        return new StackPanel { Spacing = 8, Children = { hint, go } };
+    }
+
+    private async Task UploadLog()
+    {
+        var version = Main.SelectedVersion;
+        var gameDir = string.IsNullOrEmpty(version) ? "" : new GameLauncher(Cfg).GameDirFor(version);
+        var text = Feedback.LatestGameLog(gameDir);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            await Main.Dialog(T("没有日志"), T("先启动一次游戏，或确认版本隔离后的 logs 文件夹里有 latest.log。"), "warn");
+            return;
+        }
+        try
+        {
+            var url = await Feedback.UploadLogAsync(text);
+            if (await Main.Dialog(T("日志已上传"), url, "info",
+                                 (T("打开链接"), "open", "primary"), (T("关闭"), "close", "")) is "open")
+                Platform.OpenUrl(url);
+        }
+        catch (Exception e)
+        {
+            await Main.Dialog(T("上传失败"), MainView.ErrorText(e), "error");
+        }
+    }
+
+    private static Control SponsorCard()
+    {
+        var hint = new TextBlock
+        {
+            Text = T("如果喜欢 MaoX，可以在 GitHub 点 Star，或打开发布页支持一下。"),
+            Classes = { "muted", "wrap" },
+        };
+        var star = DialogView.MakeButton(T("打开 GitHub"), icon: "link", onClick: () => Platform.OpenUrl(Updater.RepoUrl));
+        var rel = DialogView.MakeButton(T("打开发布页"), icon: "external", onClick: () => Platform.OpenUrl(Updater.ReleasesUrl));
+        return new StackPanel
+        {
+            Spacing = 8,
+            Children = { hint, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { star, rel } } },
+        };
     }
 
     private Control AnnounceCard()

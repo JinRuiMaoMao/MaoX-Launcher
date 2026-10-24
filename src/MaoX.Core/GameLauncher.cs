@@ -66,6 +66,7 @@ public static partial class Mc
         ["net.neoforged:forge"] = "neoforge",
         ["net.minecraftforge:forge"] = "forge",
         ["optifine:OptiFine"] = "optifine",
+        ["com.mumfrey:liteloader"] = "liteloader",
     };
 
     public static readonly Dictionary<string, string> LoaderNames = new()
@@ -75,6 +76,7 @@ public static partial class Mc
         ["fabric"] = "Fabric",
         ["quilt"] = "Quilt",
         ["optifine"] = "OptiFine",
+        ["liteloader"] = "LiteLoader",
     };
 
     [GeneratedRegex(@"\$\{(\w+)\}")]
@@ -182,8 +184,11 @@ public static partial class Mc
                 return (loader, version);
             }
         }
-        if ((data.Str("minecraftArguments") ?? "").Contains("FMLTweaker"))
+        var legacyArgs = data.Str("minecraftArguments") ?? "";
+        if (legacyArgs.Contains("FMLTweaker"))
             return ("forge", null);
+        if (legacyArgs.Contains("LiteLoaderTweaker"))
+            return ("liteloader", null);
         return (null, null);
     }
 
@@ -552,10 +557,21 @@ public class GameLauncher
         return cfg;
     }
 
-    public string GameDirFor(string versionId)
+    public string IsolationModeFor(string versionId) => Isolation.Resolve(VersionSettings(versionId), Cfg);
+
+    public string GameDirFor(string versionId) =>
+        Isolation.Isolates(IsolationModeFor(versionId)) ? VersionDir(versionId) : McDir;
+
+    public string SettingOrGlobal(string versionId, string key, string global)
     {
-        var isolation = VersionSettings(versionId).BoolOrNull("isolation") ?? Cfg.VersionIsolation;
-        return isolation ? VersionDir(versionId) : McDir;
+        var local = VersionSettings(versionId).Str(key);
+        return string.IsNullOrWhiteSpace(local) ? global : local;
+    }
+
+    public string WindowTitleFor(string versionId)
+    {
+        var title = SettingOrGlobal(versionId, "window_title", Cfg.WindowTitle);
+        return string.IsNullOrWhiteSpace(title) ? null : title;
     }
 
     // ------------------------------------------------------------------ 文件准备
@@ -886,7 +902,9 @@ public class GameLauncher
             ["auth_player_name"] = auth.Name,
             ["version_name"] = vjson.Str("id"),
             ["game_directory"] = info.GameDir,
-            ["assets_root"] = PathOf("assets"),
+            ["assets_root"] = IsolationModeFor(vjson.Str("id")) == Isolation.Full
+                ? Path.Combine(info.GameDir, "assets")
+                : PathOf("assets"),
             ["game_assets"] = info.GameAssets,
             ["assets_index_name"] = vjson.Obj("assetIndex")?.Str("id") ?? vjson.Str("assets") ?? "legacy",
             ["auth_uuid"] = auth.Uuid,
@@ -896,7 +914,7 @@ public class GameLauncher
             ["clientid"] = "0",
             ["user_type"] = auth.UserType ?? "msa",
             ["user_properties"] = "{}",
-            ["version_type"] = Mc.LauncherName,
+            ["version_type"] = WindowTitleFor(vjson.Str("id")) ?? Mc.LauncherName,
             ["resolution_width"] = widthText,
             ["resolution_height"] = heightText,
             ["natives_directory"] = info.NativesDir,
@@ -1011,6 +1029,14 @@ public class GameLauncher
         Log(F("正在启动 {0}（玩家 {1}，最大内存 {2} MB）...", versionId, auth?.Name ?? Cfg.Username, Cfg.MaxMemory));
         if (Cfg.AutoMemoryOn)
             Log(F("已按可用内存自动分配 {0} MB（可用 {1:0.0} GB）", Cfg.MaxMemory, GameMemory.AvailableMb() / 1024.0));
+        if (IsolationModeFor(versionId) == Isolation.Full)
+            Directory.CreateDirectory(Path.Combine(gameDir, "assets"));
+        var pre = SettingOrGlobal(versionId, "pre_command", Cfg.PreLaunchCommand);
+        if (!string.IsNullOrWhiteSpace(pre))
+        {
+            Log(T("正在运行启动前命令…"));
+            LaunchExtras.RunCommand(pre, gameDir, Log);
+        }
         var psi = new ProcessStartInfo(cmd[0])
         {
             WorkingDirectory = gameDir,
@@ -1024,6 +1050,8 @@ public class GameLauncher
             psi.ArgumentList.Add(arg);
         var process = Process.Start(psi) ?? throw new InvalidOperationException(T("无法启动 Java 进程"));
         process.StandardInput.Close();
+        LaunchExtras.ApplyPriority(process, SettingOrGlobal(versionId, "priority", Cfg.ProcessPriority));
+        LaunchExtras.TrySetWindowTitle(process, WindowTitleFor(versionId));
         return process;
     }
 

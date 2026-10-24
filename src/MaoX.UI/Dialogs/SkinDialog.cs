@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using MaoX.Controls;
 using MaoX.Core;
 using static MaoX.Core.I18n;
@@ -68,14 +69,23 @@ public class SkinDialog : DialogView
                 Children =
                 {
                     _preview,
-                    new TextBlock { Text = T("点击查看背面"), Classes = { "small", "muted" }, HorizontalAlignment = HorizontalAlignment.Center },
+                    new TextBlock { Text = T("点击旋转查看"), Classes = { "small", "muted" }, HorizontalAlignment = HorizontalAlignment.Center },
                 },
             },
         };
-        _preview.PointerPressed += (_, _) =>
+        var hint = (TextBlock)((StackPanel)previewCard.Child).Children[1];
+        var spin = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
+        spin.Tick += (_, _) =>
         {
             _preview.Back = !_preview.Back;
-            ((TextBlock)((StackPanel)previewCard.Child).Children[1]).Text = _preview.Back ? T("点击查看正面") : T("点击查看背面");
+            hint.Text = _preview.Back ? T("点击查看正面") : T("点击查看背面");
+        };
+        spin.Start();
+        _preview.PointerPressed += (_, _) =>
+        {
+            spin.Stop();
+            _preview.Back = !_preview.Back;
+            hint.Text = _preview.Back ? T("点击查看正面") : T("点击查看背面");
         };
         grid.Children.Add(previewCard);
 

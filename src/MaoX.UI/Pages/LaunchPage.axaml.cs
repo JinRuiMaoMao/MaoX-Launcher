@@ -47,6 +47,7 @@ public partial class LaunchPage : UserControl, IPage
     {
         InitializeComponent();
         OpenDirButton.IsVisible = !Platform.IsMobile;
+        HiddenButton.Classes.Set("accent", Main.Cfg.ShowHiddenVersions);
         LogList.ItemsSource = _lines;
         new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Background, (_, _) => FlushLog()).Start();
 
@@ -70,6 +71,7 @@ public partial class LaunchPage : UserControl, IPage
     {
         UpdateHero();
         DetectGames();
+        LoadHomepage();
     }
 
     // ------------------------------------------------------------------ 其他 Mojang 游戏
@@ -380,20 +382,83 @@ public partial class LaunchPage : UserControl, IPage
             HeroMeta.Text = T("前往「下载」安装一个 Minecraft 版本");
             return;
         }
-        HeroTitle.Text = version;
+        var meta = Main.Cfg.VersionMetas.GetValueOrDefault(version);
+        HeroTitle.Text = (meta?.Star == true ? "★ " : "") + version;
         try
         {
             var gl = new GameLauncher(Main.Cfg);
             var played = PlayTime.Describe(gl, version);
-            HeroMeta.Text = gl.DescribeVersion(version) + (played == "" ? "" : "  ·  " + played);
+            var note = string.IsNullOrWhiteSpace(meta?.Note) ? "" : "  ·  " + meta.Note;
+            HeroMeta.Text = gl.DescribeVersion(version) + (played == "" ? "" : "  ·  " + played) + note;
         }
         catch (Exception)
         {
-            HeroMeta.Text = "Minecraft";
+            HeroMeta.Text = string.IsNullOrWhiteSpace(meta?.Note) ? "Minecraft" : meta.Note;
+        }
+        if (!string.IsNullOrWhiteSpace(meta?.Icon) && File.Exists(AppPaths.Rebase(meta.Icon)))
+        {
+            try
+            {
+                GameLogo.Source = new Bitmap(AppPaths.Rebase(meta.Icon));
+                GameLogo.IsVisible = true;
+            }
+            catch (Exception)
+            {
+                GameLogo.IsVisible = false;
+            }
         }
     }
 
     private void OnVersionSettings(object sender, RoutedEventArgs e) => Main.ManageVersion();
+
+    private void OnToggleHidden(object sender, RoutedEventArgs e)
+    {
+        Main.Cfg.ShowHiddenVersions = !Main.Cfg.ShowHiddenVersions;
+        HiddenButton.Classes.Set("accent", Main.Cfg.ShowHiddenVersions);
+        Main.RefreshInstalled(Main.SelectedVersion);
+    }
+
+    private async void LoadHomepage()
+    {
+        var source = Main.Cfg.Homepage;
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            HomeCard.IsVisible = false;
+            HomeCards.Children.Clear();
+            return;
+        }
+        try
+        {
+            var cards = await Homepage.LoadAsync(source);
+            HomeCards.Children.Clear();
+            foreach (var card in cards.Take(8))
+            {
+                var box = new StackPanel { Spacing = 4, MaxWidth = 260 };
+                if (card.Title.Length > 0)
+                    box.Children.Add(new TextBlock { Text = card.Title, FontWeight = FontWeight.SemiBold });
+                if (card.Text.Length > 0)
+                    box.Children.Add(new TextBlock { Text = card.Text, Classes = { "small", "muted", "wrap" } });
+                var border = new Border
+                {
+                    Classes = { "card" }, Padding = new Thickness(12, 10), Child = box, MinWidth = 180,
+                };
+                if (!string.IsNullOrWhiteSpace(card.Url))
+                {
+                    border.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+                    var url = card.Url;
+                    border.PointerPressed += (_, _) => Platform.OpenUrl(url);
+                }
+                HomeCards.Children.Add(border);
+            }
+            HomeCard.IsVisible = HomeCards.Children.Count > 0;
+        }
+        catch (Exception e)
+        {
+            HomeCards.Children.Clear();
+            HomeCards.Children.Add(new TextBlock { Text = F("主页加载失败：{0}", e.Message), Classes = { "muted", "wrap" } });
+            HomeCard.IsVisible = true;
+        }
+    }
 
     // ------------------------------------------------------------------ 启动
 

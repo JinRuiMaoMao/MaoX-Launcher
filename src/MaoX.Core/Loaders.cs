@@ -50,8 +50,11 @@ public static partial class Loaders
     // OptiFine 官网没有直链，与 PCL / HMCL 一样使用 BMCLAPI 提供的 OptiFine 镜像
     public const string OptiFineApi = "https://bmclapi2.bangbang93.com/optifine/";
     public const string OptiFineTweaker = "optifine.OptiFineTweaker";
+    public const string LiteLoaderApi = "https://bmclapi2.bangbang93.com/maven/com/mumfrey/liteloader/versions.json";
+    public const string LiteLoaderTweaker = "com.mumfrey.liteloader.launch.LiteLoaderTweaker";
+    public const string LiteLoaderMaven = "https://bmclapi2.bangbang93.com/maven/";
 
-    public static readonly string[] All = ["forge", "neoforge", "fabric", "quilt"];
+    public static readonly string[] All = ["forge", "neoforge", "fabric", "quilt", "liteloader"];
 
     [GeneratedRegex("alpha|beta|pre|rc|snapshot", RegexOptions.IgnoreCase)]
     private static partial Regex UnstablePattern();
@@ -257,6 +260,7 @@ public partial class LoaderInstaller
                 "forge" => await ListForgeAsync(mc),
                 "neoforge" => await ListNeoForgeAsync(mc),
                 "optifine" => await ListOptiFineAsync(mc),
+                "liteloader" => await ListLiteLoaderAsync(mc),
                 _ => throw new LoaderException(F("不支持的模组加载器：{0}", loader)),
             };
         }
@@ -353,6 +357,44 @@ public partial class LoaderInstaller
         }).ToList();
     }
 
+    private async Task<List<LoaderItem>> ListLiteLoaderAsync(string mc)
+    {
+        var data = await Dl.FetchJsonAsync(Loaders.LiteLoaderApi, mirror: false);
+        var node = data.Get("versions")?.Get(mc) ?? data.Get(mc);
+        if (node == null)
+            return [];
+        var items = new List<LoaderItem>();
+        void Add(JsonNode art)
+        {
+            if (art == null)
+                return;
+            var version = art.Str("version") ?? mc;
+            items.Add(new LoaderItem
+            {
+                Version = version,
+                Display = version,
+                Stable = !Loaders.IsUnstable(version),
+                Type = art.Str("tweakClass") ?? Loaders.LiteLoaderTweaker,
+                Filename = art.Str("file") ?? $"liteloader-{version}.jar",
+            });
+        }
+        var artefacts = node.Get("artefacts")?.Get("com.mumfrey:liteloader") ?? node.Get("artefacts");
+        if (artefacts is JsonObject obj)
+        {
+            Add(obj.Get("latest"));
+            Add(obj.Get("snapshot"));
+            foreach (var (key, value) in obj)
+            {
+                if (key is "latest" or "snapshot")
+                    continue;
+                Add(value);
+            }
+        }
+        else
+            Add(node);
+        return items.GroupBy(i => i.Version).Select(g => g.First()).ToList();
+    }
+
     // ------------------------------------------------------------------ 安装
 
     /// <summary>安装加载器，返回新版本的 id。原版需要已经安装好（或会被自动补全）。</summary>
@@ -360,6 +402,8 @@ public partial class LoaderInstaller
     {
         if (loader == "optifine")
             return await InstallOptiFineAsync(mc, item);
+        if (loader == "liteloader")
+            return await InstallLiteLoaderAsync(mc, item);
         if (!Mc.LoaderNames.TryGetValue(loader ?? "", out var name))
             throw new LoaderException(F("不支持的模组加载器：{0}", loader));
         Log(F("正在安装 {0} {1}（Minecraft {2}）", name, item.Display, mc));
@@ -480,6 +524,51 @@ public partial class LoaderInstaller
             };
         else
             data["minecraftArguments"] = parent.Str("minecraftArguments", "") + " --tweakClass " + Loaders.OptiFineTweaker;
+        return WriteVersion(data);
+    }
+
+    private async Task<string> InstallLiteLoaderAsync(string mc, LoaderItem item)
+    {
+        await _gl.PrepareAsync(mc);
+        var version = item.Version;
+        var file = string.IsNullOrEmpty(item.Filename) ? $"liteloader-{version}.jar" : item.Filename;
+        var coord = $"com.mumfrey:liteloader:{version}";
+        var library = LibPath(coord);
+        var url = $"{Loaders.LiteLoaderMaven}com/mumfrey/liteloader/{Web.Quote(version)}/{Web.Quote(file)}";
+        Log(F("正在下载 LiteLoader {0}...", item.Display));
+        Directory.CreateDirectory(Path.GetDirectoryName(library)!);
+        await Dl.DownloadManyAsync([new DownloadTask(url, library)]);
+        var parent = Json.ReadFile(_gl.VersionJsonPath(mc));
+        var versionId = $"{mc}-LiteLoader{version}";
+        var tweak = string.IsNullOrEmpty(item.Type) ? Loaders.LiteLoaderTweaker : item.Type;
+        var data = new JsonObject
+        {
+            ["id"] = versionId,
+            ["inheritsFrom"] = mc,
+            ["type"] = parent.Str("type", "release"),
+            ["time"] = parent.Str("time", ""),
+            ["releaseTime"] = parent.Str("releaseTime", ""),
+            ["mainClass"] = "net.minecraft.launchwrapper.Launch",
+            ["libraries"] = new JsonArray(
+                new JsonObject
+                {
+                    ["name"] = coord,
+                    ["downloads"] = new JsonObject
+                    {
+                        ["artifact"] = new JsonObject { ["path"] = Mc.MavenPath(coord) },
+                    },
+                },
+                new JsonObject { ["name"] = "net.minecraft:launchwrapper:1.12" }),
+        };
+        if (parent.Get("arguments") != null)
+        {
+            data["arguments"] = new JsonObject
+            {
+                ["game"] = new JsonArray("--tweakClass", tweak),
+            };
+        }
+        else
+            data["minecraftArguments"] = parent.Str("minecraftArguments", "") + " --tweakClass " + tweak;
         return WriteVersion(data);
     }
 

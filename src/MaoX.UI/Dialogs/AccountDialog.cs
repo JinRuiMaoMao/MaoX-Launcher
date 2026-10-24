@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -187,6 +188,20 @@ public class AuthlibLoginDialog : DialogView
         root.Children.Add(Title(T("外置登录")));
         root.Children.Add(Paragraph(T("使用 LittleSkin 等皮肤站账号登录（authlib-injector），联机时能显示皮肤")));
         var fields = new StackPanel { Spacing = 7, Margin = new Thickness(0, 16, 0, 0) };
+        var chips = new WrapPanel { ItemSpacing = 8, LineSpacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+        foreach (var (name, api) in SkinSites.All)
+        {
+            var chip = new ToggleButton { Classes = { "chip" }, Content = name, IsChecked = api == Accounts.LittleskinApi };
+            chip.Click += (_, _) =>
+            {
+                _server.Text = api;
+                foreach (var child in chips.Children.OfType<ToggleButton>())
+                    child.IsChecked = child == chip;
+            };
+            chips.Children.Add(chip);
+        }
+        fields.Children.Add(FieldLabel(T("常用皮肤站")));
+        fields.Children.Add(chips);
         foreach (var (label, box) in new[] { (T("认证服务器"), _server), (T("邮箱或用户名"), _user), (T("密码"), _password) })
         {
             fields.Children.Add(FieldLabel(label));

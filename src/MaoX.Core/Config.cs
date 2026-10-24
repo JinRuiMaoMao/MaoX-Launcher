@@ -119,6 +119,35 @@ public class LauncherConfig
     public int WindowWidth { get; set; } = 854;
     public int WindowHeight { get; set; } = 480;
     public bool VersionIsolation { get; set; } = true;
+    /// <summary>off / isolate / full。空则按 <see cref="VersionIsolation"/> 迁移。</summary>
+    public string IsolationMode { get; set; } = "";
+    /// <summary>版本收藏、隐藏、分组、图标和备注。</summary>
+    public Dictionary<string, VersionMeta> VersionMetas { get; set; } = [];
+    /// <summary>启动页是否显示已隐藏的版本。</summary>
+    public bool ShowHiddenVersions { get; set; }
+    /// <summary>自定义主页 JSON 文件路径或 URL。</summary>
+    public string Homepage { get; set; } = "";
+    /// <summary>背景音乐 .wav 路径。</summary>
+    public string Bgm { get; set; } = "";
+    /// <summary>启动游戏时的音效 .wav 路径。</summary>
+    public string LaunchSfx { get; set; } = "";
+    /// <summary>节日自动换主题色。</summary>
+    public bool? HolidayTheme { get; set; }
+    public bool HolidayThemeOn => HolidayTheme != false;
+    /// <summary>下载限速 KB/s，0 = 不限制。</summary>
+    public int DownloadSpeedLimit { get; set; }
+    /// <summary>解析域名时优先使用 IPv6。</summary>
+    public bool PreferIpv6 { get; set; }
+    /// <summary>stable / preview。</summary>
+    public string UpdateChannel { get; set; } = "stable";
+    /// <summary>启动游戏前执行的命令。</summary>
+    public string PreLaunchCommand { get; set; } = "";
+    /// <summary>游戏进程起来后执行的命令。</summary>
+    public string PostLaunchCommand { get; set; } = "";
+    /// <summary>normal / below / above / high。</summary>
+    public string ProcessPriority { get; set; } = "normal";
+    /// <summary>游戏窗口标题；空 = 默认。</summary>
+    public string WindowTitle { get; set; } = "";
     /// <summary>启动游戏前自动备份上次备份之后玩过的存档</summary>
     public bool AutoBackupWorlds { get; set; } = true;
     /// <summary>每个存档保留的自动备份份数</summary>
@@ -169,6 +198,22 @@ public class LauncherConfig
                     cfg.ControlLayouts ??= [];
                     cfg.ExtraDirs ??= [];
                     cfg.FavoriteMods ??= [];
+                    cfg.VersionMetas ??= [];
+                    if (string.IsNullOrWhiteSpace(cfg.IsolationMode))
+                        cfg.IsolationMode = Isolation.FromLegacy(cfg.VersionIsolation);
+                    else
+                    {
+                        cfg.IsolationMode = Isolation.Normalize(cfg.IsolationMode);
+                        cfg.VersionIsolation = Isolation.Isolates(cfg.IsolationMode);
+                    }
+                    if (string.IsNullOrWhiteSpace(cfg.UpdateChannel))
+                        cfg.UpdateChannel = "stable";
+                    if (string.IsNullOrWhiteSpace(cfg.ProcessPriority))
+                        cfg.ProcessPriority = "normal";
+                    cfg.HolidayTheme ??= true;
+                    cfg.Homepage = AppPaths.Rebase(cfg.Homepage);
+                    cfg.Bgm = AppPaths.Rebase(cfg.Bgm);
+                    cfg.LaunchSfx = AppPaths.Rebase(cfg.LaunchSfx);
                     foreach (var dir in cfg.ExtraDirs)
                         dir.Path = AppPaths.Rebase(dir.Path ?? "");
                     foreach (var layout in cfg.ControlLayouts)
