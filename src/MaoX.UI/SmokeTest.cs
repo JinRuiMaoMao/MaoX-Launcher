@@ -151,7 +151,7 @@ internal static class SmokeTest
             await Check("page " + page, async () =>
             {
                 window.ShowPage(page);
-                await Task.Delay(page == "resources" ? 5000 : 1500);
+                await Task.Delay(page == "resources" ? 5000 : page == "launch" ? 3500 : 1500);
                 var path = Path.Combine(output, $"page-{page}.png");
                 Screenshot(window, path);
                 if (page == "launch" && !window.Cfg.LiveLog && !window.LaunchPage.DashCard.IsVisible)
@@ -607,13 +607,15 @@ internal static class SmokeTest
         if (map.GetValueOrDefault("java") != "26.3" || map.GetValueOrDefault("java-snap") != "26.4 Snapshot 5")
             throw new Exception("version map: " + string.Join(',', map.Select(p => p.Key + "=" + p.Value)));
         var drops = McSiteFeed.ParseDrops(
-            """<style>.mp-highlight-title a{color:red}</style><div class="mp-highlight-title"><a href="/w/Wilderness_Bound">Wilderness Bound</a></div><div class="mp-highlight-tag">Latest</div><div class="mp-highlight-title"><a href="/w/Fourth_Drop_2026">Fourth Drop 2026</a></div><div class="mp-highlight-tag">Upcoming</div>""");
+            """<style>.mp-highlight-title a{color:red}</style><div class="mp-highlight-image mp-dark-only"><img src="/images/thumb/Wilderness_Bound_main_page_dark.png/640px.png"></div><div class="mp-highlight-title"><a href="/w/Wilderness_Bound">Wilderness Bound</a></div><div class="mp-highlight-tag">Latest</div><div class="mp-highlight-image mp-dark-only"><img src="/images/thumb/winterdrop.jpeg/640px.jpeg"></div><div class="mp-highlight-title"><a href="/w/Fourth_Drop_2026">Fourth Drop 2026</a></div><div class="mp-highlight-tag">Upcoming</div>""");
         if (drops.All(d => !d.Tag.Equals("Latest", StringComparison.OrdinalIgnoreCase))
             || drops.All(d => d.Item.Title != "Wilderness Bound")
-            || drops.Any(d => d.Item.Title.Contains("position") || d.Item.Title.Contains('{')))
-            throw new Exception("drops: " + string.Join(',', drops.Select(d => d.Tag + "/" + d.Item.Title)));
+            || drops.Any(d => d.Item.Title.Contains("position") || d.Item.Title.Contains('{'))
+            || drops.First(d => d.Tag.Equals("Latest", StringComparison.OrdinalIgnoreCase)).Item.Image is not { } art
+            || !art.Contains("Wilderness_Bound", StringComparison.Ordinal))
+            throw new Exception("drops: " + string.Join(',', drops.Select(d => d.Tag + "/" + d.Item.Title + "/" + d.Item.Image)));
         var news = McSiteFeed.ParseNews(JsonNode.Parse(
-            """{"entries":[{"title":"Hello","text":"World","readMoreLink":"https://www.minecraft.net/article/hello"}]}"""));
+            """{"entries":[{"title":"Hello","text":"World","readMoreLink":"https://www.minecraft.net/article/hello"},{"title":"Old","text":"x","readMoreLink":"https://www.minecraft.net/article/old"}]}"""));
         if (news.Count != 1 || news[0].Title != "Hello" || !news[0].Url.Contains("minecraft.net"))
             throw new Exception("news");
         if (!McSiteFeed.WikiPage("Java Edition 26.3").EndsWith("/w/Java_Edition_26.3", StringComparison.Ordinal))

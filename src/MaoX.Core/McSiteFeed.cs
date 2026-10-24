@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
@@ -10,37 +9,30 @@ public static class McSiteFeed
     public const string Wiki = "https://minecraft.wiki";
     public const string MinecraftNet = "https://www.minecraft.net";
 
-    public record Item(string Title, string Text, string Url);
+    public record Item(string Title, string Text, string Url, string Image = null, string ImageLight = null);
 
-    public record Snapshot(List<Item> Latest, List<Item> Upcoming, List<Item> News);
+    public record Snapshot(Item Latest, Item Upcoming, Item News);
 
     public static async Task<Snapshot> FetchAsync(CancellationToken cancel = default)
     {
-        var version = Http.SendAsync(
-            Wiki + "/api.php?action=parse&page=Template:Version&prop=wikitext&format=json&formatversion=2",
-            timeout: 15, cancel: cancel);
+        Item latest = null, upcoming = null, article = null;
         var page = Http.SendAsync(
             Wiki + "/api.php?action=parse&page=Minecraft_Wiki&prop=text&format=json&formatversion=2",
             timeout: 15, cancel: cancel);
         var news = Http.SendAsync("https://launchercontent.mojang.com/v2/news.json", timeout: 15, cancel: cancel);
-
-        var latest = new List<Item>();
-        var upcoming = new List<Item>();
-        var articles = new List<Item>();
-        try
-        {
-            var result = await version;
-            if (result.Ok)
-                ApplyVersions(ParseVersionMap(result.Json().Obj("parse")?.Str("wikitext") ?? ""), latest, upcoming);
-        }
-        catch (Exception)
-        {
-        }
         try
         {
             var result = await page;
             if (result.Ok)
-                ApplyDrops(ParseDrops(result.Json().Obj("parse")?.Str("text") ?? ""), latest, upcoming);
+            {
+                foreach (var (tag, item) in ParseDrops(result.Json().Obj("parse")?.Str("text") ?? ""))
+                {
+                    if (tag.Equals("Latest", StringComparison.OrdinalIgnoreCase) && latest == null)
+                        latest = item;
+                    else if (tag.Equals("Upcoming", StringComparison.OrdinalIgnoreCase) && upcoming == null)
+                        upcoming = item;
+                }
+            }
         }
         catch (Exception)
         {
@@ -49,12 +41,12 @@ public static class McSiteFeed
         {
             var result = await news;
             if (result.Ok)
-                articles.AddRange(ParseNews(result.Json()));
+                article = ParseNews(result.Json()).FirstOrDefault();
         }
         catch (Exception)
         {
         }
-        return new Snapshot(latest, upcoming, articles);
+        return new Snapshot(latest, upcoming, article);
     }
 
     public static Dictionary<string, string> ParseVersionMap(string wikitext)
@@ -85,9 +77,30 @@ public static class McSiteFeed
                 || !seen.Add(tag + "\0" + title))
                 continue;
             var href = Regex.Match(titleHtml, @"href=""([^""]+)""", RegexOptions.IgnoreCase);
-            list.Add((tag, new Item(title, "", AbsoluteWiki(href.Success ? href.Groups[1].Value : "/w/" + title.Replace(' ', '_')))));
+            var start = Math.Max(0, match.Index - 2800);
+            var window = html[start..match.Index];
+            list.Add((tag, new Item(title, "",
+                AbsoluteWiki(href.Success ? href.Groups[1].Value : "/w/" + title.Replace(' ', '_')),
+                FirstImage(window, "mp-dark-only") ?? FirstImage(window, null),
+                FirstImage(window, "mp-light-only"))));
         }
         return list;
+    }
+
+    private static string FirstImage(string html, string hint)
+    {
+        var pattern = hint == null
+            ? @"<img[^>]+src=""([^""]+)"""
+            : Regex.Escape(hint) + @"[\s\S]{0,500}?<img[^>]+src=""([^""]+)""";
+        string found = null;
+        foreach (Match match in Regex.Matches(html ?? "", pattern, RegexOptions.IgnoreCase))
+        {
+            var src = System.Net.WebUtility.HtmlDecode(match.Groups[1].Value);
+            if (src.Contains("Sprite", StringComparison.OrdinalIgnoreCase))
+                continue;
+            found = AbsoluteWiki(src);
+        }
+        return found;
     }
 
     private static string StripStyles(string html) =>
@@ -95,47 +108,14 @@ public static class McSiteFeed
 
     public static List<Item> ParseNews(JsonNode json)
     {
-        return json.Items("entries").Select(entry => new Item(
-            (entry.Str("title") ?? "").Trim(),
-            Plain(entry.Str("text") ?? ""),
-            (entry.Str("readMoreLink") ?? "").Trim())).Where(item => item.Title.Length > 0).Take(8).ToList();
-    }
-
-    private static void ApplyVersions(Dictionary<string, string> map, List<Item> latest, List<Item> upcoming)
-    {
-        AddVersion(latest, T("Java 版"), map, "java", "Java Edition ");
-        AddVersion(latest, T("基岩版"), map, "bedrock", "Bedrock Edition ");
-        AddVersion(upcoming, T("Java 版"), map, "java-snap", "Java Edition ", "java-upcoming");
-        AddVersion(upcoming, T("基岩版"), map, "bedrock-preview", "Bedrock Edition ", "bedrock-upcoming2", "bedrock-upcoming");
-    }
-
-    private static void AddVersion(List<Item> list, string edition, Dictionary<string, string> map, string key,
-                                   string prefix, params string[] fallbacks)
-    {
-        var value = map.GetValueOrDefault(key);
-        if (string.IsNullOrWhiteSpace(value))
+        return json.Items("entries").Select(entry =>
         {
-            foreach (var alt in fallbacks)
-            {
-                value = map.GetValueOrDefault(alt);
-                if (!string.IsNullOrWhiteSpace(value))
-                    break;
-            }
-        }
-        if (string.IsNullOrWhiteSpace(value))
-            return;
-        list.Add(new Item($"{edition} · {value}", "", WikiPage(prefix + value)));
-    }
-
-    private static void ApplyDrops(List<(string Tag, Item Item)> drops, List<Item> latest, List<Item> upcoming)
-    {
-        foreach (var (tag, item) in drops)
-        {
-            if (tag.Equals("Latest", StringComparison.OrdinalIgnoreCase))
-                latest.Insert(0, item);
-            else if (tag.Equals("Upcoming", StringComparison.OrdinalIgnoreCase))
-                upcoming.Insert(0, item);
-        }
+            var image = entry.Obj("newsPageImage")?.Str("url") ?? entry.Obj("playPageImage")?.Str("url");
+            if (!string.IsNullOrWhiteSpace(image) && image.StartsWith('/'))
+                image = "https://launchercontent.mojang.com" + image;
+            return new Item((entry.Str("title") ?? "").Trim(), Plain(entry.Str("text") ?? ""),
+                            (entry.Str("readMoreLink") ?? "").Trim(), image);
+        }).Where(item => item.Title.Length > 0).Take(1).ToList();
     }
 
     public static string WikiPage(string title)
