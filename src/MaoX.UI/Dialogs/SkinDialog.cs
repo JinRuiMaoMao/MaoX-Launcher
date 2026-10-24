@@ -19,7 +19,7 @@ namespace MaoX.Dialogs;
 public class SkinDialog : DialogView
 {
     private readonly Account _account;
-    private readonly SkinPreview _preview = new() { Width = 128, Height = 256, Cursor = new Cursor(StandardCursorType.Hand) };
+    private readonly SkinPreview _preview = new() { Width = 150, Height = 260, Cursor = new Cursor(StandardCursorType.SizeAll) };
     private readonly TextBlock _status = new() { Classes = { "small", "wrap" }, Margin = new Thickness(0, 14, 0, 0) };
     private readonly ToggleButton _classic = new() { Classes = { "chip" }, Content = T("经典（Steve）") };
     private readonly ToggleButton _slim = new() { Classes = { "chip" }, Content = T("纤细（Alex）") };
@@ -69,23 +69,9 @@ public class SkinDialog : DialogView
                 Children =
                 {
                     _preview,
-                    new TextBlock { Text = T("点击旋转查看"), Classes = { "small", "muted" }, HorizontalAlignment = HorizontalAlignment.Center },
+                    new TextBlock { Text = T("拖动旋转查看"), Classes = { "small", "muted" }, HorizontalAlignment = HorizontalAlignment.Center },
                 },
             },
-        };
-        var hint = (TextBlock)((StackPanel)previewCard.Child).Children[1];
-        var spin = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
-        spin.Tick += (_, _) =>
-        {
-            _preview.Back = !_preview.Back;
-            hint.Text = _preview.Back ? T("点击查看正面") : T("点击查看背面");
-        };
-        spin.Start();
-        _preview.PointerPressed += (_, _) =>
-        {
-            spin.Stop();
-            _preview.Back = !_preview.Back;
-            hint.Text = _preview.Back ? T("点击查看正面") : T("点击查看背面");
         };
         grid.Children.Add(previewCard);
 
@@ -220,8 +206,6 @@ public class SkinDialog : DialogView
     {
         _capePng = png;
         _preview.Cape = Decode(png);
-        if (png != null)
-            _preview.Back = true;
     }
 
     // ------------------------------------------------------------------ 读取当前皮肤
@@ -232,7 +216,6 @@ public class SkinDialog : DialogView
         {
             ShowSkin(Skins.Load(_account.Skin), _account.SkinSlim);
             SetCape(Skins.Load(_account.Cape));
-            _preview.Back = false;
             SetStatus("", false);
             return;
         }
@@ -253,7 +236,6 @@ public class SkinDialog : DialogView
                 ShowSkin(skin, active?.Variant?.Equals("slim", StringComparison.OrdinalIgnoreCase) == true);
                 _capeId = cape?.Id;
                 SetCape(capePng);
-                _preview.Back = false;
                 BuildCapes();
             }
             else
@@ -263,7 +245,6 @@ public class SkinDialog : DialogView
                     return;
                 ShowSkin(skin, slim);
                 SetCape(capePng);
-                _preview.Back = false;
             }
             SetBusy(false);
         }
@@ -349,7 +330,6 @@ public class SkinDialog : DialogView
         _skinDirty = true;
         _modelDirty = false;
         ShowSkin(png, slim ?? SkinPreview.LooksSlim(bitmap));
-        _preview.Back = false;
         SetStatus(_isSlim ? T("已自动识别为纤细（Alex）模型，如果不对可以手动切换") : "", false);
     }
 

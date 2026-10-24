@@ -1,4 +1,4 @@
-# 每次推送都在 Windows 和 macOS 上打包并自检；推送 v* 标签时自动发布 Release（启动器的自动更新从这里下载）。
+# 每次推送都在 Windows、macOS 和 Linux 上打包并自检；推送 v* 标签时自动发布 Release（启动器的自动更新从这里下载）。
 #   发布新版本：改 src/Directory.Build.props 里的 Version，提交后
 #   git tag -a v2.0.1 -m "更新内容..." && git push origin v2.0.1
 #   标签说明会作为更新说明显示在启动器的更新提示里。
@@ -119,6 +119,46 @@ jobs:
         with:
           name: MaoX-macOS
           path: dist/MaoX-Launcher-macOS-*.zip
+
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install UI libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libice6 libsm6 libfontconfig1 libx11-6 libxrandr2 \
+            libxi6 libxcursor1 libxinerama1 libxkbcommon0 libgl1
+
+      - name: Publish
+        run: bash ./publish-linux.sh
+
+      - name: Smoke test
+        timeout-minutes: 15
+        run: |
+          export MAOX_HOME="$RUNNER_TEMP/maox-home"
+          out="$RUNNER_TEMP/smoke-linux"
+          xvfb-run -a -s "-screen 0 1280x800x24" \
+            dist/MaoX-Launcher-Linux-x64 --smoke-test "$out" || code=$?
+          cat "$out/report.txt" || true
+          exit ${code:-0}
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-linux
+          path: ${{ runner.temp }}/smoke-linux
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: MaoX-Linux
+          path: dist/MaoX-Launcher-Linux-*
 
   android:
     runs-on: ubuntu-latest
@@ -476,7 +516,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, macos, android, ios]
+    needs: [windows, macos, linux, android, ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -499,6 +539,7 @@ jobs:
 
           ---
           **下载**：Windows 下载 `MaoX-Launcher-Windows-x64.exe`；Mac（M 系列芯片）下载 `MaoX-Launcher-macOS-arm64.zip`，Intel 芯片下载 `MaoX-Launcher-macOS-x64.zip`。
+          Linux 下载 `MaoX-Launcher-Linux-x64` 或 `MaoX-Launcher-Linux-arm64`，赋予执行权限后直接运行。数据目录在 `~/.local/share/MaoX Launcher`。
           Mac 首次打开如果提示无法验证开发者：右键点击 → 打开，或到"系统设置 → 隐私与安全性"点"仍要打开"。需要 macOS 14 或更高版本。
           安卓手机/平板下载 `MaoX-Launcher-Android.apk` 直接安装（需要 Android 8.0 或更高版本，64 位）。
           iPhone/iPad 下载 `MaoX-Launcher-iOS.ipa`，用 SideStore / AltStore / TrollStore 安装（需要 iOS 15 或更高版本）；启动游戏需要 JIT：iOS 17.4 以上装 StikDebug，启动器会自动请求开启。Forge / NeoForge / OptiFine 请在电脑上安装好再把版本文件夹复制到手机。

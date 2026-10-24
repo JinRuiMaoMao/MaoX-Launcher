@@ -407,7 +407,15 @@ public partial class ResourcesPage : UserControl, IPage
         SearchResult result;
         try
         {
-            result = await Task.Run(() => client.SearchAsync(query, game, loader, offset, PageSize, index, kind));
+            await ModCn.EnsureAsync();
+            var apiQuery = ModCn.ApiQuery(query);
+            result = await Task.Run(() => client.SearchAsync(apiQuery, game, loader, offset, PageSize, index, kind));
+            if (offset == 0 && apiQuery != query && result.Hits.Count > 1)
+            {
+                result = new SearchResult(
+                    result.Hits.OrderByDescending(h => ModCn.RankScore(query, h.Slug, h.Title)).ToList(),
+                    result.Total);
+            }
         }
         catch (Exception e)
         {

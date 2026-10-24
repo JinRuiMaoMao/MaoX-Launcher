@@ -25,6 +25,7 @@ public static class Updater
         : Platform.IsMac ? $"MaoX-Launcher-macOS-{(Platform.IsArm ? "arm64" : "x64")}.zip"
         : Platform.IsAndroid ? "MaoX-Launcher-Android.apk"
         : Platform.IsIOS ? "MaoX-Launcher-iOS.ipa"
+        : Platform.IsLinux ? $"MaoX-Launcher-Linux-{(Platform.IsArm ? "arm64" : "x64")}"
         : null;
 
     /// <summary>安卓发布版由宿主设置：把下载好的 APK 交给系统安装程序。</summary>
@@ -54,14 +55,16 @@ public static class Updater
         }
     }
 
-    /// <summary>只有发布版（Windows 单文件 exe、macOS .app）才能自我更新，开发时运行的版本不行。</summary>
+    /// <summary>只有发布版（Windows / Linux 单文件、macOS .app）才能自我更新，开发时运行的版本不行。</summary>
     // 单文件发布时 Assembly.Location 为空，正好用来判断是不是发布版
 #pragma warning disable IL3000
     public static bool CanSelfUpdate =>
         Platform.IsMobile
             ? AssetName != null && (MobileInstaller != null || UrlInstaller != null)
             : AssetName != null && !string.IsNullOrEmpty(Environment.ProcessPath)
-              && (Platform.IsWindows ? string.IsNullOrEmpty(typeof(Updater).Assembly.Location) : AppBundle != null);
+              && (Platform.IsWindows || Platform.IsLinux
+                  ? string.IsNullOrEmpty(typeof(Updater).Assembly.Location)
+                  : AppBundle != null);
 #pragma warning restore IL3000
 
     /// <summary>比较版本号（忽略开头的 v 和 -beta 之类的后缀）。</summary>
@@ -257,15 +260,14 @@ public static class Updater
             throw new InvalidOperationException(T("当前运行的不是发布版，无法自动更新"));
         if (Platform.IsMobile)
             MobileInstaller(downloaded);
-        else if (Platform.IsWindows)
-            ApplyWindows(downloaded);
+        else if (Platform.IsWindows || Platform.IsLinux)
+            ApplyUnixFile(downloaded);
         else
             ApplyMac(downloaded);
     }
 
-    private static void ApplyWindows(string downloaded)
+    private static void ApplyUnixFile(string downloaded)
     {
-        // 正在运行的 exe 不能覆盖，但可以改名
         var exe = Environment.ProcessPath!;
         var old = exe + ".old";
         TryDelete(old);
@@ -273,6 +275,8 @@ public static class Updater
         try
         {
             File.Copy(downloaded, exe);
+            if (Platform.IsLinux)
+                Platform.MakeExecutable(exe);
         }
         catch (Exception)
         {
@@ -333,7 +337,8 @@ public static class Updater
     /// <summary>删除上次更新留下的旧版本。旧进程可能还没完全退出，所以在后台重试几次。</summary>
     public static void CleanupOldVersion()
     {
-        var path = Platform.IsWindows ? Environment.ProcessPath + ".old" : AppBundle is { } b ? b + ".old" : null;
+        var path = Platform.IsWindows || Platform.IsLinux ? Environment.ProcessPath + ".old"
+            : AppBundle is { } b ? b + ".old" : null;
         if (path == null || (!File.Exists(path) && !Directory.Exists(path)))
             return;
         Task.Run(async () =>

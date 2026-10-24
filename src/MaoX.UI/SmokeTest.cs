@@ -613,7 +613,36 @@ internal static class SmokeTest
             throw new Exception("audio extensions");
         if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
             throw new Exception("liteloader missing");
-        return $"cards={cards.Count} isolation={mode} faq={HelpFaq.Items.Length}";
+        if (new LauncherConfig().AutoBackupWorlds)
+            throw new Exception("auto backup should be off by default");
+        if (ModCn.ApiQuery("钠") != "sodium" || ModCn.ExpandQuery("小地图").Count == 0)
+            throw new Exception("mod cn expand: " + ModCn.ApiQuery("钠"));
+        if (Homepage.PresetKey("preset:news") != "preset:news" || Homepage.Presets.Length < 4)
+            throw new Exception("homepage presets");
+        if (Modpack.ExportFormats.Length < 4 || Modpack.ExportFormats.All(f => f.Key != "multimc"))
+            throw new Exception("export formats");
+        var snap = Path.Combine(Path.GetTempPath(), "maox-snap-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(snap, "mods"));
+            File.WriteAllText(Path.Combine(snap, "mods", "a.jar"), "one");
+            File.WriteAllText(Path.Combine(snap, "options.txt"), "fov:70");
+            var zip = InstanceSnapshot.BackupAsync(snap).GetAwaiter().GetResult();
+            File.WriteAllText(Path.Combine(snap, "mods", "b.jar"), "two");
+            File.WriteAllText(Path.Combine(snap, "mods", "a.jar"), "changed");
+            File.Delete(Path.Combine(snap, "options.txt"));
+            var diff = InstanceSnapshot.Diff(zip, snap);
+            if (diff.All(c => c.Rel != "mods/b.jar" || c.Kind != "added")
+                || diff.All(c => c.Rel != "mods/a.jar" || c.Kind != "changed")
+                || diff.All(c => c.Rel != "options.txt" || c.Kind != "removed"))
+                throw new Exception("snapshot diff: " + string.Join(',', diff.Select(c => c.Kind + ":" + c.Rel)));
+        }
+        finally
+        {
+            if (Directory.Exists(snap))
+                Directory.Delete(snap, true);
+        }
+        return $"cards={cards.Count} isolation={mode} faq={HelpFaq.Items.Length} cn=sodium formats={Modpack.ExportFormats.Length}";
     }
 
     private static void WriteVersion(GameLauncher gl, string id, JsonObject data)

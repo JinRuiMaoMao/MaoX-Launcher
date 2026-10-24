@@ -58,8 +58,8 @@ public class VersionSettingsPage : UserControl, IPage
     private Panel _tabHost;
     private TextBlock _title, _subtitle;
     private VersionFilesCard _files;
-    private StackPanel _worlds, _logs, _shots, _recommend, _check;
-    private TextBlock _worldCount;
+    private StackPanel _worlds, _snapshots, _logs, _shots, _recommend, _check;
+    private TextBlock _worldCount, _snapCount;
 
     private static MainView Main => MainView.Current;
 
@@ -314,9 +314,13 @@ public class VersionSettingsPage : UserControl, IPage
         _files = new VersionFilesCard(GameDir, modded);
         _isolation.SelectionChanged += (_, _) => _files.Reload();
 
+        _snapCount = new TextBlock { Classes = { "accent", "bold" } };
+        _snapshots = new StackPanel { Spacing = 6 };
+        var snapCard = VersionDialog.SubCard(T("实例备份"), "archive", _snapshots, _snapCount);
         _worldCount = new TextBlock { Classes = { "accent", "bold" } };
         _worlds = new StackPanel { Spacing = 6 };
         var worldCard = VersionDialog.SubCard(T("存档"), "game", _worlds, _worldCount);
+        var worldsBody = new StackPanel { Spacing = 14, Children = { snapCard, worldCard } };
 
         _logs = new StackPanel { Spacing = 8 };
         _shots = new StackPanel { Spacing = 8 };
@@ -328,11 +332,12 @@ public class VersionSettingsPage : UserControl, IPage
         _tabReady = false;
         AddPanel("settings", settingsBody);
         AddPanel("files", _files);
-        AddPanel("worlds", worldCard);
+        AddPanel("worlds", worldsBody);
         AddPanel("logs", _logs);
         AddPanel("shots", _shots);
         AddPanel("recommend", _recommend);
         AddPanel("check", _check);
+        LoadSnapshots();
         LoadWorlds();
         SetTab(_tab is "settings" or "files" or "worlds" or "logs" or "shots" or "recommend" or "check" ? _tab : "settings");
     }
@@ -354,7 +359,7 @@ public class VersionSettingsPage : UserControl, IPage
         left.Children.Add(DialogView.MakeButton(T("复制"), onClick: Duplicate));
         var export = DialogView.MakeButton(T("导出"), icon: "upload");
         var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedLeft };
-        menu.Items.Add(MenuEntry(T("导出整合包（.mrpack）"), Export));
+        menu.Items.Add(MenuEntry(T("导出整合包"), Export));
         if (!Platform.IsMobile)
         {
             menu.Items.Add(MenuEntry(T("导出启动脚本"), ExportScript));
@@ -442,7 +447,102 @@ public class VersionSettingsPage : UserControl, IPage
         Platform.OpenPath(path);
     }
 
-    // ------------------------------------------------------------------ 存档
+    // ------------------------------------------------------------------ 实例备份 / 存档
+
+    private void LoadSnapshots()
+    {
+        if (_snapshots == null || string.IsNullOrEmpty(_version))
+            return;
+        var gameDir = _gl.GameDirFor(_version);
+        List<InstanceBackup> backups;
+        try
+        {
+            backups = InstanceSnapshot.List(gameDir);
+        }
+        catch (Exception)
+        {
+            backups = [];
+        }
+        _snapshots.Children.Clear();
+        _snapCount.Text = backups.Count > 0 ? backups.Count.ToString() : "";
+        _snapshots.Children.Add(new TextBlock
+        {
+            Text = T("备份模组、配置和资源包，改整合包前可以先做一份，之后能对比差异或还原。不含存档。"),
+            Classes = { "small", "dim", "wrap" },
+        });
+        var make = DialogView.MakeButton(T("立即备份"), "ghost", "archive", SnapshotNow);
+        make.HorizontalAlignment = HorizontalAlignment.Left;
+        _snapshots.Children.Add(make);
+        if (backups.Count == 0)
+        {
+            _snapshots.Children.Add(new TextBlock { Text = T("还没有实例备份"), Classes = { "muted" }, Margin = new Thickness(0, 4) });
+            return;
+        }
+        foreach (var backup in backups)
+            _snapshots.Children.Add(SnapshotRow(backup));
+    }
+
+    private Control SnapshotRow(InstanceBackup backup)
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+        var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock { Text = backup.Time.ToString("yyyy-MM-dd HH:mm:ss"), FontWeight = FontWeight.SemiBold });
+        text.Children.Add(DialogView.Text($"{backup.Size / 1048576.0:0.0} MB", "small", "dim"));
+        grid.Children.Add(text);
+        var diff = DialogView.MakeButton(T("差异"), "ghost", onClick: () => ShowDiff(backup));
+        diff.MinWidth = 0;
+        Grid.SetColumn(diff, 1);
+        grid.Children.Add(diff);
+        var restore = DialogView.MakeButton(T("还原"), "ghost", "download", () => RestoreSnapshot(backup));
+        restore.MinWidth = 0;
+        Grid.SetColumn(restore, 2);
+        grid.Children.Add(restore);
+        return new Border { Classes = { "row" }, Padding = new Thickness(10, 8), Child = grid };
+    }
+
+    private void SnapshotNow()
+    {
+        var gameDir = _gl.GameDirFor(_version);
+        _ = Main.RunTask(T("备份实例"), () => InstanceSnapshot.BackupAsync(gameDir, Main.Progress),
+                         path =>
+                         {
+                             Main.Toast(T("已备份到") + " " + Path.GetFileName(path));
+                             LoadSnapshots();
+                         });
+    }
+
+    private async void ShowDiff(InstanceBackup backup)
+    {
+        var gameDir = _gl.GameDirFor(_version);
+        List<FileChange> changes;
+        try
+        {
+            changes = await Task.Run(() => InstanceSnapshot.Diff(backup.Path, gameDir));
+        }
+        catch (Exception e)
+        {
+            await Main.Dialog(T("无法比较"), MainView.ErrorText(e), "error");
+            return;
+        }
+        await Main.ShowDialogAsync(new InstanceDiffDialog(backup, changes));
+    }
+
+    private async void RestoreSnapshot(InstanceBackup backup)
+    {
+        if (!CheckNotRunning())
+            return;
+        if (!await Main.Confirm(T("还原实例"),
+                                F("用 {0} 的备份覆盖当前模组和配置吗？还原前会先再备份一份现在的文件。",
+                                  backup.Time.ToString("yyyy-MM-dd HH:mm")),
+                                T("还原"), "warn", "danger"))
+            return;
+        await Main.RunTask(T("还原实例"), () => InstanceSnapshot.RestoreAsync(_gl.GameDirFor(_version), backup, Main.Progress),
+                           () =>
+                           {
+                               Main.Toast(T("已还原实例备份"));
+                               LoadSnapshots();
+                           });
+    }
 
     private async void LoadWorlds()
     {

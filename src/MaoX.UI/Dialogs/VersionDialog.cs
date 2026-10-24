@@ -152,7 +152,7 @@ public class VersionDialog : DialogView
         var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         var export = MakeButton(T("导出"), icon: "upload");
         var menu = new MenuFlyout { Placement = PlacementMode.TopEdgeAlignedRight };
-        menu.Items.Add(MenuEntry(T("导出整合包（.mrpack）"), Export));
+        menu.Items.Add(MenuEntry(T("导出整合包"), Export));
         if (!Platform.IsMobile)
         {
             menu.Items.Add(MenuEntry(T("导出启动脚本"), ExportScript));

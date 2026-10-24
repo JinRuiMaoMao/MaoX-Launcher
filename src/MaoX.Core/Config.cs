@@ -148,8 +148,8 @@ public class LauncherConfig
     public string ProcessPriority { get; set; } = "normal";
     /// <summary>游戏窗口标题；空 = 默认。</summary>
     public string WindowTitle { get; set; } = "";
-    /// <summary>启动游戏前自动备份上次备份之后玩过的存档</summary>
-    public bool AutoBackupWorlds { get; set; } = true;
+    /// <summary>启动游戏前自动备份上次备份之后玩过的存档。默认关闭，避免每次启动都打包存档。</summary>
+    public bool AutoBackupWorlds { get; set; }
     /// <summary>每个存档保留的自动备份份数</summary>
     public int BackupKeep { get; set; } = 3;
     public string JvmArgs { get; set; } = "";

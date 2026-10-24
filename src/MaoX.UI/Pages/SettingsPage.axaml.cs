@@ -69,7 +69,11 @@ public partial class SettingsPage : UserControl, IPage
         PreCmdBox.Text = cfg.PreLaunchCommand;
         PostCmdBox.Text = cfg.PostLaunchCommand;
         HolidaySwitch.IsChecked = cfg.HolidayThemeOn;
-        HomepageBox.Text = cfg.Homepage;
+        HomepagePresetBox.ItemsSource = Homepage.Presets.Select(p => T(p.Name)).ToList();
+        var homeKey = Homepage.PresetKey(cfg.Homepage);
+        HomepagePresetBox.SelectedIndex = Math.Max(0, Array.FindIndex(Homepage.Presets, p => p.Key == homeKey));
+        HomepageBox.Text = homeKey == "custom" ? cfg.Homepage : "";
+        HomepageBox.IsVisible = homeKey == "custom";
         BgmBox.Text = cfg.Bgm;
         SfxBox.Text = cfg.LaunchSfx;
         ChannelBox.ItemsSource = UpdateChannels.Select(c => T(c.Text)).ToList();
@@ -139,7 +143,11 @@ public partial class SettingsPage : UserControl, IPage
             Cfg.HolidayTheme = HolidaySwitch.IsChecked == true;
             ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
         };
-        HomepageBox.LostFocus += (_, _) => Cfg.Homepage = (HomepageBox.Text ?? "").Trim();
+        HomepageBox.LostFocus += (_, _) =>
+        {
+            if (Homepage.PresetKey(Cfg.Homepage) == "custom" || HomepageBox.IsVisible)
+                Cfg.Homepage = (HomepageBox.Text ?? "").Trim();
+        };
         BgmBox.LostFocus += (_, _) => ApplyBgm((BgmBox.Text ?? "").Trim());
         SfxBox.LostFocus += (_, _) => Cfg.LaunchSfx = (SfxBox.Text ?? "").Trim();
         GyroSwitch.IsCheckedChanged += (_, _) =>
@@ -609,6 +617,22 @@ public partial class SettingsPage : UserControl, IPage
             DetectJavaInBackground();
             Main.Toast(F("已安装 JDK {0}", feature));
         });
+    }
+
+    private void OnHomepagePresetChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || HomepagePresetBox.SelectedIndex < 0)
+            return;
+        var preset = Homepage.Presets[HomepagePresetBox.SelectedIndex];
+        HomepageBox.IsVisible = preset.Key == "custom";
+        if (preset.Key == "custom")
+        {
+            if (Homepage.PresetKey(Cfg.Homepage) != "custom")
+                HomepageBox.Text = "";
+            Cfg.Homepage = (HomepageBox.Text ?? "").Trim();
+        }
+        else
+            Cfg.Homepage = preset.Key;
     }
 
     private void OnIsolationChanged(object sender, SelectionChangedEventArgs e)

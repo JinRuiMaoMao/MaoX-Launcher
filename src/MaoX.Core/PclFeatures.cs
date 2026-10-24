@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
@@ -54,10 +55,30 @@ public static class Isolation
     }
 }
 
-/// <summary>自定义主页：本地 JSON 或 URL，卡片含标题、说明和可选链接。</summary>
+/// <summary>自定义主页：预设、本地 JSON 或 URL，卡片含标题、说明和可选链接。</summary>
 public static class Homepage
 {
     public record Card(string Title, string Text, string Url);
+
+    /// <summary>Key 为空是空白；preset:* 是内置；custom 只用于设置里的下拉，不会写进配置。</summary>
+    public static readonly (string Key, string Name, string Hint)[] Presets =
+    [
+        ("", "空白", "启动页不显示主页卡片"),
+        ("preset:news", "官方新闻", "Minecraft 版本更新说明"),
+        ("preset:help", "常见问题", "启动器内置帮助"),
+        ("preset:mcnet", "Minecraft 官网", "官网、漏洞追踪和反馈入口"),
+        ("custom", "自定义", "本地 JSON 文件或网址"),
+    ];
+
+    public static string PresetKey(string source)
+    {
+        source = (source ?? "").Trim();
+        if (source.Length == 0)
+            return "";
+        if (source.StartsWith("preset:", StringComparison.OrdinalIgnoreCase))
+            return source.ToLowerInvariant();
+        return "custom";
+    }
 
     public static List<Card> Parse(string json)
     {
@@ -77,8 +98,25 @@ public static class Homepage
     public static async Task<List<Card>> LoadAsync(string pathOrUrl, CancellationToken cancel = default)
     {
         pathOrUrl = (pathOrUrl ?? "").Trim();
-        if (pathOrUrl.Length == 0)
+        if (pathOrUrl.Length == 0 || pathOrUrl == "custom")
             return [];
+        if (pathOrUrl.Equals("preset:news", StringComparison.OrdinalIgnoreCase))
+        {
+            var news = await VanillaNews.FetchAsync(cancel);
+            return news.Take(8).Select(n => new Card(n.Title, Plain(n.Body), "")).ToList();
+        }
+        if (pathOrUrl.Equals("preset:help", StringComparison.OrdinalIgnoreCase))
+            return HelpFaq.Items.Select(i => new Card(i.Q, i.A, "")).ToList();
+        if (pathOrUrl.Equals("preset:mcnet", StringComparison.OrdinalIgnoreCase))
+        {
+            return
+            [
+                new Card("Minecraft.net", T("官方网站、下载和新闻"), "https://www.minecraft.net"),
+                new Card(T("漏洞追踪"), T("向 Mojang 报告游戏问题"), "https://bugs.mojang.com"),
+                new Card(T("反馈中心"), T("功能建议和玩家反馈"), "https://aka.ms/MinecraftFeedback"),
+                new Card(T("Wiki"), T("Minecraft Wiki（中文）"), "https://zh.minecraft.wiki"),
+            ];
+        }
         if (pathOrUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || pathOrUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
@@ -91,6 +129,16 @@ public static class Homepage
         if (!File.Exists(path))
             throw new FileNotFoundException(F("找不到主页文件：{0}", path));
         return Parse(await File.ReadAllTextAsync(path, cancel));
+    }
+
+    private static string Plain(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return "";
+        var text = Regex.Replace(html, "<[^>]+>", " ");
+        text = WebUtility.HtmlDecode(text);
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+        return text.Length > 160 ? text[..160] + "…" : text;
     }
 }
 
@@ -118,7 +166,7 @@ public static class HelpFaq
     public static readonly (string Q, string A)[] Items =
     [
         ("游戏闪退或黑屏怎么办？", "先看启动页日志和版本设置里的崩溃分析。常见原因是 Java 版本不对、内存不够、模组冲突。可以打开自动分配内存，或到版本设置单独指定 Java。"),
-        ("模组搜不到或装不上？", "搜索用的是真实 Minecraft 版本号，自定义名称也能识别。下载时会尽量把 Fabric API、Cloth Config 等前置一并装上。换 BMCLAPI 源通常更快。"),
+        ("模组搜不到或装不上？", "可以用中文名搜，例如「钠」「小地图」。搜索用的是真实 Minecraft 版本号，自定义名称也能识别。下载时会尽量把 Fabric API、Cloth Config 等前置一并装上。换 BMCLAPI 源通常更快。"),
         ("版本隔离是什么？", "不隔离时所有版本共用存档和模组。隔离后每个版本用自己的文件夹。完全隔离还会尽量把资源文件也放到版本目录。"),
         ("外置登录皮肤不显示？", "用 LittleSkin、Blessing Skin 或 Ely.by 等皮肤站的认证服务器地址登录。默认已经填好 LittleSkin。"),
         ("iOS 上打不开游戏？", "需要 JIT。用 StikDebug / SideStore / TrollStore，或设置里打开内置 JIT（实验）。26.3 及以上目前还不能启动。"),
@@ -190,6 +238,71 @@ public static class ModCn
         if (slug.Length > 0 && (BuiltIn.TryGetValue(slug, out var cn) || _extra.TryGetValue(slug, out cn)))
             return string.Equals(cn, fallback, StringComparison.OrdinalIgnoreCase) ? fallback : $"{cn} · {fallback}";
         return fallback;
+    }
+
+    public static bool HasCjk(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return false;
+        foreach (var c in text)
+        {
+            if (c is >= '\u4E00' and <= '\u9FFF')
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>中文关键词对应的英文 slug，按匹配程度排序。没有中文或找不到时为空。</summary>
+    public static List<string> ExpandQuery(string query)
+    {
+        query = (query ?? "").Trim();
+        if (query.Length == 0 || !HasCjk(query))
+            return [];
+        var hits = new List<(int Score, string Slug)>();
+        foreach (var (slug, cn) in Names())
+        {
+            var score = 0;
+            if (string.Equals(cn, query, StringComparison.OrdinalIgnoreCase))
+                score = 100;
+            else if (cn.Contains(query, StringComparison.OrdinalIgnoreCase))
+                score = 80;
+            else if (query.Contains(cn, StringComparison.OrdinalIgnoreCase) && cn.Length >= 2)
+                score = 50;
+            if (score > 0)
+                hits.Add((score, slug));
+        }
+        return hits.OrderByDescending(h => h.Score).Select(h => h.Slug)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList();
+    }
+
+    /// <summary>发给 Modrinth / CurseForge 的检索词：中文会先换成最匹配的英文 slug。</summary>
+    public static string ApiQuery(string query)
+    {
+        var extra = ExpandQuery(query);
+        return extra.Count > 0 ? extra[0] : query ?? "";
+    }
+
+    public static int RankScore(string query, string slug, string title)
+    {
+        query = (query ?? "").Trim();
+        if (query.Length == 0)
+            return 0;
+        var display = Title(slug, title ?? "");
+        if (display.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || (title ?? "").Contains(query, StringComparison.OrdinalIgnoreCase))
+            return 2;
+        return ExpandQuery(query).Contains(slug, StringComparer.OrdinalIgnoreCase) ? 1 : 0;
+    }
+
+    private static IEnumerable<(string Slug, string Cn)> Names()
+    {
+        foreach (var (slug, cn) in BuiltIn)
+            yield return (slug, cn);
+        foreach (var (slug, cn) in _extra)
+        {
+            if (!BuiltIn.ContainsKey(slug))
+                yield return (slug, cn);
+        }
     }
 
     public static async Task EnsureAsync(CancellationToken cancel = default)

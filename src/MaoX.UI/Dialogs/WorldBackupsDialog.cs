@@ -46,3 +46,43 @@ public class WorldBackupsDialog : DialogView
         return new Border { Classes = { "row" }, Padding = new Thickness(12, 8), Child = grid };
     }
 }
+
+/// <summary>当前实例相对某份备份的文件差异。</summary>
+public class InstanceDiffDialog : DialogView
+{
+    public InstanceDiffDialog(InstanceBackup backup, IReadOnlyList<FileChange> changes)
+    {
+        DialogWidth = 560;
+        var root = new StackPanel { Spacing = 8 };
+        root.Children.Add(Title(T("备份差异")));
+        root.Children.Add(Paragraph(F("{0}  ·  {1:0.0} MB", backup.Time.ToString("yyyy-MM-dd HH:mm"), backup.Size / 1048576.0)));
+        if (changes.Count == 0)
+            root.Children.Add(Text(T("和这份备份完全一样"), "muted"));
+        else
+        {
+            var added = changes.Count(c => c.Kind == "added");
+            var removed = changes.Count(c => c.Kind == "removed");
+            var changed = changes.Count(c => c.Kind == "changed");
+            root.Children.Add(Text(F("新增 {0}  ·  删除 {1}  ·  修改 {2}", added, removed, changed), "small", "dim"));
+            var list = new StackPanel { Spacing = 4, Margin = new Thickness(0, 6, 0, 0) };
+            foreach (var change in changes.Take(80))
+            {
+                var line = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+                line.Children.Add(Text(InstanceSnapshot.KindText(change.Kind), "small", "accent"));
+                var name = new TextBlock
+                {
+                    Text = change.Rel, Classes = { "small" }, Margin = new Thickness(10, 0, 0, 0),
+                    TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis,
+                };
+                Grid.SetColumn(name, 1);
+                line.Children.Add(name);
+                list.Children.Add(line);
+            }
+            if (changes.Count > 80)
+                list.Children.Add(Text(F("还有 {0} 个文件未列出", changes.Count - 80), "small", "dim"));
+            root.Children.Add(new ScrollViewer { Content = list, MaxHeight = 360 });
+        }
+        root.Children.Add(ButtonRow(MakeButton(T("关闭"), onClick: () => Close())));
+        Content = root;
+    }
+}

@@ -1166,6 +1166,28 @@ public partial class CurseForgeClient : IModClient
         return output;
     }
 
+    /// <summary>用文件指纹识别 CurseForge 项目与文件 id。</summary>
+    public async Task<Dictionary<uint, (long ProjectId, long FileId)>> IdentifyFingerprintsAsync(
+        IEnumerable<uint> fingerprints)
+    {
+        var list = fingerprints.Distinct().ToList();
+        var map = new Dictionary<uint, (long, long)>();
+        if (list.Count == 0)
+            return map;
+        var data = await _dl.PostJsonAsync(Mods.CurseForgeApi + "/fingerprints", new JsonObject
+        {
+            ["fingerprints"] = new JsonArray(list.Select(p => (JsonNode)p).ToArray()),
+        });
+        foreach (var match in data.Get("data").Items("exactMatches"))
+        {
+            var file = match.Get("file");
+            if (file == null)
+                continue;
+            map[(uint)file.Long("fileFingerprint")] = (match.Long("id"), file.Long("id"));
+        }
+        return map;
+    }
+
     /// <summary>通过 CurseForge 文件指纹检查更新（最多 8 个并发请求）。</summary>
     public async Task<List<ModUpdate>> UpdatesAsync(IEnumerable<LocalFile> mods, string gameVersion, string loader,
                                                     string kind = "mod")

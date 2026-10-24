@@ -184,7 +184,7 @@ public static partial class ModpackActions
     }
 }
 
-/// <summary>导出为 Modrinth 整合包。</summary>
+/// <summary>导出为 Modrinth / CurseForge / MultiMC / MCBBS 整合包。</summary>
 public class ModpackExportDialog : DialogView
 {
     private static readonly (string Key, string Text, string Desc, bool Default)[] Options =
@@ -198,6 +198,7 @@ public class ModpackExportDialog : DialogView
 
     private readonly string _version;
     private readonly GameLauncher _gl;
+    private readonly ComboBox _format = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBox _name = new();
     private readonly TextBox _packVersion = new();
     private readonly TextBox _summary = new();
@@ -217,10 +218,15 @@ public class ModpackExportDialog : DialogView
         _error.Foreground = (IBrush)Application.Current!.FindResource("Error");
 
         var root = new StackPanel();
+        _format.ItemsSource = new[]
+        {
+            T("Modrinth（.mrpack）"), T("CurseForge（.zip）"), T("MultiMC / Prism（.zip）"), T("MCBBS（.zip）"),
+        };
+        _format.SelectedIndex = 0;
         root.Children.Add(Title(T("导出整合包")));
-        root.Children.Add(Paragraph(T("导出为 Modrinth 整合包（.mrpack），可以在 MaoX、HMCL、PCL、Prism 等启动器中导入。" +
-                                      "能在 Modrinth 上找到的模组只记录下载地址，体积更小。")));
+        root.Children.Add(Paragraph(T("可导出 Modrinth、CurseForge、MultiMC / Prism 或 MCBBS 格式。能在模组站找到的文件只记录下载地址，体积更小。")));
         var fields = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
+        fields.Children.Add(FormDialog.Field(T("导出格式"), _format));
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,12,*") };
         row.Children.Add(FormDialog.Field(T("整合包名称"), _name));
         var versionField = FormDialog.Field(T("整合包版本"), _packVersion);
@@ -265,13 +271,14 @@ public class ModpackExportDialog : DialogView
         var packVersion = (_packVersion.Text ?? "").Trim();
         var summary = (_summary.Text ?? "").Trim();
         var include = _switches.Where(p => p.Value.IsChecked == true).Select(p => p.Key).ToList();
+        var format = Modpack.ExportFormats[Math.Clamp(_format.SelectedIndex, 0, Modpack.ExportFormats.Length - 1)];
         var safe = Regex.Replace($"{name}-{packVersion}", @"[\\/:*?""<>|]", "_");
-        var dest = await Main.SaveFile(T("保存整合包"), safe + ".mrpack", T("Modrinth 整合包"), "*.mrpack");
+        var dest = await Main.SaveFile(T("保存整合包"), safe + format.Ext, T(format.Filter), "*" + format.Ext);
         if (dest == null)
             return;
         Close();
         await Main.RunTask(T("导出整合包"),
-                           () => Modpack.ExportMrpackAsync(_gl, _version, dest, name, packVersion, summary, include, Main.Log, Main.Progress),
+                           () => Modpack.ExportAsync(format.Key, _gl, _version, dest, name, packVersion, summary, include, Main.Log, Main.Progress),
                            r => Main.Toast(F("整合包已导出（{0} 个在线文件，{1} 个打包文件）", r.Online, r.Packed)));
     }
 }

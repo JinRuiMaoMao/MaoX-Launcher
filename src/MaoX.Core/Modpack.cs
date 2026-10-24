@@ -28,9 +28,17 @@ public class ModpackManifest
     public JsonNode Raw { get; set; }
 }
 
-/// <summary>整合包：安装 Modrinth（.mrpack）与 CurseForge 整合包，导出为 .mrpack。</summary>
+/// <summary>整合包：安装 Modrinth（.mrpack）与 CurseForge 整合包，导出为多种格式。</summary>
 public static class Modpack
 {
+    public static readonly (string Key, string Ext, string Filter)[] ExportFormats =
+    [
+        ("mrpack", ".mrpack", "Modrinth 整合包"),
+        ("curseforge", ".zip", "CurseForge 整合包"),
+        ("multimc", ".zip", "MultiMC 整合包"),
+        ("mcbbs", ".zip", "MCBBS 整合包"),
+    ];
+
     public static readonly IReadOnlyDictionary<int, string> CfClassFolders = new Dictionary<int, string>
     {
         [6] = "mods", [12] = "resourcepacks", [6552] = "shaderpacks",
@@ -453,5 +461,260 @@ public static class Modpack
         });
         log(F("整合包已导出：{0}（{1} 个在线文件，{2} 个打包文件）", dest, files.Count, overrides.Count));
         return (files.Count, overrides.Count);
+    }
+
+    public static Task<(int Online, int Packed)> ExportAsync(
+        string format, GameLauncher gl, string versionId, string dest, string name, string packVersion,
+        string summary, IReadOnlyCollection<string> include, Action<string> log = null,
+        Action<int, int, string> progress = null) =>
+        format switch
+        {
+            "curseforge" => ExportCurseAsync(gl, versionId, dest, name, packVersion, summary, include, log, progress, false),
+            "mcbbs" => ExportCurseAsync(gl, versionId, dest, name, packVersion, summary, include, log, progress, true),
+            "multimc" => ExportMultiMcAsync(gl, versionId, dest, name, include, log, progress),
+            _ => ExportMrpackAsync(gl, versionId, dest, name, packVersion, summary, include, log, progress),
+        };
+
+    /// <summary>导出 CurseForge / MCBBS 整合包。能识别的模组只记 projectID/fileID，其余放进 overrides。</summary>
+    public static async Task<(int Online, int Packed)> ExportCurseAsync(
+        GameLauncher gl, string versionId, string dest, string name, string packVersion, string summary,
+        IReadOnlyCollection<string> include, Action<string> log, Action<int, int, string> progress, bool mcbbs)
+    {
+        log ??= _ => { };
+        var (loader, loaderVersion, mc) = gl.DetectLoader(versionId);
+        if (loader == "optifine")
+            throw new ModpackException(T("OptiFine 独立版本无法导出为整合包，请改用 Forge + OptiFine"));
+        var gameDir = gl.GameDirFor(versionId);
+        var files = CollectPackedFiles(gameDir, include);
+        log(F("正在识别 {0} 个文件...", files.Count));
+        var online = new JsonArray();
+        var overrides = new List<(string Rel, string Path)>();
+        Dictionary<uint, (long ProjectId, long FileId)> found = [];
+        try
+        {
+            var prints = files.ToDictionary(f => Mods.CurseForgeFingerprint(f.Path), f => f.Rel);
+            found = await new CurseForgeClient(gl.Dl).IdentifyFingerprintsAsync(prints.Keys);
+            foreach (var (print, rel) in prints)
+            {
+                if (found.TryGetValue(print, out var ids) && ids.ProjectId > 0 && ids.FileId > 0)
+                    online.Add(new JsonObject { ["projectID"] = ids.ProjectId, ["fileID"] = ids.FileId, ["required"] = true });
+                else
+                    overrides.Add((rel, files.First(f => f.Rel == rel).Path));
+            }
+        }
+        catch (Exception e)
+        {
+            log(F("[警告] 无法连接 CurseForge，所有文件将直接打包：{0}", e.Message));
+            overrides.AddRange(files);
+        }
+        overrides.AddRange(CollectExtraOverrides(gameDir, include, files.Select(f => f.Rel).ToHashSet()));
+        var manifest = new JsonObject
+        {
+            ["minecraft"] = new JsonObject
+            {
+                ["version"] = mc,
+                ["modLoaders"] = string.IsNullOrEmpty(loader)
+                    ? new JsonArray()
+                    : new JsonArray(new JsonObject { ["id"] = loader + "-" + loaderVersion, ["primary"] = true }),
+            },
+            ["manifestType"] = "minecraftModpack",
+            ["manifestVersion"] = 1,
+            ["name"] = name,
+            ["version"] = string.IsNullOrEmpty(packVersion) ? "1.0.0" : packVersion,
+            ["author"] = "",
+            ["overrides"] = "overrides",
+            ["files"] = online,
+        };
+        if (!string.IsNullOrEmpty(summary))
+            manifest["description"] = summary;
+        await WriteZipAsync(dest, overrides, progress, zip =>
+        {
+            WriteJsonEntry(zip, "manifest.json", manifest);
+            if (!mcbbs)
+                return;
+            WriteJsonEntry(zip, "mcbbs.packmeta", new JsonObject
+            {
+                ["name"] = name,
+                ["version"] = manifest.Str("version"),
+                ["author"] = "",
+                ["description"] = summary ?? "",
+                ["fileApi"] = "",
+                ["forceUpdate"] = false,
+                ["addons"] = McBbsAddons(mc, loader, loaderVersion),
+            });
+        });
+        log(F("整合包已导出：{0}（{1} 个在线文件，{2} 个打包文件）", dest, online.Count, overrides.Count));
+        return (online.Count, overrides.Count);
+    }
+
+    /// <summary>导出 MultiMC / Prism 实例 zip（instance.cfg + mmc-pack.json + .minecraft）。</summary>
+    public static async Task<(int Online, int Packed)> ExportMultiMcAsync(
+        GameLauncher gl, string versionId, string dest, string name, IReadOnlyCollection<string> include,
+        Action<string> log, Action<int, int, string> progress)
+    {
+        log ??= _ => { };
+        var (loader, loaderVersion, mc) = gl.DetectLoader(versionId);
+        if (loader == "optifine")
+            throw new ModpackException(T("OptiFine 独立版本无法导出为整合包，请改用 Forge + OptiFine"));
+        var gameDir = gl.GameDirFor(versionId);
+        var files = CollectPackedFiles(gameDir, include);
+        var extras = CollectExtraOverrides(gameDir, include, files.Select(f => f.Rel).ToHashSet());
+        var packed = files.Concat(extras).ToList();
+        var components = new JsonArray
+        {
+            new JsonObject
+            {
+                ["cachedName"] = "Minecraft", ["cachedVersion"] = mc, ["important"] = true,
+                ["uid"] = "net.minecraft", ["version"] = mc,
+            },
+        };
+        if (!string.IsNullOrEmpty(loader) && MultiMcUid(loader) is { } uid)
+        {
+            components.Add(new JsonObject
+            {
+                ["cachedName"] = Mc.LoaderNames.GetValueOrDefault(loader, loader),
+                ["uid"] = uid, ["version"] = loaderVersion ?? "",
+            });
+        }
+        var pack = new JsonObject { ["components"] = components, ["formatVersion"] = 1 };
+        var cfg = string.Join('\n', new[]
+        {
+            "InstanceType=OneSix",
+            "name=" + (name ?? versionId),
+            "OverrideJavaLocation=false",
+            "OverrideMemory=false",
+        });
+        await WriteZipAsync(dest, packed, progress, zip =>
+        {
+            WriteTextEntry(zip, "instance.cfg", cfg);
+            WriteJsonEntry(zip, "mmc-pack.json", pack);
+        }, "minecraft/");
+        log(F("整合包已导出：{0}（{1} 个在线文件，{2} 个打包文件）", dest, 0, packed.Count));
+        return (0, packed.Count);
+    }
+
+    private static List<(string Rel, string Path)> CollectPackedFiles(string gameDir, IReadOnlyCollection<string> include)
+    {
+        var list = new List<(string Rel, string Path)>();
+        foreach (var (folder, ext) in new[] { ("mods", ".jar"), ("resourcepacks", ".zip"), ("shaderpacks", ".zip") })
+        {
+            if (folder != "mods" && !include.Contains(folder))
+                continue;
+            var root = Path.Combine(gameDir, folder);
+            if (!Directory.Exists(root))
+                continue;
+            foreach (var name in Directory.EnumerateFileSystemEntries(root).Select(Path.GetFileName).Order(StringComparer.Ordinal))
+            {
+                var path = Path.Combine(root, name);
+                if (name.EndsWith(ext, StringComparison.OrdinalIgnoreCase) && File.Exists(path))
+                    list.Add((folder + "/" + name, path));
+            }
+        }
+        return list;
+    }
+
+    private static List<(string Rel, string Path)> CollectExtraOverrides(string gameDir, IReadOnlyCollection<string> include,
+                                                                        HashSet<string> already)
+    {
+        var overrides = new List<(string Rel, string Path)>();
+        void Add(string rel, string path)
+        {
+            rel = rel.Replace('\\', '/');
+            if (already.Add(rel))
+                overrides.Add((rel, path));
+        }
+        foreach (var group in include)
+        {
+            if (group is "resourcepacks" or "shaderpacks" || !ExportGroups.TryGetValue(group, out var entries))
+                continue;
+            foreach (var entry in entries)
+            {
+                var path = Path.Combine(gameDir, entry);
+                if (File.Exists(path))
+                    Add(entry, path);
+                else if (Directory.Exists(path))
+                {
+                    foreach (var full in WalkFiles(path))
+                    {
+                        if (Path.GetFileName(full) != "session.lock")
+                            Add(RelTo(gameDir, full), full);
+                    }
+                }
+            }
+        }
+        foreach (var folder in new[] { "resourcepacks", "shaderpacks" })
+        {
+            var root = Path.Combine(gameDir, folder);
+            if (!include.Contains(folder) || !Directory.Exists(root))
+                continue;
+            foreach (var dir in Directory.EnumerateDirectories(root))
+            {
+                foreach (var p in WalkFiles(dir))
+                    Add(RelTo(gameDir, p), p);
+            }
+        }
+        return overrides;
+    }
+
+    private static async Task WriteZipAsync(string dest, List<(string Rel, string Path)> files,
+                                            Action<int, int, string> progress, Action<ZipArchive> extra,
+                                            string prefix = "overrides/")
+    {
+        var tmp = dest + ".part";
+        await Task.Run(() =>
+        {
+            try
+            {
+                using (var zip = ZipFile.Open(tmp, ZipArchiveMode.Create))
+                {
+                    extra?.Invoke(zip);
+                    for (var i = 1; i <= files.Count; i++)
+                    {
+                        var (rel, path) = files[i - 1];
+                        zip.CreateEntryFromFile(path, prefix + rel, CompressionLevel.Optimal);
+                        if (progress != null && (i % 20 == 0 || i == files.Count))
+                            progress(i, files.Count, T("打包文件"));
+                    }
+                }
+                File.Move(tmp, dest, true);
+            }
+            finally
+            {
+                if (File.Exists(tmp))
+                    File.Delete(tmp);
+            }
+        });
+    }
+
+    private static void WriteJsonEntry(ZipArchive zip, string name, JsonNode json)
+    {
+        var entry = zip.CreateEntry(name, CompressionLevel.Optimal);
+        using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+        writer.Write(Json.Serialize(json, true));
+    }
+
+    private static void WriteTextEntry(ZipArchive zip, string name, string text)
+    {
+        var entry = zip.CreateEntry(name, CompressionLevel.Optimal);
+        using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+        writer.Write(text);
+    }
+
+    private static string MultiMcUid(string loader) => loader switch
+    {
+        "fabric" => "net.fabricmc.fabric-loader",
+        "quilt" => "org.quiltmc.quilt-loader",
+        "forge" => "net.minecraftforge",
+        "neoforge" => "net.neoforged",
+        "liteloader" => "com.mumfrey.liteloader",
+        _ => null,
+    };
+
+    private static JsonArray McBbsAddons(string mc, string loader, string loaderVersion)
+    {
+        var addons = new JsonArray { new JsonObject { ["id"] = "game", ["version"] = mc } };
+        if (!string.IsNullOrEmpty(loader))
+            addons.Add(new JsonObject { ["id"] = loader, ["version"] = loaderVersion ?? "" });
+        return addons;
     }
 }
