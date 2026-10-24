@@ -436,9 +436,9 @@ public partial class MainView : UserControl
         AccountText.IsVisible = AccountChevron.IsVisible = !compact;
         AccountCard.HorizontalContentAlignment = compact ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
         VersionText.IsVisible = SidebarPaws.IsVisible = !compact;
-        var side = compact ? 14 : Platform.IsMobile ? 28 : 36;
-        PageHost.Margin = new Thickness(side, compact ? 10 : Platform.IsMobile ? 24 : 46, side, compact ? 4 : 8);
-        StatusBar.Margin = new Thickness(side, compact ? 2 : 4, side - 6, compact ? 4 : 8);
+        var side = compact ? 12 : Platform.IsMobile ? 24 : 28;
+        PageHost.Margin = new Thickness(side, compact ? 8 : Platform.IsMobile ? 20 : 40, side, compact ? 4 : 8);
+        StatusBar.Margin = new Thickness(side, compact ? 2 : 4, Math.Max(6, side - 4), compact ? 4 : 8);
         UpdatePageScroll();
         Dispatcher.UIThread.Post(() => SyncNavPill(false), DispatcherPriority.Render);
     }

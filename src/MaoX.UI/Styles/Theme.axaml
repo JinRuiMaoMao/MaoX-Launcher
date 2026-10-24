@@ -526,13 +526,13 @@
   </Style>
   <!-- 启动页的尺寸写在样式里，紧凑布局才能覆盖 -->
   <Style Selector="Border#Hero">
-    <Setter Property="MinHeight" Value="252" />
+    <Setter Property="MinHeight" Value="220" />
   </Style>
   <Style Selector="DockPanel#HeroDock">
-    <Setter Property="Margin" Value="36,32,36,32" />
+    <Setter Property="Margin" Value="32,24,32,24" />
   </Style>
-  <Style Selector="WrapPanel#HeroControls">
-    <Setter Property="Margin" Value="0,28,0,0" />
+  <Style Selector="Grid#HeroControls">
+    <Setter Property="Margin" Value="0,20,0,0" />
   </Style>
   <Style Selector="c|Logo#Watermark">
     <Setter Property="Width" Value="230" />
@@ -546,11 +546,10 @@
     <Setter Property="MinHeight" Value="0" />
   </Style>
   <Style Selector=".compact DockPanel#HeroDock">
-    <Setter Property="Margin" Value="22,14,22,16" />
+    <Setter Property="Margin" Value="18,12,18,14" />
   </Style>
-  <Style Selector=".compact WrapPanel#HeroControls">
-    <Setter Property="Margin" Value="0,12,0,0" />
-    <Setter Property="ItemSpacing" Value="10" />
+  <Style Selector=".compact Grid#HeroControls">
+    <Setter Property="Margin" Value="0,10,0,0" />
   </Style>
   <Style Selector="ScrollViewer#GameTabsScroll">
     <Setter Property="Margin" Value="0,0,0,22" />
@@ -564,23 +563,32 @@
     <Setter Property="Margin" Value="0,0,12,0" />
   </Style>
   <Style Selector="Button#AccountPicker">
-    <Setter Property="Width" Value="214" />
+    <Setter Property="Width" Value="196" />
+  </Style>
+  <Style Selector="ComboBox#GameDirBox">
+    <Setter Property="Width" Value="156" />
   </Style>
   <Style Selector="ComboBox#VersionBox">
-    <Setter Property="Width" Value="250" />
+    <Setter Property="MinWidth" Value="180" />
   </Style>
   <Style Selector="Button#LaunchButton">
-    <Setter Property="MinWidth" Value="184" />
+    <Setter Property="MinWidth" Value="160" />
   </Style>
   <!-- 手机横屏（如 iPhone）宽度只有 600 左右，缩窄启动卡片上的控件 -->
   <Style Selector=".compact Button#AccountPicker">
-    <Setter Property="Width" Value="168" />
+    <Setter Property="Width" Value="148" />
+  </Style>
+  <Style Selector=".compact ComboBox#GameDirBox">
+    <Setter Property="Width" Value="120" />
   </Style>
   <Style Selector=".compact ComboBox#VersionBox">
-    <Setter Property="Width" Value="176" />
+    <Setter Property="MinWidth" Value="120" />
   </Style>
   <Style Selector=".compact Button#LaunchButton">
-    <Setter Property="MinWidth" Value="128" />
+    <Setter Property="MinWidth" Value="120" />
+  </Style>
+  <Style Selector=".compact StackPanel#GameDirPanel">
+    <Setter Property="Margin" Value="8,0,0,0" />
   </Style>
   <Style Selector=".compact TextBlock#HeroTitle">
     <Setter Property="FontSize" Value="28" />

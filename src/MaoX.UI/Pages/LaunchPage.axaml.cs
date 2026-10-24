@@ -328,10 +328,14 @@ public partial class LaunchPage : UserControl, IPage
     public void RefreshGameDirs()
     {
         var dirs = Main.Cfg.AllGameDirs();
-        GameDirBox.IsVisible = dirs.Count > 1;
+        GameDirPanel.IsVisible = dirs.Count > 1;
         if (dirs.Count <= 1)
             return;
-        var labels = dirs.Select(d => d.Name + "  ·  " + d.Path).ToList();
+        var labels = dirs.Select(d =>
+        {
+            var name = string.IsNullOrWhiteSpace(d.Name) ? Path.GetFileName(d.Path) : d.Name;
+            return dirs.Count(x => x.Name == d.Name) > 1 ? name + "  ·  " + Path.GetFileName(d.Path) : name;
+        }).ToList();
         var current = Path.GetFullPath(Main.Cfg.MinecraftDir);
         var index = dirs.FindIndex(d => string.Equals(Path.GetFullPath(d.Path), current, StringComparison.OrdinalIgnoreCase));
         if (index < 0)
@@ -343,6 +347,7 @@ public partial class LaunchPage : UserControl, IPage
         if (GameDirBox.SelectedIndex != index)
             GameDirBox.SelectedIndex = index;
         _updatingDirs = false;
+        ToolTip.SetTip(GameDirBox, dirs[index].Path);
     }
 
     private void OnGameDirChanged(object sender, SelectionChangedEventArgs e)

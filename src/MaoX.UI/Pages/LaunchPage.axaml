@@ -30,11 +30,10 @@
             </StackPanel>
           </Grid>
 
-          <!-- 放不下时（平板竖屏等）启动按钮换到下一行 -->
-          <WrapPanel Name="HeroControls" ItemSpacing="14" LineSpacing="12" VerticalAlignment="Bottom">
-            <StackPanel Name="AccountPanel" Spacing="7" VerticalAlignment="Bottom">
+          <Grid Name="HeroControls" ColumnDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Bottom">
+            <StackPanel Name="AccountPanel" VerticalAlignment="Bottom">
               <TextBlock Text="{c:Tr 账号}" Classes="label" />
-              <Button Name="AccountPicker" Height="38" Padding="8,0,12,0" Background="{StaticResource Input}"
+              <Button Name="AccountPicker" Height="40" Padding="8,0,12,0" Background="{StaticResource Input}"
                       BorderBrush="{StaticResource InputBorder}" HorizontalContentAlignment="Stretch"
                       Click="OnAccountClick">
                 <Grid ColumnDefinitions="Auto,*,Auto">
@@ -50,42 +49,49 @@
               </Button>
             </StackPanel>
 
-            <StackPanel Name="SourcePanel" Spacing="7" VerticalAlignment="Bottom" IsVisible="False">
-              <TextBlock Text="{c:Tr 安装来源}" Classes="label" />
-              <ComboBox Name="SourceBox" Height="38" MinWidth="200" />
+            <StackPanel Name="GameDirPanel" Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Bottom" IsVisible="False">
+              <TextBlock Text="{c:Tr 游戏目录}" Classes="label" />
+              <ComboBox Name="GameDirBox" Height="40" MaxDropDownHeight="280"
+                        SelectionChanged="OnGameDirChanged" />
             </StackPanel>
 
-            <StackPanel Name="VersionPanel" Spacing="7" VerticalAlignment="Bottom">
-              <TextBlock Text="{c:Tr 游戏版本}" Classes="label" />
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <ComboBox Name="GameDirBox" Height="38" MinWidth="140" IsVisible="False"
-                          SelectionChanged="OnGameDirChanged" />
-                <ComboBox Name="VersionBox" Height="38" PlaceholderText="{c:Tr 未安装任何版本}"
-                          SelectionChanged="OnVersionChanged" />
-                <Button Name="HiddenButton" Classes="icon" Width="38" Height="38"
-                        ToolTip.Tip="{c:Tr 显示隐藏的版本}" Click="OnToggleHidden">
-                  <c:Icon Kind="layers" Size="18" />
-                </Button>
-                <Button Classes="icon" Width="38" Height="38" ToolTip.Tip="{c:Tr 版本设置}" Click="OnVersionSettings">
-                  <c:Icon Kind="settings" Size="18" />
-                </Button>
+            <Panel Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Bottom">
+              <StackPanel Name="SourcePanel" IsVisible="False">
+                <TextBlock Text="{c:Tr 安装来源}" Classes="label" />
+                <ComboBox Name="SourceBox" Height="40" HorizontalAlignment="Stretch" />
               </StackPanel>
-            </StackPanel>
+              <StackPanel Name="VersionPanel">
+                <TextBlock Text="{c:Tr 游戏版本}" Classes="label" />
+                <DockPanel>
+                  <Button Name="HiddenButton" DockPanel.Dock="Right" Classes="icon" Width="40" Height="40"
+                          Margin="6,0,0,0" ToolTip.Tip="{c:Tr 显示隐藏的版本}" Click="OnToggleHidden">
+                    <c:Icon Kind="layers" Size="18" />
+                  </Button>
+                  <Button DockPanel.Dock="Right" Classes="icon" Width="40" Height="40" Margin="6,0,0,0"
+                          ToolTip.Tip="{c:Tr 版本设置}" Click="OnVersionSettings">
+                    <c:Icon Kind="settings" Size="18" />
+                  </Button>
+                  <ComboBox Name="VersionBox" Height="40" HorizontalAlignment="Stretch"
+                            PlaceholderText="{c:Tr 未安装任何版本}" SelectionChanged="OnVersionChanged" />
+                </DockPanel>
+              </StackPanel>
+            </Panel>
 
-            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom" Margin="4,0,0,0">
-              <Button Name="LaunchButton" Classes="primary big" Height="46" Click="OnLaunchClick">
-                <c:IconLabel Name="LaunchLabel" Icon="play" Text="{c:Tr 启动游戏}" IconSize="20" Spacing="10" />
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="14,0,0,0"
+                        VerticalAlignment="Bottom">
+              <Button Name="LaunchButton" Classes="primary" Height="40" Click="OnLaunchClick">
+                <c:IconLabel Name="LaunchLabel" Icon="play" Text="{c:Tr 启动游戏}" IconSize="18" Spacing="8" />
               </Button>
-              <Button Name="StopButton" Classes="icon danger" Width="46" Height="46" IsVisible="False"
+              <Button Name="StopButton" Classes="icon danger" Width="40" Height="40" IsVisible="False"
                       ToolTip.Tip="{c:Tr 结束游戏进程}" Click="OnStopClick">
                 <c:Icon Kind="stop" Size="18" />
               </Button>
-              <Button Name="DataButton" Classes="icon" Width="46" Height="46" IsVisible="False"
+              <Button Name="DataButton" Classes="icon" Width="40" Height="40" IsVisible="False"
                       ToolTip.Tip="{c:Tr 打开存档文件夹}" Click="OnOpenGameData">
                 <c:Icon Kind="folder" Size="18" />
               </Button>
             </StackPanel>
-          </WrapPanel>
+          </Grid>
         </DockPanel>
       </Panel>
     </Border>
