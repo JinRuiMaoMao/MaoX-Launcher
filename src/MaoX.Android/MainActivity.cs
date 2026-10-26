@@ -179,10 +179,11 @@ public class MainActivity : AvaloniaMainActivity<App>
     {
         builder = base.CustomizeAppBuilder(builder).LogToTrace();
         var font = ChineseFont.Load();
-        if (font == null)
-            return builder;
-        return builder
-               .With(new FontManagerOptions { FontFallbacks = [new FontFallback { FontFamily = ChineseFont.Family }] })
-               .AfterSetup(_ => FontManager.Current.AddFontCollection(font));
+        var fallbacks = new List<FontFallback>();
+        if (font != null)
+            fallbacks.Add(new FontFallback { FontFamily = ChineseFont.Family });
+        fallbacks.AddRange(MaoX.UiFonts.Fallbacks);
+        builder = builder.With(new FontManagerOptions { FontFallbacks = fallbacks });
+        return font == null ? builder : builder.AfterSetup(_ => FontManager.Current.AddFontCollection(font));
     }
 }

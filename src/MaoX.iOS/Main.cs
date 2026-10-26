@@ -9,7 +9,8 @@ namespace MaoX.iOS;
 [Register("AppDelegate")]
 public class AppDelegate : AvaloniaAppDelegate<App>
 {
-    protected override AppBuilder CustomizeAppBuilder(AppBuilder builder) => base.CustomizeAppBuilder(builder).LogToTrace();
+    protected override AppBuilder CustomizeAppBuilder(AppBuilder builder) =>
+        base.CustomizeAppBuilder(builder).With(MaoX.UiFonts.Options).LogToTrace();
 }
 
 public static class Program

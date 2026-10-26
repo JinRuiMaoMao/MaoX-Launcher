@@ -49,7 +49,7 @@
     <SolidColorBrush x:Key="GlassRowBorder" Color="#26FFFFFF" />
     <SolidColorBrush x:Key="GlassLog" Color="#8010131A" />
 
-    <FontFamily x:Key="UiFont">Microsoft YaHei UI, PingFang SC, Hiragino Sans GB, Noto Sans CJK SC, Segoe UI, Helvetica Neue, sans-serif</FontFamily>
+    <FontFamily x:Key="UiFont">Microsoft YaHei UI, Microsoft JhengHei UI, PingFang SC, PingFang TC, Hiragino Sans, Yu Gothic UI, Malgun Gothic, Noto Sans CJK SC, Segoe UI, Segoe UI Historic, Leelawadee UI, Nirmala UI, Helvetica Neue, sans-serif</FontFamily>
     <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Menlo, SF Mono, DejaVu Sans Mono, monospace</FontFamily>
 
     <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
@@ -676,11 +676,13 @@
     <Setter Property="FontSize" Value="14" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
   </Style>
   <Style Selector="ComboBoxItem">
     <Setter Property="Padding" Value="12,8" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Margin" Value="4,1" />
+    <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
   </Style>
   <Style Selector="ToggleSwitch">
     <Setter Property="OnContent" Value="" />

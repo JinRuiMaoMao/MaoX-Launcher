@@ -226,6 +226,10 @@ internal static class SmokeTest
                     window.SettingsPage.ShowTab("personal");
                     await Task.Delay(300);
                     Screenshot(window, Path.Combine(output, "page-settings-personal.png"));
+                    window.SettingsPage.LanguageBox.IsDropDownOpen = true;
+                    await Task.Delay(400);
+                    Screenshot(window, Path.Combine(output, "page-settings-languages.png"));
+                    window.SettingsPage.LanguageBox.IsDropDownOpen = false;
                     window.SettingsPage.ShowTab("other");
                     await Task.Delay(300);
                     if (window.SettingsPage.OtherScroll is { } scroll)
@@ -700,6 +704,18 @@ internal static class SmokeTest
         var ja = I18n.Lookup("ja_jp", "启动游戏");
         if (string.IsNullOrEmpty(ja) || ja == "启动游戏")
             throw new Exception("ja launch: " + ja);
+        if (I18n.Lookup("ar_sa", "设置") != "الإعدادات")
+            throw new Exception("ar settings: " + I18n.Lookup("ar_sa", "设置"));
+        if (I18n.Lookup("th_th", "设置") != "ตั้งค่า")
+            throw new Exception("th settings: " + I18n.Lookup("th_th", "设置"));
+        if (I18n.Lookup("ko_kr", "设置") != "설정")
+            throw new Exception("ko settings: " + I18n.Lookup("ko_kr", "设置"));
+        var broken = I18n.Locales.FirstOrDefault(l => l.Name.Contains('\uFFFD') || l.Name.Contains("???")
+                                                     || l.Region.Contains('\uFFFD') || l.Region.Contains("???"));
+        if (broken != null)
+            throw new Exception("garbled locale name: " + broken.Key);
+        if (UiFonts.Fallbacks.Length < 8)
+            throw new Exception("font fallbacks: " + UiFonts.Fallbacks.Length);
         I18n.SetLanguage(LauncherConfig.Load().Language);
         return $"locales={I18n.Locales.Length} follow={follow} ja={ja}";
     }

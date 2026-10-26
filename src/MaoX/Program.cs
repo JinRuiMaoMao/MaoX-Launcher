@@ -31,5 +31,6 @@ internal static class Program
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .With(new MacOSPlatformOptions { ShowInDock = true })
+            .With(UiFonts.Options)
             .LogToTrace();
 }
