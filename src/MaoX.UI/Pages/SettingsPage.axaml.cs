@@ -117,6 +117,7 @@ public partial class SettingsPage : UserControl, IPage
         LanguageBox.ItemsSource = I18n.Languages.Select(l => l.Name).ToList();
         LanguageBox.SelectedIndex = Math.Max(0, Array.FindIndex(I18n.Languages, l => l.Key == (cfg.Language ?? "")));
         BuildSwatches();
+        BuildHolidayChips();
         UpdateThemeControls();
         FillJava([]);
         LoadBuiltInJit();
@@ -152,7 +153,8 @@ public partial class SettingsPage : UserControl, IPage
         HolidaySwitch.IsCheckedChanged += (_, _) =>
         {
             Cfg.HolidayTheme = HolidaySwitch.IsChecked == true;
-            ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
+            _holidayPreview = null;
+            ApplyTheme();
         };
         HomepageBox.LostFocus += (_, _) =>
         {
@@ -389,6 +391,8 @@ public partial class SettingsPage : UserControl, IPage
     // ------------------------------------------------------------------ 外观
 
     private readonly List<(Button Button, string Color)> _swatches = [];
+    private readonly List<(ToggleButton Button, string Key)> _holidayChips = [];
+    private HolidayTheme _holidayPreview;
 
     private void BuildSwatches()
     {
@@ -406,6 +410,25 @@ public partial class SettingsPage : UserControl, IPage
         }
     }
 
+    private void BuildHolidayChips()
+    {
+        AddHolidayChip(T("自动"), null);
+        foreach (var theme in Holiday.All)
+            AddHolidayChip(T(theme.Name), theme.Key);
+    }
+
+    private void AddHolidayChip(string label, string key)
+    {
+        var chip = new ToggleButton { Classes = { "chip" }, Content = label, Tag = key };
+        chip.Click += (_, _) =>
+        {
+            _holidayPreview = Holiday.Find(key);
+            ApplyTheme();
+        };
+        _holidayChips.Add((chip, key));
+        HolidayChips.Children.Add(chip);
+    }
+
     private void UpdateThemeControls()
     {
         ThemeDark.IsChecked = Cfg.Theme is not ("light" or "system");
@@ -416,6 +439,9 @@ public partial class SettingsPage : UserControl, IPage
             button.Classes.Set("selected", color.Equals(accent, StringComparison.OrdinalIgnoreCase));
         if (!AccentBox.IsFocused)
             AccentBox.Text = accent;
+        var key = _holidayPreview?.Key;
+        foreach (var (button, chipKey) in _holidayChips)
+            button.IsChecked = chipKey == key;
     }
 
     private void OnThemeClick(object sender, RoutedEventArgs e)
@@ -432,8 +458,9 @@ public partial class SettingsPage : UserControl, IPage
 
     private void ApplyTheme()
     {
-        ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
+        ThemeManager.ApplyFor(Cfg, _holidayPreview);
         UpdateThemeControls();
+        Main.LaunchPage.RefreshHero();
         Main.SaveSettings();
     }
 

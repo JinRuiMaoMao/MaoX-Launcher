@@ -69,6 +69,7 @@ public partial class LaunchPage : UserControl, IPage
                 SyncGameTabPill(false);
         };
         BuildGameTabs();
+        ThemeManager.Changed += () => Dispatcher.UIThread.Post(UpdateHero);
     }
 
     public void OnShow()
@@ -174,7 +175,7 @@ public partial class LaunchPage : UserControl, IPage
     private void UpdateOtherHero(MojangGame game)
     {
         var installs = Installs(game.Id);
-        HeroOverline.Text = installs.Count > 0 ? "READY  TO  PLAY" : "NOT  INSTALLED";
+        HeroOverline.Text = HolidayOverline(installs.Count > 0 ? "READY  TO  PLAY" : "NOT  INSTALLED");
         HeroTitle.Text = game.Name;
         HeroMeta.Text = installs.Count > 0
             ? string.Join("  ·  ", installs.Select(i => i.ToString()))
@@ -391,6 +392,9 @@ public partial class LaunchPage : UserControl, IPage
 
     public void RefreshHero() => UpdateHero();
 
+    private static string HolidayOverline(string fallback) =>
+        Holiday.Active is { } day ? T(day.Greeting) : fallback;
+
     private void UpdateHero()
     {
         var version = Main.SelectedVersion;
@@ -409,7 +413,7 @@ public partial class LaunchPage : UserControl, IPage
             UpdateOtherHero(other);
             return;
         }
-        HeroOverline.Text = "READY  TO  PLAY";
+        HeroOverline.Text = HolidayOverline("READY  TO  PLAY");
         SourcePanel.IsVisible = DataButton.IsVisible = GameLogo.IsVisible = false;
         if (string.IsNullOrEmpty(version))
         {

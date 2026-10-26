@@ -188,42 +188,6 @@ public static class SkinSites
     ];
 }
 
-/// <summary>节日主题色（覆盖用户主题色，可在设置里关闭）。</summary>
-public static class Holiday
-{
-    public static readonly (string Key, string Name, DateTime Date, string Accent)[] All =
-    [
-        ("christmas", "圣诞节", new DateTime(2026, 12, 25), "#FACC15"),
-        ("newyear", "元旦", new DateTime(2026, 1, 1), "#FACC15"),
-        ("spring", "春节", new DateTime(2026, 2, 17), "#FF5C7A"),
-        ("halloween", "万圣节", new DateTime(2026, 10, 31), "#FB923C"),
-        ("aprilfools", "愚人节", new DateTime(2026, 4, 1), "#F472B6"),
-    ];
-
-    public static string AccentOrNull(DateTime? now = null)
-    {
-        var d = now ?? DateTime.Now;
-        if (d.Month == 12 && d.Day is >= 20 and <= 26)
-            return "#FACC15";
-        if (d.Month == 1 && d.Day <= 3)
-            return "#FACC15";
-        if (d.Month == 2 && d.Day <= 20)
-            return "#FF5C7A";
-        if (d.Month == 10 && d.Day == 31)
-            return "#FB923C";
-        if (d.Month == 4 && d.Day == 1)
-            return "#F472B6";
-        return null;
-    }
-
-    public static string ResolveAccent(LauncherConfig cfg, DateTime? now = null)
-    {
-        if (cfg?.HolidayTheme == false)
-            return cfg.AccentColor;
-        return AccentOrNull(now) ?? cfg?.AccentColor;
-    }
-}
-
 /// <summary>模组中文名（Modrinth / CurseForge slug → 译名），失败时保持英文。</summary>
 public static class ModCn
 {

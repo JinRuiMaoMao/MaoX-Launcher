@@ -86,7 +86,7 @@ public partial class MainView : UserControl
         FlowDirection = Rtl ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         Cfg = LauncherConfig.Load();
         Http.ApplyNetwork(Cfg);
-        ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
+        ThemeManager.ApplyFor(Cfg);
         Loaded += (_, _) =>
         {
             try

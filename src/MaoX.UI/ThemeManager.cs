@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
+using MaoX.Core;
 using static MaoX.Core.I18n;
 
 namespace MaoX;
@@ -51,6 +52,13 @@ public static class ThemeManager
 
     private static string _mode = "dark";
     private static bool _watchingSystem;
+
+    /// <summary>按配置套用外观；preview 用于设置里预览某个节日。</summary>
+    public static void ApplyFor(LauncherConfig cfg, HolidayTheme preview = null, DateTime? now = null)
+    {
+        Holiday.Active = Holiday.Current(cfg, now, preview);
+        Apply(cfg?.Theme ?? "dark", Holiday.Active?.Accent ?? cfg?.AccentColor ?? DefaultAccent);
+    }
 
     /// <summary>mode: dark / light / system；accent: #RRGGBB。</summary>
     public static void Apply(string mode, string accent)
