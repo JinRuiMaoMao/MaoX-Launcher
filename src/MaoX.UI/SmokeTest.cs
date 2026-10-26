@@ -983,7 +983,16 @@ internal static class SmokeTest
                     if (!string.IsNullOrEmpty(LauncherAudio.LastError))
                         throw new Exception("mp3 bgm: " + LauncherAudio.LastError);
                 }
+                LauncherAudio.Stop();
+                LauncherAudio.Play(wav, false);
+                if (!string.IsNullOrEmpty(LauncherAudio.LastError))
+                    throw new Exception("sfx play: " + LauncherAudio.LastError);
+                if (LauncherAudio.IsPlaying || LauncherAudio.ShowControls)
+                    throw new Exception("sfx should not take over the music dock");
             }
+            LauncherAudio.Play(Path.Combine(Path.GetTempPath(), "maox-missing-sfx-" + Guid.NewGuid().ToString("N") + ".wav"), false);
+            if (string.IsNullOrEmpty(LauncherAudio.LastError))
+                throw new Exception("missing sfx should report");
         }
         finally
         {

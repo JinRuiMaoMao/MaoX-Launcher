@@ -291,6 +291,7 @@
               </StackPanel>
               <StackPanel Spacing="8">
                 <TextBlock Text="{c:Tr 启动音效}" />
+                <TextBlock Text="{c:Tr 点击启动游戏时播放，选文件后会先试听。}" Classes="small dim wrap" />
                 <Grid ColumnDefinitions="*,Auto,Auto">
                   <TextBox Name="SfxBox" Watermark="{c:Tr 'MP3、WAV、FLAC、OGG、M4A 等'}" />
                   <Button Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseSfx" />

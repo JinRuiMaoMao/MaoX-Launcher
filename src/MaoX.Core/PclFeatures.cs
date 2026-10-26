@@ -443,7 +443,7 @@ public static class LauncherAudio
     private static bool _paused;
 
     public static string Folder => AppPaths.MusicDir;
-    public static string LastError { get; private set; }
+    public static string LastError { get; set; }
     public static bool IsPlaying { get; private set; }
 
     /// <summary>当前曲目停在半路。暂停时控件还要留着，没有曲目才藏。</summary>
@@ -535,13 +535,20 @@ public static class LauncherAudio
                 StartBgm(path);
                 return;
             }
+            LastError = null;
             path = AppPaths.Rebase((path ?? "").Trim());
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                if (!string.IsNullOrEmpty(path))
+                    LastError = F("找不到启动音效：{0}", path);
                 return;
+            }
             if (PlayImpl != null)
             {
-                if (!PlayImpl(path, false, false))
-                    LastError = path;
+                if (PlayImpl(path, false, false))
+                    return;
+                PlayWavFallback(path, false);
+                LastError ??= F("启动音效播放失败：{0}", Path.GetFileName(path));
                 return;
             }
             PlayWavFallback(path, false);

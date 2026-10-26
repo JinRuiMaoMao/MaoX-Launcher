@@ -45,8 +45,9 @@ internal static class DesktopAudio
             PlayExternal(path, bgm, loop);
             return true;
         }
-        catch (Exception)
+        catch (Exception e)
         {
+            LauncherAudio.LastError = e.Message;
             if (bgm)
                 StopBgm();
             return false;
@@ -79,6 +80,13 @@ internal static class DesktopAudio
                 _sfxStream = Open(path);
                 output = _sfxOut = new WaveOutEvent { DesiredLatency = 100 };
                 output.Init(_sfxStream);
+                try
+                {
+                    output.Volume = _volume;
+                }
+                catch (Exception)
+                {
+                }
                 output.PlaybackStopped += (_, _) =>
                 {
                     lock (Gate)
@@ -202,6 +210,8 @@ internal static class DesktopAudio
             {
                 if (_bgmOut != null)
                     _bgmOut.Volume = _volume;
+                if (_sfxOut != null)
+                    _sfxOut.Volume = _volume;
             }
             catch (Exception)
             {

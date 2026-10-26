@@ -169,7 +169,7 @@ public partial class SettingsPage : UserControl, IPage
         };
         BgmBox.LostFocus += (_, _) => ApplyBgm((BgmBox.Text ?? "").Trim());
         BgmVolumeSlider.ValueChanged += (_, _) => Main.SetBgmVolume((int)BgmVolumeSlider.Value);
-        SfxBox.LostFocus += (_, _) => Cfg.LaunchSfx = (SfxBox.Text ?? "").Trim();
+        SfxBox.LostFocus += (_, _) => ApplySfx((SfxBox.Text ?? "").Trim(), preview: false);
         GyroSwitch.IsCheckedChanged += (_, _) =>
         {
             Cfg.GyroLook = GyroSwitch.IsChecked == true;
@@ -497,6 +497,7 @@ public partial class SettingsPage : UserControl, IPage
         }
         Cfg.WindowWidth = w;
         Cfg.WindowHeight = h;
+        FlushLaunchSfx();
         // 正在改输入框时以输入框为准；否则以已保存的目录为准，避免启动页切换后被旧文本还原。
         if (McDirBox?.IsFocused == true)
             ApplyMcDir();
@@ -802,21 +803,33 @@ public partial class SettingsPage : UserControl, IPage
 
     private void OnClearBgm(object sender, RoutedEventArgs e) => ApplyBgm("");
 
+    public void FlushLaunchSfx()
+    {
+        if (SfxBox != null)
+            Cfg.LaunchSfx = (SfxBox.Text ?? "").Trim();
+    }
+
+    private void ApplySfx(string path, bool preview)
+    {
+        Cfg.LaunchSfx = path;
+        if (SfxBox != null)
+            SfxBox.Text = path;
+        if (preview && !string.IsNullOrWhiteSpace(path))
+        {
+            LauncherAudio.Play(path, false);
+            if (!string.IsNullOrEmpty(LauncherAudio.LastError))
+                Main.Toast(LauncherAudio.LastError, "warn");
+        }
+    }
+
     private async void OnBrowseSfx(object sender, RoutedEventArgs e)
     {
         var path = await Main.PickFile(T("选择启动音效"), T("音频"), LauncherAudio.PickerPatterns);
         if (path != null)
-        {
-            Cfg.LaunchSfx = path;
-            SfxBox.Text = path;
-        }
+            ApplySfx(path, preview: true);
     }
 
-    private void OnClearSfx(object sender, RoutedEventArgs e)
-    {
-        Cfg.LaunchSfx = "";
-        SfxBox.Text = "";
-    }
+    private void OnClearSfx(object sender, RoutedEventArgs e) => ApplySfx("", preview: false);
 
     // ------------------------------------------------------------------ 下载、账号、个性化
 

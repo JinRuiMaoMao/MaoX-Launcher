@@ -1265,8 +1265,13 @@ public partial class MainView : UserControl
         Cfg.LastVersion = version;
         if (!SaveSettings())
             return;
+        SettingsPage.FlushLaunchSfx();
         if (!string.IsNullOrWhiteSpace(Cfg.LaunchSfx))
+        {
             LauncherAudio.Play(Cfg.LaunchSfx, false);
+            if (!string.IsNullOrEmpty(LauncherAudio.LastError))
+                Toast(LauncherAudio.LastError, "warn");
+        }
         if (Cfg.PreLaunchCheckOn)
         {
             var issues = LaunchCheck.Run(MakeLauncher(), version, account);
