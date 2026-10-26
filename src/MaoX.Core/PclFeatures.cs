@@ -445,6 +445,12 @@ public static class LauncherAudio
     /// <summary>只停背景音乐（清除 BGM 时）。</summary>
     public static Action StopImpl { get; set; }
 
+    /// <summary>真正暂停当前曲目；没有时 Pause 会停掉解码器。</summary>
+    public static Action PauseImpl { get; set; }
+
+    /// <summary>从暂停处继续。成功返回 true。</summary>
+    public static Func<bool> ResumeImpl { get; set; }
+
     /// <summary>退出启动器时停掉所有声音。</summary>
     public static Action StopAllImpl { get; set; }
 
@@ -461,6 +467,7 @@ public static class LauncherAudio
     private static float _volume = 0.7f;
     private static FileSystemWatcher _watch;
     private static CancellationTokenSource _reload;
+    private static bool _paused;
 
     public static string Folder => AppPaths.MusicDir;
     public static string LastError { get; private set; }
@@ -596,9 +603,13 @@ public static class LauncherAudio
             if (!IsPlaying)
                 return;
             IsPlaying = false;
+            _paused = true;
             try
             {
-                StopImpl?.Invoke();
+                if (PauseImpl != null)
+                    PauseImpl();
+                else
+                    StopImpl?.Invoke();
             }
             catch (Exception)
             {
@@ -613,6 +624,23 @@ public static class LauncherAudio
         {
             if (IsPlaying)
                 return;
+            if (_paused && ResumeImpl != null)
+            {
+                try
+                {
+                    if (ResumeImpl())
+                    {
+                        IsPlaying = true;
+                        _paused = false;
+                        RaiseChanged();
+                        return;
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+            _paused = false;
             if (_tracks.Count == 0)
             {
                 _tracks = [.. ListTracks(_source)];
@@ -634,6 +662,7 @@ public static class LauncherAudio
                 _tracks = [.. ListTracks(_source)];
             if (_tracks.Count == 0)
                 return;
+            _paused = false;
             try
             {
                 StopImpl?.Invoke();
@@ -656,7 +685,7 @@ public static class LauncherAudio
     {
         lock (State)
         {
-            if (_tracks.Count <= 1)
+            if (_paused || _tracks.Count <= 1)
                 return;
             if (!SkipToNext())
                 return;
@@ -667,6 +696,7 @@ public static class LauncherAudio
 
     private static void PlayCurrent(bool loop)
     {
+        _paused = false;
         for (var i = 0; i < _tracks.Count; i++)
         {
             var file = _tracks[_index];
@@ -736,6 +766,7 @@ public static class LauncherAudio
         _index = 0;
         Failed.Clear();
         IsPlaying = false;
+        _paused = false;
         if (StopImpl != null)
         {
             StopImpl();

@@ -203,6 +203,24 @@ internal static class SmokeTest
                 Screenshot(window, path);
                 if (page == "launch" && !window.Cfg.LiveLog && !window.LaunchPage.DashCard.IsVisible)
                     throw new Exception("launch dash should be visible when live log is off");
+                if (window.Nav.Children.OfType<RadioButton>().Any(b => (string)b.Tag == "resources"))
+                    throw new Exception("resources sidebar should be removed");
+                if (page == "download")
+                {
+                    if (window.DownloadPage.VanillaRoot.Bounds.Width + 8 < window.DownloadPage.Bounds.Width)
+                        throw new Exception($"download list not stretched: {window.DownloadPage.VanillaRoot.Bounds.Width} vs {window.DownloadPage.Bounds.Width}");
+                    window.DownloadPage.ShowTab("community");
+                    await Task.Delay(400);
+                    Screenshot(window, Path.Combine(output, "page-download-community.png"));
+                    window.DownloadPage.ShowTab("vanilla");
+                }
+                if (page == "resources")
+                {
+                    if (window.DownloadPage.CurrentTab != "community")
+                        throw new Exception("resources should open the download community tab");
+                    if (!window.DownloadPage.ResourcesHost.IsVisible)
+                        throw new Exception("community host hidden");
+                }
                 if (page == "settings")
                 {
                     window.SettingsPage.ShowTab("personal");
@@ -861,6 +879,14 @@ internal static class SmokeTest
             LauncherAudio.Play(wav, true);
             if (!string.IsNullOrEmpty(LauncherAudio.LastError))
                 throw new Exception("bgm play: " + LauncherAudio.LastError);
+            if (!LauncherAudio.IsPlaying)
+                throw new Exception("bgm should play");
+            LauncherAudio.Pause();
+            if (LauncherAudio.IsPlaying)
+                throw new Exception("bgm pause");
+            LauncherAudio.Resume();
+            if (!LauncherAudio.IsPlaying)
+                throw new Exception("bgm resume");
             var mp3 = Directory.Exists(Path.Combine(AppContext.BaseDirectory, "Music"))
                 ? Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Music"), "*.mp3").FirstOrDefault()
                 : null;
@@ -894,6 +920,7 @@ internal static class SmokeTest
         LauncherAudio.Next();
         LauncherAudio.Toggle();
         LauncherAudio.Pause();
+        LauncherAudio.Stop();
         if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
             throw new Exception("liteloader missing");
         if (new LauncherConfig().AutoBackupWorlds)

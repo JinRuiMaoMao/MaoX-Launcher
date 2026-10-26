@@ -19,12 +19,15 @@ internal static class DesktopAudio
     private static Process _bgmProcess, _sfxProcess;
     private static CancellationTokenSource _bgmLoop;
     private static int _bgmGen;
+    private static bool _ignoreStop;
     private static float _volume = 0.7f;
 
     public static void Register()
     {
         LauncherAudio.PlayImpl = Play;
         LauncherAudio.StopImpl = StopBgm;
+        LauncherAudio.PauseImpl = PauseBgm;
+        LauncherAudio.ResumeImpl = ResumeBgm;
         LauncherAudio.StopAllImpl = StopAll;
         LauncherAudio.SetVolumeImpl = SetVolume;
     }
@@ -59,6 +62,7 @@ internal static class DesktopAudio
             if (bgm)
             {
                 _bgmGen++;
+                _ignoreStop = false;
                 var gen = _bgmGen;
                 StopDevice(ref _bgmOut, ref _bgmStream);
                 var source = Open(path);
@@ -91,7 +95,7 @@ internal static class DesktopAudio
         {
             lock (Gate)
             {
-                if (gen != _bgmGen)
+                if (gen != _bgmGen || _ignoreStop)
                     return;
                 StopDevice(ref _bgmOut, ref _bgmStream);
             }
@@ -254,11 +258,52 @@ internal static class DesktopAudio
 
     private static string Quote(string path) => "\"" + path.Replace("\"", "\\\"") + "\"";
 
+    private static void PauseBgm()
+    {
+        lock (Gate)
+        {
+            _ignoreStop = true;
+            try
+            {
+                _bgmOut?.Pause();
+            }
+            catch (Exception)
+            {
+            }
+            if (_bgmOut != null)
+                return;
+            _bgmGen++;
+            _bgmLoop?.Cancel();
+            _bgmLoop = null;
+            Kill(ref _bgmProcess);
+        }
+    }
+
+    private static bool ResumeBgm()
+    {
+        lock (Gate)
+        {
+            if (_bgmOut == null)
+                return false;
+            try
+            {
+                _ignoreStop = false;
+                _bgmOut.Play();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+    }
+
     private static void StopBgm()
     {
         lock (Gate)
         {
             _bgmGen++;
+            _ignoreStop = false;
             _bgmLoop?.Cancel();
             _bgmLoop = null;
             Kill(ref _bgmProcess);
@@ -271,6 +316,7 @@ internal static class DesktopAudio
         lock (Gate)
         {
             _bgmGen++;
+            _ignoreStop = false;
             _bgmLoop?.Cancel();
             _bgmLoop = null;
             Kill(ref _bgmProcess);

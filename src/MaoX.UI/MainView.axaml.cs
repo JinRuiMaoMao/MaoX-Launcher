@@ -60,7 +60,7 @@ public partial class MainView : UserControl
     public SettingsPage SettingsPage { get; }
     public VersionSettingsPage VersionPage { get; }
 
-    private static readonly string[] PageOrder = ["launch", "download", "resources", "multiplayer", "tools", "settings"];
+    private static readonly string[] PageOrder = ["launch", "download", "multiplayer", "tools", "settings"];
 
     private readonly Dictionary<string, Control> _pages;
     private string _currentPage;
@@ -149,7 +149,6 @@ public partial class MainView : UserControl
         {
             ["launch"] = LaunchPage,
             ["download"] = DownloadPage,
-            ["resources"] = ResourcesPage,
             ["multiplayer"] = MultiplayerPage,
             ["tools"] = ToolsPage,
             ["settings"] = SettingsPage,
@@ -473,7 +472,7 @@ public partial class MainView : UserControl
     /// <summary>列表类页面放不下时的最小高度。启动页在紧凑布局下按内容高度排，由 RefreshPageScroll 打开滚动。</summary>
     private static readonly Dictionary<string, double> MinPageHeight = new()
     {
-        ["download"] = 470, ["resources"] = 520, ["multiplayer"] = 470, ["tools"] = 520,
+        ["download"] = 520, ["multiplayer"] = 470, ["tools"] = 520,
     };
 
     public void RefreshPageScroll() => UpdatePageScroll();
@@ -539,8 +538,6 @@ public partial class MainView : UserControl
     {
         if (_currentPage == "version")
             return "launch";
-        if (_currentPage == "download" && DownloadPage.CurrentTab != "vanilla")
-            return "resources";
         return _currentPage;
     }
 
@@ -552,15 +549,8 @@ public partial class MainView : UserControl
 
     private void OnNavClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not RadioButton { Tag: string key })
-            return;
-        if (key == "download")
-        {
-            ShowPage("download");
-            DownloadPage.ShowTab("vanilla");
-            return;
-        }
-        ShowPage(key);
+        if (sender is RadioButton { Tag: string key })
+            ShowPage(key);
     }
 
     // ------------------------------------------------------------------ 日志与进度（可在任意线程调用）
@@ -1457,15 +1447,9 @@ public partial class MainView : UserControl
         }
     }
 
-    private void OnBgmButtonPressed(object sender, PointerPressedEventArgs e)
+    private void OnBgmClick(object sender, RoutedEventArgs e)
     {
-        if (!e.GetCurrentPoint(BgmButton).Properties.IsLeftButtonPressed)
-            return;
-        if (LauncherAudio.IsPlaying)
-            LauncherAudio.Pause();
-        else
-            LauncherAudio.Resume();
-        e.Handled = true;
+        LauncherAudio.Toggle();
     }
 
     private void OnBgmContext(object sender, ContextRequestedEventArgs e)

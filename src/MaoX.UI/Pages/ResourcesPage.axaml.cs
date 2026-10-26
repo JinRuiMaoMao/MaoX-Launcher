@@ -15,7 +15,7 @@ using static MaoX.Core.I18n;
 
 namespace MaoX.Pages;
 
-/// <summary>资源页：从 Modrinth / CurseForge 浏览安装模组、资源包、光影、数据包与整合包，并管理已安装的文件。</summary>
+/// <summary>下载页里的社区资源：从 Modrinth / CurseForge 浏览安装模组、资源包、光影、数据包与整合包，并管理已安装的文件。</summary>
 public partial class ResourcesPage : UserControl, IPage
 {
     private const int PageSize = 20;

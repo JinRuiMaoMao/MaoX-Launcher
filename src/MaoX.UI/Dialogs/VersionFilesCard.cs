@@ -198,7 +198,7 @@ public class VersionFilesCard : UserControl
         {
             var text = _items.Count > 0
                 ? T("没有找到匹配的内容")
-                : F("还没有{0}。可以在「资源」页下载，或者点「导入」添加文件", _kind.Name);
+                : F("还没有{0}。可以在「下载」页下载，或者点「导入」添加文件", _kind.Name);
             _list.Children.Add(new TextBlock { Text = text, Classes = { "muted", "wrap" }, Margin = new Thickness(0, 6) });
             return;
         }

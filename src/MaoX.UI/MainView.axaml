@@ -51,9 +51,6 @@
               <RadioButton Classes="nav" GroupName="nav" Tag="download" Click="OnNavClick">
                 <c:IconLabel Icon="download" Text="{c:Tr 下载}" Spacing="14" HorizontalAlignment="Left" />
               </RadioButton>
-              <RadioButton Classes="nav" GroupName="nav" Tag="resources" Click="OnNavClick">
-                <c:IconLabel Icon="box" Text="{c:Tr 资源}" Spacing="14" HorizontalAlignment="Left" />
-              </RadioButton>
               <RadioButton Classes="nav" GroupName="nav" Tag="multiplayer" Click="OnNavClick">
                 <c:IconLabel Icon="people" Text="{c:Tr 联机}" Spacing="14" HorizontalAlignment="Left" />
               </RadioButton>
@@ -106,7 +103,7 @@
         <Slider Name="BgmVolumeSlider" Width="108" Minimum="0" Maximum="100" Value="70"
                 VerticalAlignment="Center" ToolTip.Tip="{c:Tr 背景音乐音量}" />
         <Button Name="BgmButton" Classes="bgm" ToolTip.Tip="{c:Tr 左键停止或继续，右键下一首}"
-                PointerPressed="OnBgmButtonPressed" ContextRequested="OnBgmContext" PointerWheelChanged="OnBgmWheel">
+                Click="OnBgmClick" ContextRequested="OnBgmContext" PointerWheelChanged="OnBgmWheel">
           <c:Icon Name="BgmIcon" Kind="music" Size="20" />
         </Button>
       </StackPanel>
