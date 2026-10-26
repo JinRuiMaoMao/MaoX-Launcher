@@ -34,8 +34,8 @@ jobs:
             let body = zh && en
               ? `**中文**\n${zh}\n\n**English**\n${en}`
               : (zh || en || '新版本已发布。 / A new version is out.');
-            if (body.length > 1800)
-              body = body.slice(0, 1800) + '…';
+            if (body.length > 4000)
+              body = body.slice(0, 4000) + '…';
             const res = await fetch(webhook, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
