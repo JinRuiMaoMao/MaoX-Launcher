@@ -172,6 +172,7 @@ public static class HelpFaq
         ("iOS 上打不开游戏？", "需要 JIT。用 StikDebug / SideStore / TrollStore，或设置里打开内置 JIT（实验）。26.3 及以上目前还不能启动。"),
         ("启动器如何更新？", "设置里可以检查更新。更新频道选「预览」时会包含测试版。正式版会通过 GitHub Release 自动提示。"),
         ("怎么支持和反馈？", "爱发电可以支持开发，Discord 方便聊天和反馈，也可以在 GitHub 提 Issue。入口在设置「关于」和工具页「赞助」。"),
+        ("背景音乐怎么放多首？", "和 PCL 一样：设置里打开音乐文件夹，把 MP3 / WAV / FLAC / OGG 等放进去，启动器会按文件名依次循环。也可以选单个文件，或自己指定另一个文件夹。"),
     ];
 }
 
@@ -437,8 +438,8 @@ public static class LauncherAudio
 
     public static readonly string[] PickerPatterns = Extensions.Select(e => "*" + e).ToArray();
 
-    /// <summary>桌面程序注册：播放文件。loop 为背景音乐，否则是一次性音效，两者互不影响。</summary>
-    public static Action<string, bool> PlayImpl { get; set; }
+    /// <summary>桌面程序注册：path、是否背景音乐、是否单曲循环。</summary>
+    public static Action<string, bool, bool> PlayImpl { get; set; }
 
     /// <summary>只停背景音乐（清除 BGM 时）。</summary>
     public static Action StopImpl { get; set; }
@@ -446,14 +447,82 @@ public static class LauncherAudio
     /// <summary>退出启动器时停掉所有声音。</summary>
     public static Action StopAllImpl { get; set; }
 
+    private static List<string> _tracks = [];
+    private static int _index;
+
+    public static string Folder => AppPaths.MusicDir;
+
+    public static bool IsAudio(string path) =>
+        Extensions.Contains(Path.GetExtension(path ?? "").ToLowerInvariant());
+
+    /// <summary>文件就这一首；文件夹则按文件名列出里面的音频。空路径用默认 Music 文件夹。</summary>
+    public static IReadOnlyList<string> ListTracks(string path)
+    {
+        path = AppPaths.Rebase((path ?? "").Trim());
+        if (string.IsNullOrEmpty(path))
+            path = Folder;
+        try
+        {
+            if (Directory.Exists(path))
+                return Directory.GetFiles(path).Where(IsAudio).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+            if (File.Exists(path) && IsAudio(path))
+                return [path];
+        }
+        catch (Exception)
+        {
+        }
+        return [];
+    }
+
+    public static string EnsureFolder()
+    {
+        Directory.CreateDirectory(Folder);
+        return Folder;
+    }
+
     public static void Play(string path, bool loop)
     {
+        if (loop)
+        {
+            StartBgm(path);
+            return;
+        }
         path = AppPaths.Rebase((path ?? "").Trim());
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return;
         if (PlayImpl != null)
         {
-            PlayImpl(path, loop);
+            PlayImpl(path, false, false);
+            return;
+        }
+        PlayWavFallback(path, false);
+    }
+
+    public static void StartBgm(string path)
+    {
+        Stop();
+        _tracks = [.. ListTracks(path)];
+        _index = 0;
+        if (_tracks.Count == 0)
+            return;
+        PlayCurrent(_tracks.Count == 1);
+    }
+
+    /// <summary>一首播完后由桌面播放器调用，文件夹里的下一首接着放。</summary>
+    public static void NotifyBgmEnded()
+    {
+        if (_tracks.Count <= 1)
+            return;
+        _index = (_index + 1) % _tracks.Count;
+        PlayCurrent(false);
+    }
+
+    private static void PlayCurrent(bool loop)
+    {
+        var path = _tracks[_index];
+        if (PlayImpl != null)
+        {
+            PlayImpl(path, true, loop);
             return;
         }
         PlayWavFallback(path, loop);
@@ -461,6 +530,8 @@ public static class LauncherAudio
 
     public static void Stop()
     {
+        _tracks = [];
+        _index = 0;
         if (StopImpl != null)
         {
             StopImpl();
@@ -471,6 +542,8 @@ public static class LauncherAudio
 
     public static void StopAll()
     {
+        _tracks = [];
+        _index = 0;
         if (StopAllImpl != null)
         {
             StopAllImpl();

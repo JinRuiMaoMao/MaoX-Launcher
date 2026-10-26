@@ -31,6 +31,8 @@ public static partial class AppPaths
     public static string ToolsDir => Path.Combine(BaseDir, "tools");
     public static string CacheDir => Path.Combine(BaseDir, "cache");
     public static string DefaultMinecraftDir => Path.Combine(BaseDir, ".minecraft");
+    /// <summary>和 PCL 一样：把多首背景音乐放进这个文件夹。</summary>
+    public static string MusicDir => Path.Combine(BaseDir, "Music");
 
     private static string ResolveBaseDir()
     {
@@ -127,7 +129,7 @@ public class LauncherConfig
     public bool ShowHiddenVersions { get; set; }
     /// <summary>自定义主页 JSON 文件路径或 URL。</summary>
     public string Homepage { get; set; } = "";
-    /// <summary>背景音乐路径（MP3 / WAV / FLAC / OGG / M4A 等）。</summary>
+    /// <summary>背景音乐：单个文件、文件夹，或留空使用启动器目录下的 Music 文件夹（和 PCL 一样可放多首）。</summary>
     public string Bgm { get; set; } = "";
     /// <summary>启动游戏时的音效路径（常见音频格式）。</summary>
     public string LaunchSfx { get; set; } = "";

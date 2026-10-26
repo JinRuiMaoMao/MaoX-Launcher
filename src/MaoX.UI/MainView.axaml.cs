@@ -87,8 +87,7 @@ public partial class MainView : UserControl
         Cfg = LauncherConfig.Load();
         Http.ApplyNetwork(Cfg);
         ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
-        if (!string.IsNullOrWhiteSpace(Cfg.Bgm))
-            LauncherAudio.Play(Cfg.Bgm, true);
+        LauncherAudio.Play(Cfg.Bgm, true);
         var egg = 0;
         DateTime eggAt = default;
         Brand.PointerPressed += (_, _) =>

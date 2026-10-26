@@ -687,10 +687,7 @@ public partial class SettingsPage : UserControl, IPage
     {
         Cfg.Bgm = path;
         BgmBox.Text = path;
-        if (string.IsNullOrEmpty(path))
-            LauncherAudio.Stop();
-        else
-            LauncherAudio.Play(path, true);
+        LauncherAudio.Play(path, true);
     }
 
     private async void OnBrowseBgm(object sender, RoutedEventArgs e)
@@ -698,6 +695,35 @@ public partial class SettingsPage : UserControl, IPage
         var path = await Main.PickFile(T("选择背景音乐"), T("音频"), LauncherAudio.PickerPatterns);
         if (path != null)
             ApplyBgm(path);
+    }
+
+    private async void OnBrowseBgmFolder(object sender, RoutedEventArgs e)
+    {
+        var start = string.IsNullOrWhiteSpace(Cfg.Bgm) ? LauncherAudio.Folder : Cfg.Bgm;
+        if (File.Exists(start))
+            start = Path.GetDirectoryName(start);
+        var path = await Main.PickFolder(T("选择音乐文件夹"), start);
+        if (path != null)
+            ApplyBgm(path);
+    }
+
+    private void OnOpenBgmFolder(object sender, RoutedEventArgs e)
+    {
+        var dir = ResolveBgmFolder();
+        Directory.CreateDirectory(dir);
+        if (string.IsNullOrWhiteSpace(Cfg.Bgm))
+            ApplyBgm(dir);
+        Platform.OpenPath(dir);
+    }
+
+    private string ResolveBgmFolder()
+    {
+        var path = AppPaths.Rebase((Cfg.Bgm ?? "").Trim());
+        if (Directory.Exists(path))
+            return path;
+        if (File.Exists(path))
+            return Path.GetDirectoryName(path) ?? LauncherAudio.EnsureFolder();
+        return LauncherAudio.EnsureFolder();
     }
 
     private void OnClearBgm(object sender, RoutedEventArgs e) => ApplyBgm("");

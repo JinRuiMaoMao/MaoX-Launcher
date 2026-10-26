@@ -18,6 +18,7 @@ internal static class DesktopAudio
     private static WaveStream _bgmStream, _sfxStream;
     private static Process _bgmProcess, _sfxProcess;
     private static CancellationTokenSource _bgmLoop;
+    private static int _bgmGen;
 
     public static void Register()
     {
@@ -26,28 +27,43 @@ internal static class DesktopAudio
         LauncherAudio.StopAllImpl = StopAll;
     }
 
-    private static void Play(string path, bool loop)
+    private static void Play(string path, bool bgm, bool loop)
     {
         if (Platform.IsWindows)
         {
-            PlayWindows(path, loop);
+            PlayWindows(path, bgm, loop);
             return;
         }
-        PlayExternal(path, loop);
+        PlayExternal(path, bgm, loop);
     }
 
-    private static void PlayWindows(string path, bool loop)
+    private static void PlayWindows(string path, bool bgm, bool loop)
     {
         lock (Gate)
         {
             EnsureMf();
-            if (loop)
+            if (bgm)
             {
+                _bgmGen++;
+                var gen = _bgmGen;
                 StopDevice(ref _bgmOut, ref _bgmStream);
                 var source = Open(path);
-                _bgmStream = new LoopStream(source);
+                _bgmStream = loop ? new LoopStream(source) : source;
                 _bgmOut = new WaveOutEvent { DesiredLatency = 200 };
                 _bgmOut.Init(_bgmStream);
+                if (!loop)
+                {
+                    _bgmOut.PlaybackStopped += (_, _) =>
+                    {
+                        lock (Gate)
+                        {
+                            if (gen != _bgmGen)
+                                return;
+                            StopDevice(ref _bgmOut, ref _bgmStream);
+                        }
+                        LauncherAudio.NotifyBgmEnded();
+                    };
+                }
                 _bgmOut.Play();
                 return;
             }
@@ -93,12 +109,12 @@ internal static class DesktopAudio
         _mf = true;
     }
 
-    private static void PlayExternal(string path, bool loop)
+    private static void PlayExternal(string path, bool bgm, bool loop)
     {
         var start = ExternalStart(path);
         if (start == null)
             return;
-        if (loop)
+        if (bgm)
         {
             _bgmLoop?.Cancel();
             Kill(ref _bgmProcess);
@@ -122,7 +138,13 @@ internal static class DesktopAudio
                     }
                     if (cts.IsCancellationRequested)
                         return;
-                    _bgmProcess = start();
+                    if (loop)
+                    {
+                        _bgmProcess = start();
+                        continue;
+                    }
+                    LauncherAudio.NotifyBgmEnded();
+                    return;
                 }
             });
             return;
@@ -183,6 +205,7 @@ internal static class DesktopAudio
     {
         lock (Gate)
         {
+            _bgmGen++;
             _bgmLoop?.Cancel();
             _bgmLoop = null;
             Kill(ref _bgmProcess);
@@ -194,6 +217,7 @@ internal static class DesktopAudio
     {
         lock (Gate)
         {
+            _bgmGen++;
             _bgmLoop?.Cancel();
             _bgmLoop = null;
             Kill(ref _bgmProcess);

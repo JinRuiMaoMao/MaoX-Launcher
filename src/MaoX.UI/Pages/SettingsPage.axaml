@@ -312,11 +312,14 @@
             </StackPanel>
             <StackPanel Spacing="8">
               <TextBlock Text="{c:Tr 背景音乐}" />
-              <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBox Name="BgmBox" Watermark="{c:Tr 'MP3、WAV、FLAC、OGG、M4A 等'}" />
-                <Button Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseBgm" />
-                <Button Grid.Column="2" Content="{c:Tr 清除}" Margin="8,0,0,0" Click="OnClearBgm" />
-              </Grid>
+              <TextBlock Text="{c:Tr 可以把多首曲子放进音乐文件夹，启动器会按文件名依次循环播放。}" Classes="small dim wrap" />
+              <TextBox Name="BgmBox" Watermark="{c:Tr '文件、文件夹，或留空使用 Music 文件夹'}" />
+              <WrapPanel ItemSpacing="8" LineSpacing="8">
+                <Button Content="{c:Tr 浏览文件}" Click="OnBrowseBgm" />
+                <Button Content="{c:Tr 浏览文件夹}" Click="OnBrowseBgmFolder" />
+                <Button Content="{c:Tr 打开文件夹}" Click="OnOpenBgmFolder" />
+                <Button Content="{c:Tr 清除}" Click="OnClearBgm" />
+              </WrapPanel>
             </StackPanel>
             <StackPanel Spacing="8">
               <TextBlock Text="{c:Tr 启动音效}" />

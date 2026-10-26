@@ -815,6 +815,30 @@ internal static class SmokeTest
         if (!LauncherAudio.Extensions.Contains(".mp3") || !LauncherAudio.Extensions.Contains(".flac")
             || !LauncherAudio.PickerPatterns.Contains("*.ogg"))
             throw new Exception("audio extensions");
+        var music = Path.Combine(Path.GetTempPath(), "maox-music-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(music);
+            File.WriteAllBytes(Path.Combine(music, "b.wav"), [1]);
+            File.WriteAllBytes(Path.Combine(music, "a.mp3"), [1]);
+            File.WriteAllText(Path.Combine(music, "readme.txt"), "x");
+            var tracks = LauncherAudio.ListTracks(music);
+            if (tracks.Count != 2 || !tracks[0].EndsWith("a.mp3", StringComparison.OrdinalIgnoreCase)
+                || !tracks[1].EndsWith("b.wav", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("music playlist: " + string.Join(",", tracks));
+            if (LauncherAudio.Folder != AppPaths.MusicDir)
+                throw new Exception("music folder: " + LauncherAudio.Folder);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(music, true);
+            }
+            catch (Exception)
+            {
+            }
+        }
         if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
             throw new Exception("liteloader missing");
         if (new LauncherConfig().AutoBackupWorlds)
