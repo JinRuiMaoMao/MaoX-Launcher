@@ -212,6 +212,13 @@ internal static class SmokeTest
                     window.DownloadPage.ShowTab("community");
                     await Task.Delay(400);
                     Screenshot(window, Path.Combine(output, "page-download-community.png"));
+                    window.DownloadPage.ShowTab("modpack");
+                    await Task.Delay(400);
+                    if (!window.DownloadPage.TargetVersionBar.IsVisible)
+                        throw new Exception("target version should sit on the download title row");
+                    if (window.DownloadPage.RefreshButton.IsVisible)
+                        throw new Exception("refresh should hide on resource tabs");
+                    Screenshot(window, Path.Combine(output, "page-download-modpack.png"));
                     window.DownloadPage.ShowTab("vanilla");
                 }
                 if (page == "resources")

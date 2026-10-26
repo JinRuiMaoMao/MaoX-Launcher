@@ -40,6 +40,7 @@ public partial class ResourcesPage : UserControl, IPage
     private readonly SemaphoreSlim _iconSlots = new(6);
     private readonly Dictionary<string, ToggleButton> _kindChips = [];
     private bool _updatingBoxes;
+    private ComboBox _hostVersionBox;
     private bool _embedded;
     private bool _tabReady;
     private string _shownContent;
@@ -94,11 +95,20 @@ public partial class ResourcesPage : UserControl, IPage
     /// <summary>版本设置改变后（如版本隔离），下次显示时重新读取目标。</summary>
     public void Invalidate() => _ctx = null;
 
-    public void SetEmbedded(bool embedded)
+    private ComboBox ActiveVersionBox => _hostVersionBox ?? VersionBox;
+
+    public void SetEmbedded(bool embedded, ComboBox hostVersionBox = null)
     {
         _embedded = embedded;
         if (PageTitle != null)
             PageTitle.IsVisible = !embedded;
+        if (VersionColumn != null)
+            VersionColumn.IsVisible = !embedded;
+        if (_hostVersionBox != null)
+            _hostVersionBox.SelectionChanged -= OnVersionChanged;
+        _hostVersionBox = hostVersionBox;
+        if (_hostVersionBox != null)
+            _hostVersionBox.SelectionChanged += OnVersionChanged;
     }
 
     /// <summary>community 显示全部分类；其余锁定到对应资源类型。</summary>
@@ -122,7 +132,7 @@ public partial class ResourcesPage : UserControl, IPage
         var versions = launcher.InstalledVersions();
         var modded = versions.Where(v => Mods.ModLoaders.Contains(launcher.DetectLoader(v).Loader)).ToList();
         var ordered = modded.Concat(versions.Except(modded)).ToList();
-        var current = VersionBox.SelectedItem as string;
+        var current = ActiveVersionBox.SelectedItem as string;
         if (current == null || !versions.Contains(current))
         {
             var preferred = Main.SelectedVersion;
@@ -130,8 +140,8 @@ public partial class ResourcesPage : UserControl, IPage
                 : modded.FirstOrDefault() ?? ordered.FirstOrDefault();
         }
         _updatingBoxes = true;
-        VersionBox.ItemsSource = ordered;
-        VersionBox.SelectedItem = current;
+        ActiveVersionBox.ItemsSource = ordered;
+        ActiveVersionBox.SelectedItem = current;
         _updatingBoxes = false;
         if (_ctx == null || _ctx.Version != current || _ctx.GameDir != (current != null ? launcher.GameDirFor(current) : ""))
             SetTarget();
@@ -146,7 +156,7 @@ public partial class ResourcesPage : UserControl, IPage
     private void SetTarget()
     {
         var launcher = Main.MakeLauncher();
-        var version = VersionBox.SelectedItem as string;
+        var version = ActiveVersionBox.SelectedItem as string;
         if (version != null)
         {
             var info = launcher.DetectLoader(version);

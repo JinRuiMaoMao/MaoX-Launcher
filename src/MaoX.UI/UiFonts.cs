@@ -11,15 +11,6 @@ namespace MaoX;
 /// </summary>
 public static class UiFonts
 {
-    public static FontManagerOptions Options { get; } = new() { FontFallbacks = Fallbacks };
-
-    public static FontFallback[] Fallbacks { get; } = Names(Platform.IsWindows ? Windows
-        : Platform.IsMac || Platform.IsIOS ? Apple
-        : Platform.IsAndroid ? Android
-        : Linux);
-
-    public static AppBuilder Configure(AppBuilder builder) => builder.With(Options);
-
     private static readonly string[] Windows =
     [
         "Segoe UI", "Segoe UI Historic", "Microsoft YaHei UI", "Microsoft JhengHei UI",
@@ -53,6 +44,15 @@ public static class UiFonts
         "WenQuanYi Micro Hei", "Source Han Sans SC",
     ];
 
+    public static FontFallback[] Fallbacks { get; } = Names(Platform.IsWindows ? Windows
+        : Platform.IsMac || Platform.IsIOS ? Apple
+        : Platform.IsAndroid ? Android
+        : Linux);
+
+    public static FontManagerOptions Options { get; } = new() { FontFallbacks = Fallbacks };
+
+    public static AppBuilder Configure(AppBuilder builder) => builder.With(Options);
+
     private static FontFallback[] Names(string[] families) =>
-        [.. families.Select(name => new FontFallback { FontFamily = new FontFamily(name) })];
+        [.. (families ?? []).Select(name => new FontFallback { FontFamily = new FontFamily(name) })];
 }

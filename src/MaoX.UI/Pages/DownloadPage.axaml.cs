@@ -44,7 +44,7 @@ public partial class DownloadPage : UserControl, IPage
     public void AttachResources(ResourcesPage page)
     {
         _resources = page;
-        page.SetEmbedded(true);
+        page.SetEmbedded(true, TargetVersionBox);
         ResourcesHost.Children.Add(page);
         ShowTab(string.IsNullOrWhiteSpace(Main.Cfg.DownloadTab) ? "vanilla" : Main.Cfg.DownloadTab);
     }
@@ -71,6 +71,7 @@ public partial class DownloadPage : UserControl, IPage
         VanillaRoot.IsVisible = vanilla;
         ResourcesHost.IsVisible = !vanilla;
         RefreshButton.IsVisible = vanilla;
+        TargetVersionBar.IsVisible = !vanilla;
         var tab = Tabs.First(t => t.Key == key);
         PageTitle.Text = T(tab.Title);
         PageSubtitle.Text = T(tab.Subtitle);
