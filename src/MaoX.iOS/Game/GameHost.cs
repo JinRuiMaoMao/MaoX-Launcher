@@ -360,7 +360,7 @@ internal static class GameHost
 
     // ------------------------------------------------------------------ 游戏
 
-    /// <summary>游戏运行在启动器进程里，输出由原生层写进日志文件；游戏退出时整个应用跟着退出。</summary>
+    /// <summary>游戏运行在启动器进程里，输出由原生层写进日志文件；退出后 exec 回启动器，不要回到桌面。</summary>
     private sealed class IosGame : RunningGame
     {
         private readonly TaskCompletionSource<int> _exit = new(TaskCreationOptions.RunContinuationsAsynchronously);

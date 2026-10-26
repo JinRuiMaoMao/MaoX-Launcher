@@ -242,28 +242,42 @@ internal sealed class GameViewController : UIViewController
         }
     }
 
-    /// <summary>游戏崩溃或异常退出：先显示日志末尾，用户确认后结束进程。</summary>
+    /// <summary>游戏退出：正常退出直接回到启动器；崩溃先看日志，再回到启动器（不要 suspend 到桌面）。</summary>
     [UnmanagedCallersOnly]
     private static void OnExit(int code)
     {
         try
         {
-            if (_current == null)
+            UIApplication.SharedApplication.IdleTimerDisabled = false;
+            _current?._gamepad?.Stop();
+            if (code != 0 && _current != null)
             {
-                GameNative.Exit(code);
+                UIViewController top = _current;
+                while (top.PresentedViewController != null)
+                    top = top.PresentedViewController;
+                var alert = UIAlertController.Create(F("游戏已退出（代码 {0}）", code), LogTail(), UIAlertControllerStyle.Alert);
+                alert.AddAction(UIAlertAction.Create(T("回到启动器"), UIAlertActionStyle.Default, _ => ReturnToLauncher()));
+                top.PresentViewController(alert, true, null);
                 return;
             }
-            UIViewController top = _current;
-            while (top.PresentedViewController != null)
-                top = top.PresentedViewController;
-            var alert = UIAlertController.Create(F("游戏已退出（代码 {0}）", code), LogTail(), UIAlertControllerStyle.Alert);
-            alert.AddAction(UIAlertAction.Create(T("关闭"), UIAlertActionStyle.Default, _ => GameNative.Exit(code)));
-            top.PresentViewController(alert, true, null);
+            ReturnToLauncher();
         }
         catch (Exception)
         {
-            GameNative.Exit(code);
+            ReturnToLauncher();
         }
+    }
+
+    private static void ReturnToLauncher()
+    {
+        var current = _current;
+        _current = null;
+        if (current == null)
+        {
+            GameNative.Relaunch();
+            return;
+        }
+        current.DismissViewController(false, () => GameNative.Relaunch());
     }
 
     private static string LogTail()

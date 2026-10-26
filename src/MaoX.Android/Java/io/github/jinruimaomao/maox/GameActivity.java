@@ -2,6 +2,7 @@ package io.github.jinruimaomao.maox;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.os.Handler;
@@ -59,6 +60,19 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
             out.write(("{\"code\":" + code + ",\"signal\":" + isSignal + "}").getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             Log.e(TAG, "write exit code failed", e);
+        }
+    }
+
+    /** 结束游戏进程前把启动器界面拉到前面，避免只剩下游戏任务而回到桌面。 */
+    static void returnToLauncher(Context app) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.setClassName(app.getPackageName(), "io.github.jinruimaomao.maox.MainActivity");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            app.startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "return to launcher failed", e);
         }
     }
 
@@ -195,6 +209,7 @@ public class GameActivity extends Activity implements CallbackBridge.GrabListene
             }
             writeExitCode(code, false);
             if (beforeExit != null) beforeExit.run();
+            returnToLauncher(app);
             System.exit(code);
         }, "JVM Main thread").start();
     }

@@ -31,6 +31,7 @@ char maox_resolv_conf[PATH_MAX];
 void maox_set_grab_callback_internal(void (*callback)(int));
 void maox_set_exit_callback_internal(void (*callback)(int));
 void maox_exit_now(int code);
+void maox_relaunch_app(void);
 
 static char lastError[2048];
 static BOOL launched;
@@ -84,9 +85,6 @@ static void *launchThread(void *arg) {
     NSLog(@"[MaoX] JLI_Launch returned %d", code);
     fflush(stdout);
     fflush(stderr);
-    if (code == 0) {
-        exit(0);
-    }
     maox_handle_exit(code);
     return NULL;
 }
@@ -117,6 +115,10 @@ EXPORT void maox_set_exit_callback(void (*callback)(int)) {
 
 EXPORT void maox_exit(int code) {
     maox_exit_now(code);
+}
+
+EXPORT void maox_relaunch(void) {
+    maox_relaunch_app();
 }
 
 // Returns 0 once the JVM thread is running; otherwise maox_last_error() explains why.

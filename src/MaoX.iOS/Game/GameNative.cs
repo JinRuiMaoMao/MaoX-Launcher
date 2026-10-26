@@ -127,6 +127,9 @@ internal static unsafe class GameNative
 
     public static void Exit(int code) => ((delegate* unmanaged<int, void>)Fn("maox_exit"))(code);
 
+    /// <summary>游戏结束后回到启动器：用同一条可执行文件覆盖当前进程，JVM 才能再启动一次。</summary>
+    public static void Relaunch() => ((delegate* unmanaged<void>)Fn("maox_relaunch"))();
+
     public static void SetWindowSize(int width, int height) =>
         ((delegate* unmanaged<int, int, void>)Fn("maox_set_window_size"))(width, height);
 

@@ -6,7 +6,9 @@
 #include <pthread.h>
 #include <stdarg.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <mach/mach.h>
+#include <mach-o/dyld.h>
 
 #include "utils.h"
 #include "external/mach/mach_excServer.h"
@@ -30,6 +32,16 @@ void maox_set_exit_callback_internal(void (*callback)(int)) {
 void maox_exit_now(int code) {
     if (orig_exit) orig_exit(code);
     exit(code);
+}
+
+/// 用同一条可执行文件覆盖当前进程，回到启动器；失败就返回，让界面自己关掉游戏层。
+void maox_relaunch_app(void) {
+    char path[PATH_MAX];
+    uint32_t size = sizeof(path);
+    if (_NSGetExecutablePath(path, &size) == 0) {
+        char *argv[] = { path, NULL };
+        execv(path, argv);
+    }
 }
 
 // Game thread wants the process gone: let the launcher UI show the error first, then it calls maox_exit_now
@@ -68,17 +80,11 @@ static void hooked_exit(int code) {
     NSLog(@"exit(%d) called", code);
     fflush(stdout);
     fflush(stderr);
-    if (code == 0) {
-        // Normal quit from the title screen: go back to the home screen like a native game
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [UIApplication.sharedApplication performSelector:@selector(suspend)];
-        });
-        usleep(100*1000);
-        orig_exit(0);
+    if (NSThread.isMainThread || !exitCallback) {
+        maox_relaunch_app();
         return;
     }
     maox_handle_exit(code);
-    orig_exit(code);
 }
 
 static void* hooked_dlopen(const char* path, int mode) {
