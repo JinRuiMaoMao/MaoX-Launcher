@@ -221,7 +221,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="3" Margin="0,0,14,0">
                   <TextBlock Text="{c:Tr 节日主题}" />
-                  <TextBlock Text="{c:Tr 到节日会自动换主题色和祝福语，也可以点下面预览}" Classes="small dim wrap" />
+                  <TextBlock Text="{c:Tr 到节日会自动换主题色、祝福语和装饰图案，也可以点下面预览}" Classes="small dim wrap" />
                 </StackPanel>
                 <ToggleSwitch Name="HolidaySwitch" Grid.Column="1" />
               </Grid>

@@ -27,6 +27,7 @@ internal static class SmokeTest
         if (index < 0)
             return false;
         Active = true;
+        Controls.HolidayDecor.Frozen = true;
         var output = Path.GetFullPath(index + 1 < args.Length ? args[index + 1] : "smoke-test");
         var launch = Array.IndexOf(args, "--launch");
         var version = launch >= 0 && launch + 1 < args.Length ? args[launch + 1] : null;
@@ -262,6 +263,8 @@ internal static class SmokeTest
                 ThemeManager.ApplyFor(window.Cfg, day);
                 if (!string.Equals(ThemeManager.ToHex(ThemeManager.Accent), day.Accent, StringComparison.OrdinalIgnoreCase))
                     throw new Exception($"{day.Name} applied {ThemeManager.ToHex(ThemeManager.Accent)} != {day.Accent}");
+                if (window.HolidayArt.Motif != day.Key)
+                    throw new Exception($"{day.Name} decor {window.HolidayArt.Motif}");
                 await Task.Delay(250);
                 Screenshot(window, Path.Combine(output, $"holiday-{day.Key}.png"));
                 window.ShowPage("settings");

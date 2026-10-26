@@ -91,6 +91,9 @@
       </Grid>
     </Grid>
 
+    <!-- 节日图案，铺在内容上但不挡点击 -->
+    <c:HolidayDecor Name="HolidayArt" />
+
     <!-- 提示气泡 -->
     <StackPanel Name="ToastLayer" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,88"
                 Spacing="10" />
