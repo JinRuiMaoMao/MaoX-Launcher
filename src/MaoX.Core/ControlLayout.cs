@@ -15,7 +15,7 @@ public class ControlLayout
     /// <summary>移动方式：摇杆（推到边缘疾跑），或基岩版的方向键（按住前进时出现斜向键，双击前进疾跑）。</summary>
     public const string Joystick = "joystick", Dpad = "dpad";
 
-    /// <summary>可以摆放的按键，顺序也是编辑器里的绘制顺序。attack / use 只在拆分控制时显示。</summary>
+    /// <summary>可以摆放的按键，顺序也是编辑器里的绘制顺序。attack / use 只在拆分控制时显示。inventory / pause / keyboard 在菜单里也会留下，避免打开背包后关不掉。</summary>
     public static readonly string[] Ids = ["stick", "jump", "sneak", "inventory", "drop", "chat", "view", "pause", "keyboard", "attack", "use"];
 
     public string Name { get; set; } = "";
