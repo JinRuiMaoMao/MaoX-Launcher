@@ -70,6 +70,7 @@
   "语言": "Language",
   "需要重启": "Restart required",
   "重启启动器后才会切换到新的语言。": "The new language takes effect after restarting the launcher.",
+  "请从后台划掉启动器后再打开，语言才会切换。": "Swipe the launcher away from the app switcher, then open it again to switch the language.",
   "立即重启": "Restart now",
   "稍后": "Later",
   "实时日志": "Live log",

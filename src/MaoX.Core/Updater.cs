@@ -57,6 +57,9 @@ public static class Updater
         }
     }
 
+    /// <summary>桌面可以从当前进程再拉起自己；手机系统不允许这么做。</summary>
+    public static bool CanRelaunch => !Platform.IsMobile;
+
     /// <summary>只有发布版（Windows / Linux 单文件、macOS .app）才能自我更新，开发时运行的版本不行。</summary>
     // 单文件发布时 Assembly.Location 为空，正好用来判断是不是发布版
 #pragma warning disable IL3000
@@ -323,6 +326,8 @@ public static class Updater
     /// <summary>再启动一个启动器进程（用于切换语言后重启），调用方随后关闭自己。</summary>
     public static void Relaunch()
     {
+        if (!CanRelaunch)
+            throw new InvalidOperationException(T("请从后台划掉启动器后再打开，语言才会切换。"));
         if (AppBundle is { } bundle)
         {
             Process.Start("open", ["-n", bundle]);

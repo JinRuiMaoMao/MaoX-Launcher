@@ -741,6 +741,13 @@ public partial class SettingsPage : UserControl, IPage
         var next = I18n.Resolve(Cfg.Language);
         if (next == I18n.Language)
             return;
+        if (!Updater.CanRelaunch)
+        {
+            await Main.Dialog(I18n.Lookup(next, "需要重启"),
+                              I18n.Lookup(next, "请从后台划掉启动器后再打开，语言才会切换。"),
+                              "info", (I18n.Lookup(next, "确定"), null, "primary"));
+            return;
+        }
         var choice = await Main.Dialog(I18n.Lookup(next, "需要重启"),
                                        I18n.Lookup(next, "重启启动器后才会切换到新的语言。"),
                                        "info", (I18n.Lookup(next, "立即重启"), "restart", "primary"),

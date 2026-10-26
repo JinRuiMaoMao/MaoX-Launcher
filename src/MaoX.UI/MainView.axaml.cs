@@ -1302,6 +1302,11 @@ public partial class MainView : UserControl
             Toast(I18n.T("有任务或联机房间正在进行，稍后手动重启启动器即可生效"), "info");
             return;
         }
+        if (!Updater.CanRelaunch)
+        {
+            Toast(I18n.T("请从后台划掉启动器后再打开，语言才会切换。"), "info");
+            return;
+        }
         if (!SaveSettings())
             return;
         try

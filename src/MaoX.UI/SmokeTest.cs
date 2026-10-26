@@ -641,6 +641,9 @@ internal static class SmokeTest
             throw new Exception("en live log: " + I18n.Lookup("en_us", "实时日志"));
         if (I18n.Lookup("en_us", "爱发电") != "Afdian")
             throw new Exception("en afdian: " + I18n.Lookup("en_us", "爱发电"));
+        if (!I18n.Lookup("en_us", "请从后台划掉启动器后再打开，语言才会切换。")
+                .Contains("Swipe", StringComparison.Ordinal))
+            throw new Exception("en relaunch: " + I18n.Lookup("en_us", "请从后台划掉启动器后再打开，语言才会切换。"));
         if (I18n.Lookup("zh_tw", "实时日志") != "即時日誌")
             throw new Exception("zh_tw live log: " + I18n.Lookup("zh_tw", "实时日志"));
         var ja = I18n.Lookup("ja_jp", "启动游戏");
@@ -767,6 +770,8 @@ internal static class SmokeTest
         if (!Updater.AfdianUrl.Contains("afdian.com/a/MaoX_Laun", StringComparison.Ordinal)
             || !Updater.DiscordUrl.Contains("discord.gg/dkt2QHGQYe", StringComparison.Ordinal))
             throw new Exception("community links");
+        if (!Updater.CanRelaunch)
+            throw new Exception("desktop should be able to relaunch");
         if (HelpFaq.Items.All(i => i.Q != "怎么支持和反馈？"))
             throw new Exception("support faq");
         if (!LauncherAudio.Extensions.Contains(".mp3") || !LauncherAudio.Extensions.Contains(".flac")
