@@ -40,6 +40,7 @@ public partial class ResourcesPage : UserControl, IPage
     private readonly SemaphoreSlim _iconSlots = new(6);
     private readonly Dictionary<string, ToggleButton> _kindChips = [];
     private bool _updatingBoxes;
+    private bool _embedded;
     private bool _tabReady;
     private string _shownContent;
     private DateTime _pillUntil;
@@ -95,6 +96,7 @@ public partial class ResourcesPage : UserControl, IPage
 
     public void SetEmbedded(bool embedded)
     {
+        _embedded = embedded;
         if (PageTitle != null)
             PageTitle.IsVisible = !embedded;
     }
@@ -248,7 +250,8 @@ public partial class ResourcesPage : UserControl, IPage
         InfoRest.Text = "";
         if (_kind == "modpack")
         {
-            InfoRest.Text = T("安装整合包会创建一个新的游戏版本");
+            if (!_embedded)
+                InfoRest.Text = T("安装整合包会创建一个新的游戏版本");
         }
         else if (_ctx?.Version != null && Available())
         {
