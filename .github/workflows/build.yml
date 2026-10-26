@@ -2,6 +2,7 @@
 #   发布新版本：改 src/Directory.Build.props 里的 Version，提交后
 #   git tag -a v2.0.1 -m "更新内容..." && git push origin v2.0.1
 #   标签说明会作为更新说明显示在启动器的更新提示里。
+#   Release 发布后 discord-release.yml 会推到 Discord（需配置 DISCORD_WEBHOOK）。
 name: Build
 
 on:

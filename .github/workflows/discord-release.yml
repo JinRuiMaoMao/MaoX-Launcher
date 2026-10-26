@@ -1,0 +1,50 @@
+# Release 一经发布就推到 Discord（事件驱动，不是轮询）。
+# 在仓库 Settings → Secrets and variables → Actions 里添加 DISCORD_WEBHOOK，
+# 值为 Discord 频道 Webhook 网址（不要在末尾加 /github）。
+name: Discord release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post release to Discord
+        uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          script: |
+            const webhook = process.env.DISCORD_WEBHOOK;
+            if (!webhook) {
+              core.info('未设置 DISCORD_WEBHOOK，跳过通知');
+              return;
+            }
+            const rel = context.payload.release;
+            let body = (rel.body || '').replace(/\r\n/g, '\n').trim();
+            const cut = body.indexOf('\n---\n');
+            if (cut >= 0)
+              body = body.slice(0, cut).trim();
+            if (body.length > 1800)
+              body = body.slice(0, 1800) + '…';
+            const res = await fetch(webhook, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: 'MaoX Launcher',
+                embeds: [{
+                  title: rel.name || `MaoX Launcher ${rel.tag_name}`,
+                  url: rel.html_url,
+                  description: body || '新版本已发布。',
+                  color: 0x00D9FF,
+                  fields: [
+                    { name: '版本', value: rel.tag_name, inline: true },
+                    { name: '下载', value: `[打开 Release](${rel.html_url})`, inline: true },
+                  ],
+                }],
+              }),
+            });
+            if (!res.ok)
+              throw new Error(`Discord ${res.status}: ${await res.text()}`);
