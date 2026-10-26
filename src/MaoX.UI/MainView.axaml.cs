@@ -643,7 +643,6 @@ public partial class MainView : UserControl
     public void HideTaskCenter()
     {
         TaskLayer.IsVisible = false;
-        TaskLayer.IsHitTestVisible = false;
     }
 
     private void OnTasksButtonClick(object sender, RoutedEventArgs e)
@@ -654,7 +653,6 @@ public partial class MainView : UserControl
             return;
         }
         _taskCenter.Refresh();
-        TaskLayer.IsHitTestVisible = true;
         TaskLayer.IsVisible = true;
     }
 
@@ -765,9 +763,6 @@ public partial class MainView : UserControl
 
     public async Task<object> ShowDialogAsync(DialogView view)
     {
-        // 等当前这下点击走完。否则从「微软正版」弹出登录框时，鼠标还在原处，会点到新框的「取消」。
-        if (Dispatcher.UIThread.CheckAccess())
-            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Input);
         var card = new Border
         {
             Classes = { view.FullScreen ? "fullscreen" : "dialog" },

@@ -99,7 +99,7 @@
                 Spacing="10" />
 
     <!-- 任务列表：画在窗口里，电脑版失焦就收起，避免单独弹窗外挂 -->
-    <Panel Name="TaskLayer" IsVisible="False" IsHitTestVisible="False">
+    <Panel Name="TaskLayer" IsVisible="False">
       <Border Background="Transparent" PointerPressed="OnTaskDismiss" />
       <Border Name="TaskCard" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,56"
               Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
@@ -125,7 +125,7 @@
 
     <!-- 窗口内对话框 -->
     <Panel Name="DialogLayer" IsVisible="False">
-      <Border Name="DialogBackdrop" Background="{StaticResource Overlay}" Opacity="0" IsHitTestVisible="False">
+      <Border Name="DialogBackdrop" Background="{StaticResource Overlay}" Opacity="0">
         <Border.Transitions>
           <Transitions>
             <DoubleTransition Property="Opacity" Duration="0:0:0.18" />

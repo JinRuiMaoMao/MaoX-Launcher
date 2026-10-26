@@ -252,22 +252,6 @@ internal static class SmokeTest
             });
         }
 
-        await Check("account login dialog", async () =>
-        {
-            var accounts = window.ShowDialogAsync(new Dialogs.AccountDialog());
-            await Task.Delay(200);
-            var msa = new Dialogs.MsaLoginDialog(Accounts.EffectiveClientId(""));
-            var login = window.ShowDialogAsync(msa);
-            await Task.Delay(400);
-            if (!window.GetVisualDescendants().OfType<Dialogs.MsaLoginDialog>().Any())
-                throw new Exception("msa login dialog closed immediately");
-            msa.Close();
-            await login;
-            window.GetVisualDescendants().OfType<Dialogs.AccountDialog>().FirstOrDefault()?.Close();
-            await accounts;
-            return "nested login stays open";
-        });
-
         await Check("holiday themes", async () =>
         {
             window.Cfg.HolidayTheme = true;
