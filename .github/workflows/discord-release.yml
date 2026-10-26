@@ -1,6 +1,7 @@
 # Release 一经发布就推到 Discord（事件驱动，不是轮询）。
 # 在仓库 Settings → Secrets and variables → Actions 里添加 DISCORD_WEBHOOK，
 # 值为 Discord 频道 Webhook 网址（不要在末尾加 /github）。
+# 标签说明用中文，空一行后写 ## English 再写英文，Discord 会做成中英双语。
 name: Discord release
 
 on:
@@ -23,10 +24,16 @@ jobs:
               return;
             }
             const rel = context.payload.release;
-            let body = (rel.body || '').replace(/\r\n/g, '\n').trim();
-            const cut = body.indexOf('\n---\n');
+            let raw = (rel.body || '').replace(/\r\n/g, '\n').trim();
+            const cut = raw.indexOf('\n---\n');
             if (cut >= 0)
-              body = body.slice(0, cut).trim();
+              raw = raw.slice(0, cut).trim();
+            const split = raw.match(/\n##\s*English\s*\n/i);
+            const zh = (split ? raw.slice(0, split.index) : raw).replace(/^##\s*中文\s*\n/i, '').trim();
+            const en = split ? raw.slice(split.index + split[0].length).trim() : '';
+            let body = zh && en
+              ? `**中文**\n${zh}\n\n**English**\n${en}`
+              : (zh || en || '新版本已发布。 / A new version is out.');
             if (body.length > 1800)
               body = body.slice(0, 1800) + '…';
             const res = await fetch(webhook, {
@@ -37,11 +44,11 @@ jobs:
                 embeds: [{
                   title: rel.name || `MaoX Launcher ${rel.tag_name}`,
                   url: rel.html_url,
-                  description: body || '新版本已发布。',
+                  description: body,
                   color: 0x00D9FF,
                   fields: [
-                    { name: '版本', value: rel.tag_name, inline: true },
-                    { name: '下载', value: `[打开 Release](${rel.html_url})`, inline: true },
+                    { name: '版本 / Version', value: rel.tag_name, inline: true },
+                    { name: '下载 / Download', value: `[打开 Release / Open Release](${rel.html_url})`, inline: true },
                   ],
                 }],
               }),
