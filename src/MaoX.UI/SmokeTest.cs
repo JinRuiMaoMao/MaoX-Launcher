@@ -768,7 +768,7 @@ internal static class SmokeTest
         if (HelpFaq.Items.Length < 4 || SkinSites.All.Length < 3)
             throw new Exception("help/skins");
         if (!Updater.AfdianUrl.Contains("afdian.com/a/MaoX_Laun", StringComparison.Ordinal)
-            || !Updater.DiscordUrl.Contains("discord.gg/dkt2QHGQYe", StringComparison.Ordinal))
+            || !Updater.DiscordUrl.Contains("discord.gg/rZ93MTVDx5", StringComparison.Ordinal))
             throw new Exception("community links");
         if (!Updater.CanRelaunch)
             throw new Exception("desktop should be able to relaunch");

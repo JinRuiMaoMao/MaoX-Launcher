@@ -24,7 +24,7 @@ Mac 版解压后拖进"应用程序"；首次打开如果提示无法验证开�
 ## 社区
 
 - 爱发电：https://afdian.com/a/MaoX_Laun
-- Discord：https://discord.gg/dkt2QHGQYe
+- Discord：https://discord.gg/rZ93MTVDx5
 
 发布新版本（推送 `vX.Y.Z` 标签）后，Discord 会自动收到更新说明。需要在仓库 Actions secrets 里配置 `DISCORD_WEBHOOK`。
 
