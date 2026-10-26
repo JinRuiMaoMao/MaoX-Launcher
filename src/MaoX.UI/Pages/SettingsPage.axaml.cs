@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -119,6 +120,7 @@ public partial class SettingsPage : UserControl, IPage
         UpdateThemeControls();
         FillJava([]);
         LoadBuiltInJit();
+        ShowTab(cfg.SettingsTab);
         _loading = false;
 
         AutoBackupSwitch.IsCheckedChanged += (_, _) => Cfg.AutoBackupWorlds = AutoBackupSwitch.IsChecked == true;
@@ -210,7 +212,33 @@ public partial class SettingsPage : UserControl, IPage
         ClientIdBox.TextChanged += (_, _) => Cfg.MsaClientId = (ClientIdBox.Text ?? "").Trim();
     }
 
-    public void OnShow() => RefreshMemoryLabel();
+    public void OnShow()
+    {
+        ShowTab(string.IsNullOrWhiteSpace(Cfg.SettingsTab) ? CurrentTab : Cfg.SettingsTab);
+        RefreshMemoryLabel();
+    }
+
+    public string CurrentTab { get; private set; } = "launch";
+
+    public void ShowTab(string key)
+    {
+        key = key is "personal" or "other" ? key : "launch";
+        CurrentTab = key;
+        TabLaunch.IsChecked = key == "launch";
+        TabPersonal.IsChecked = key == "personal";
+        TabOther.IsChecked = key == "other";
+        LaunchScroll.IsVisible = key == "launch";
+        PersonalScroll.IsVisible = key == "personal";
+        OtherScroll.IsVisible = key == "other";
+        if (!_loading)
+            Cfg.SettingsTab = key;
+    }
+
+    private void OnSettingsTabClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton { Tag: string key })
+            ShowTab(key);
+    }
 
     private void RefreshMemoryLabel()
     {

@@ -919,6 +919,7 @@ public partial class MainView : UserControl
         if (!SettingsPage.Validate(out var error))
         {
             ShowPage("settings");
+            SettingsPage.ShowTab("launch");
             _ = Dialog(T("设置有误"), error, "error");
             return false;
         }

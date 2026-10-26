@@ -203,11 +203,18 @@ internal static class SmokeTest
                 Screenshot(window, path);
                 if (page == "launch" && !window.Cfg.LiveLog && !window.LaunchPage.DashCard.IsVisible)
                     throw new Exception("launch dash should be visible when live log is off");
-                if (page == "settings" && window.SettingsPage.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll)
+                if (page == "settings")
                 {
-                    scroll.ScrollToEnd();
-                    await Task.Delay(500);
+                    window.SettingsPage.ShowTab("personal");
+                    await Task.Delay(300);
+                    Screenshot(window, Path.Combine(output, "page-settings-personal.png"));
+                    window.SettingsPage.ShowTab("other");
+                    await Task.Delay(300);
+                    if (window.SettingsPage.OtherScroll is { } scroll)
+                        scroll.Offset = new Vector(0, scroll.Extent.Height);
+                    await Task.Delay(400);
                     Screenshot(window, Path.Combine(output, "page-settings-bottom.png"));
+                    window.SettingsPage.ShowTab("launch");
                 }
                 return Path.GetFileName(path);
             });
@@ -877,6 +884,8 @@ internal static class SmokeTest
         }
         if (new LauncherConfig().BgmVolume != 70)
             throw new Exception("bgm volume default");
+        if (new LauncherConfig().SettingsTab != "launch")
+            throw new Exception("settings tab default");
         LauncherAudio.Volume = 0.4f;
         if (Math.Abs(LauncherAudio.Volume - 0.4f) > 0.01)
             throw new Exception("bgm volume");

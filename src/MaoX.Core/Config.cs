@@ -179,6 +179,8 @@ public class LauncherConfig
     public string AccentColor { get; set; } = "#00D9FF";
     /// <summary>界面语言：空 = 跟随系统、zh、en</summary>
     public string Language { get; set; } = "";
+    /// <summary>设置页当前分页：launch / personal / other。</summary>
+    public string SettingsTab { get; set; } = "launch";
     /// <summary>iOS 开启 JIT 的方式：auto = 原有方式（StikDebug / SideStore / TrollStore），builtin = 内置 StikJIT（实验）</summary>
     public string IosJitMethod { get; set; } = "auto";
     /// <summary>内置 JIT 连接的设备地址（LocalDevVPN 里的 Device IP），空 = StikJIT 默认的 10.7.0.1</summary>
@@ -214,6 +216,8 @@ public class LauncherConfig
                     }
                     if (string.IsNullOrWhiteSpace(cfg.UpdateChannel))
                         cfg.UpdateChannel = "stable";
+                    if (cfg.SettingsTab is not "personal" and not "other")
+                        cfg.SettingsTab = "launch";
                     if (string.IsNullOrWhiteSpace(cfg.ProcessPriority))
                         cfg.ProcessPriority = "normal";
                     cfg.HolidayTheme ??= true;
