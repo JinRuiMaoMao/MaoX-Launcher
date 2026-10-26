@@ -652,8 +652,6 @@ public partial class MainView : UserControl
             HideTaskCenter();
             return;
         }
-        if (!Platform.IsMobile && TopLevel.GetTopLevel(this) is Window { IsActive: false })
-            return;
         _taskCenter.Refresh();
         TaskLayer.IsVisible = true;
     }
