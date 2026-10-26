@@ -69,6 +69,18 @@ public class HolidayDecor : Control
     {
         if (!Showing || Bounds.Width < 8 || Bounds.Height < 8)
             return;
+        try
+        {
+            DrawMotif(context);
+        }
+        catch (Exception)
+        {
+            // 缺字体或画几何失败时不要把启动器画崩。
+        }
+    }
+
+    private void DrawMotif(DrawingContext context)
+    {
         var t = Frozen ? 1.2 : _phase;
         var w = Bounds.Width;
         var h = Bounds.Height;
