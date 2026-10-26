@@ -510,7 +510,15 @@ public class ControlsView extends View implements SensorEventListener {
         if (target instanceof Button) {
             ((Button) target).press(false);
         } else if (target == STICK) {
-            setStick(0, 0);
+            if (mDpadMode) {
+                setKey(87, false, 0);
+                setKey(83, false, 1);
+                setKey(65, false, 2);
+                setKey(68, false, 3);
+                setKey(Keys.GLFW_KEY_LEFT_CONTROL, false, 4);
+            } else {
+                setStick(0, 0);
+            }
         } else if (target == HOTBAR) {
             mHandler.removeCallbacks(mHotbarHold);
             mHotbarPointer = -1;

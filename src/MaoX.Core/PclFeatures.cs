@@ -446,6 +446,19 @@ public static class LauncherAudio
     public static string LastError { get; private set; }
     public static bool IsPlaying { get; private set; }
 
+    /// <summary>当前曲目停在半路。暂停时控件还要留着，没有曲目才藏。</summary>
+    public static bool IsPaused
+    {
+        get
+        {
+            lock (State)
+                return _paused;
+        }
+    }
+
+    /// <summary>正在播或已暂停。没音乐时右下角按钮藏起来。</summary>
+    public static bool ShowControls => IsPlaying || IsPaused;
+
     public static float Volume
     {
         get => _volume;

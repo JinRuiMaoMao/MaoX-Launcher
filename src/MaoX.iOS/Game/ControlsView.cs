@@ -548,7 +548,18 @@ internal sealed class ControlsView : UIView, IUIKeyInput
         }
         else if (target == Stick)
         {
-            SetStick(0, 0);
+            if (_dpadMode)
+            {
+                SetKey(Keys.W, false, ref _up);
+                SetKey(Keys.S, false, ref _down);
+                SetKey(Keys.A, false, ref _left);
+                SetKey(Keys.D, false, ref _right);
+                SetKey(Keys.LeftControl, false, ref _sprint);
+            }
+            else
+            {
+                SetStick(0, 0);
+            }
         }
         else if (target == Hotbar)
         {

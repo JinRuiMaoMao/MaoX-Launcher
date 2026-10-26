@@ -101,6 +101,16 @@ public partial class MainView : UserControl
         BgmVolumeSlider.ValueChanged += (_, _) => SetBgmVolume((int)BgmVolumeSlider.Value);
         LauncherAudio.Changed += () => Dispatcher.UIThread.Post(RefreshBgmButton);
         RefreshBgmButton();
+        TaskHost.Content = _taskCenter;
+        if (!Platform.IsMobile)
+        {
+            AttachedToVisualTree += (_, _) =>
+            {
+                if (TopLevel.GetTopLevel(this) is not Window window)
+                    return;
+                window.Deactivated += (_, _) => HideTaskCenter();
+            };
+        }
         var egg = 0;
         DateTime eggAt = default;
         Brand.PointerPressed += (_, _) =>
@@ -466,6 +476,7 @@ public partial class MainView : UserControl
         Padding = new Thickness(pad.Left, pad.Top, pad.Right, Math.Max(pad.Bottom, Platform.IsMobile ? 10 : 0));
         var bottom = 16 + Math.Max(pad.Bottom, Platform.IsMobile ? 8 : 0);
         ToastLayer.Margin = new Thickness(0, 0, 16 + pad.Right, 72 + Math.Max(pad.Bottom, 8));
+        TaskCard.Margin = new Thickness(0, 0, 16 + pad.Right, 48 + Math.Max(pad.Bottom, 8));
         BgmDock.Margin = new Thickness(0, 0, 16 + pad.Right, bottom);
     }
 
@@ -622,15 +633,40 @@ public partial class MainView : UserControl
 
     public Control TaskCenterView => _taskCenter;
 
-    public void ShowTaskCenter() => OnTasksButtonClick(null, null);
+    public void ShowTaskCenter()
+    {
+        if (TaskLayer.IsVisible)
+            return;
+        OnTasksButtonClick(null, null);
+    }
 
-    private Flyout _taskFlyout;
+    public void HideTaskCenter()
+    {
+        TaskLayer.IsVisible = false;
+    }
 
     private void OnTasksButtonClick(object sender, RoutedEventArgs e)
     {
+        if (TaskLayer.IsVisible)
+        {
+            HideTaskCenter();
+            return;
+        }
+        if (!Platform.IsMobile && TopLevel.GetTopLevel(this) is Window { IsActive: false })
+            return;
         _taskCenter.Refresh();
-        _taskFlyout ??= new Flyout { Content = _taskCenter, Placement = PlacementMode.TopEdgeAlignedRight };
-        _taskFlyout.ShowAt(TasksButton);
+        TaskLayer.IsVisible = true;
+    }
+
+    private void OnTaskDismiss(object sender, PointerPressedEventArgs e)
+    {
+        HideTaskCenter();
+        e.Handled = true;
+    }
+
+    private void OnTaskCardPressed(object sender, PointerPressedEventArgs e)
+    {
+        e.Handled = true;
     }
 
     public void ClearFinishedTasks()
@@ -1469,6 +1505,7 @@ public partial class MainView : UserControl
 
     private void RefreshBgmButton()
     {
+        BgmDock.IsVisible = LauncherAudio.ShowControls;
         BgmButton.Classes.Set("playing", LauncherAudio.IsPlaying);
         BgmIcon.Opacity = LauncherAudio.IsPlaying ? 1 : 0.55;
         var title = LauncherAudio.CurrentTitle;

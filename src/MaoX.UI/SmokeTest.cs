@@ -204,6 +204,8 @@ internal static class SmokeTest
                 Screenshot(window, path);
                 if (page == "launch" && !window.Cfg.LiveLog && !window.LaunchPage.DashCard.IsVisible)
                     throw new Exception("launch dash should be visible when live log is off");
+                if (page == "launch")
+                    await CheckBgmDock(window);
                 if (window.Nav.Children.OfType<RadioButton>().Any(b => (string)b.Tag == "resources"))
                     throw new Exception("resources sidebar should be removed");
                 if (page == "download")
@@ -381,6 +383,8 @@ internal static class SmokeTest
             window.Tasks.First(t => t.Name == "测试任务（取消下载）").Cancel.Cancel();
             window.ShowTaskCenter();
             await Task.Delay(400);
+            if (!window.TaskLayer.IsVisible)
+                throw new Exception("task panel should open inside the window");
             ScreenshotControl(window.TaskCenterView, Path.Combine(output, "task-center.png"));
             await Task.WhenAll(a, b);
             await Task.Delay(300);
@@ -391,6 +395,9 @@ internal static class SmokeTest
                 || window.Tasks.First(t => t.Name == "测试任务（进度）").State != "done"
                 || window.Tasks.First(t => t.Name == "测试任务（取消下载）").State != "cancelled")
                 throw new Exception($"unexpected task states (parallel={running}): {states}");
+            window.HideTaskCenter();
+            if (window.TaskLayer.IsVisible)
+                throw new Exception("task panel should hide");
             window.ClearFinishedTasks();
             return $"parallel={running}; {states}";
         });
@@ -558,6 +565,10 @@ internal static class SmokeTest
             Combo(I18n.T("拆分控制：准星 + 攻击 / 使用按钮")).SelectedIndex = 1;
             Combo(I18n.T("方向键：双击前进疾跑")).SelectedIndex = 1;
             await Task.Delay(400);
+            var arrows = dialog.GetVisualDescendants().OfType<TextBlock>()
+                .Count(t => t.IsEffectivelyVisible && t.Text is "↑" or "↓" or "←" or "→");
+            if (arrows < 4)
+                throw new Exception("dpad should show four separate keys, got " + arrows);
             ScreenshotControl(dialog, Path.Combine(output, "touch-layout-edited.png"));
             var save = dialog.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == I18n.T("保存"));
             save.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
@@ -955,11 +966,13 @@ internal static class SmokeTest
                 throw new Exception("bgm play: " + (LauncherAudio.LastError ?? "not playing"));
             if (hasAudio)
             {
+                if (!LauncherAudio.ShowControls || LauncherAudio.IsPaused)
+                    throw new Exception("bgm should show controls while playing");
                 LauncherAudio.Pause();
-                if (LauncherAudio.IsPlaying)
+                if (LauncherAudio.IsPlaying || !LauncherAudio.IsPaused || !LauncherAudio.ShowControls)
                     throw new Exception("bgm pause");
                 LauncherAudio.Resume();
-                if (!LauncherAudio.IsPlaying)
+                if (!LauncherAudio.IsPlaying || LauncherAudio.IsPaused)
                     throw new Exception("bgm resume");
                 var mp3 = Directory.Exists(Path.Combine(AppContext.BaseDirectory, "Music"))
                     ? Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Music"), "*.mp3").FirstOrDefault()
@@ -996,6 +1009,8 @@ internal static class SmokeTest
         LauncherAudio.Toggle();
         LauncherAudio.Pause();
         LauncherAudio.Stop();
+        if (LauncherAudio.ShowControls || LauncherAudio.IsPaused || LauncherAudio.IsPlaying)
+            throw new Exception("bgm should hide without a track");
         if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
             throw new Exception("liteloader missing");
         if (new LauncherConfig().AutoBackupWorlds)
@@ -1036,6 +1051,43 @@ internal static class SmokeTest
     {
         Directory.CreateDirectory(gl.VersionDir(id));
         Json.WriteFile(gl.VersionJsonPath(id), data);
+    }
+
+    private static async Task CheckBgmDock(MainView window)
+    {
+        if (LauncherAudio.ShowControls != window.BgmDock.IsVisible)
+            throw new Exception("bgm dock should match the current playlist");
+        var wav = Path.Combine(Path.GetTempPath(), "maox-bgm-dock-" + Guid.NewGuid().ToString("N") + ".wav");
+        try
+        {
+            File.WriteAllBytes(wav, SilentWav());
+            LauncherAudio.Play(wav, true);
+            await Task.Delay(80);
+            if (LauncherAudio.ShowControls && !window.BgmDock.IsVisible)
+                throw new Exception("bgm dock should show while music is playing");
+            if (LauncherAudio.IsPlaying)
+            {
+                LauncherAudio.Pause();
+                await Task.Delay(80);
+                if (!window.BgmDock.IsVisible)
+                    throw new Exception("bgm dock should stay visible while paused");
+            }
+            LauncherAudio.Stop();
+            await Task.Delay(80);
+            if (window.BgmDock.IsVisible)
+                throw new Exception("bgm dock should hide without music");
+        }
+        finally
+        {
+            LauncherAudio.Stop();
+            try
+            {
+                File.Delete(wav);
+            }
+            catch (Exception)
+            {
+            }
+        }
     }
 
     private static void ScreenshotControl(Control control, string path)

@@ -98,8 +98,19 @@
     <StackPanel Name="ToastLayer" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,88"
                 Spacing="10" />
 
-    <!-- 右下角背景音乐：滑条调音量，左键停止/继续，右键下一首 -->
+    <!-- 任务列表：画在窗口里，电脑版失焦就收起，避免单独弹窗外挂 -->
+    <Panel Name="TaskLayer" IsVisible="False">
+      <Border Background="Transparent" PointerPressed="OnTaskDismiss" />
+      <Border Name="TaskCard" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,56"
+              Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+              CornerRadius="16" Padding="14,12" MaxWidth="440" PointerPressed="OnTaskCardPressed">
+        <ContentPresenter Name="TaskHost" />
+      </Border>
+    </Panel>
+
+    <!-- 右下角背景音乐：有曲目才出现，暂停不藏 -->
     <Border Name="BgmDock" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,16"
+            IsVisible="False"
             Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
             CornerRadius="24" Padding="12,6,6,6" PointerWheelChanged="OnBgmWheel">
       <StackPanel Orientation="Horizontal" Spacing="8">

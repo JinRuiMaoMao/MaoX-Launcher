@@ -366,6 +366,7 @@ public class TouchLayoutDialog : DialogView
                 Children =
                 {
                     new Ellipse { Fill = new SolidColorBrush(Color.FromArgb(0x77, 255, 255, 255)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+                    MakeDpadFace(),
                     text,
                 },
             };
@@ -386,6 +387,53 @@ public class TouchLayoutDialog : DialogView
         };
         view.PointerCaptureLost += (_, _) => _dragId = null;
         return view;
+    }
+
+    /// <summary>方向键要能看出上下左右四块，不能再画成一块圆角方块。</summary>
+    private static Grid MakeDpadFace()
+    {
+        var grid = new Grid
+        {
+            RowDefinitions = RowDefinitions.Parse("*,*,*"),
+            ColumnDefinitions = ColumnDefinitions.Parse("*,*,*"),
+            Margin = new Thickness(4),
+        };
+        void Cell(int col, int row, string arrow)
+        {
+            var cell = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x55, 0, 0, 0)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x88, 255, 255, 255)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Margin = new Thickness(2),
+                Child = new TextBlock
+                {
+                    Text = arrow, Foreground = Brushes.White, FontWeight = FontWeight.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                },
+            };
+            Grid.SetColumn(cell, col);
+            Grid.SetRow(cell, row);
+            grid.Children.Add(cell);
+        }
+        Cell(1, 0, "↑");
+        Cell(0, 1, "←");
+        Cell(2, 1, "→");
+        Cell(1, 2, "↓");
+        var sneak = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0x55, 0, 0, 0)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(0x88, 255, 255, 255)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(20),
+            Margin = new Thickness(6),
+            Width = 22, Height = 22, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(sneak, 1);
+        Grid.SetRow(sneak, 1);
+        grid.Children.Add(sneak);
+        return grid;
     }
 
     // ------------------------------------------------------------------ 位置
@@ -761,10 +809,12 @@ public class TouchLayoutDialog : DialogView
             view.IsVisible = custom != null || ControlLayout.Shown(id, _current?.Mode ?? ControlLayout.Classic);
             var dpad = id == "stick" && _current?.Movement == ControlLayout.Dpad;
             var round = !dpad && (custom?.Round ?? ControlLayout.BaseSize(id).Round);
-            view.CornerRadius = new CornerRadius(round ? Math.Min(w, h) / 2 : dpad ? 14 : 8);
+            view.CornerRadius = new CornerRadius(round ? Math.Min(w, h) / 2 : 8);
             var selected = id == _selected;
             view.BorderBrush = selected ? Selected : Stroke;
-            view.BorderThickness = new Thickness(selected ? 2.5 : 1.5);
+            view.BorderThickness = new Thickness(selected ? 2.5 : dpad ? 0 : 1.5);
+            view.Background = dpad ? Brushes.Transparent
+                : id == "stick" ? new SolidColorBrush(Color.FromArgb(0x33, 0, 0, 0)) : Fill;
             view.Opacity = hidden ? 0.3 : Math.Max(opacity, selected ? 0.6 : 0);
             var scale = custom != null
                 ? Math.Clamp(Math.Min(w, h) / 44, 0.7, 1.4)
@@ -774,9 +824,12 @@ public class TouchLayoutDialog : DialogView
                 var knob = (Ellipse)stick.Children[0];
                 knob.Width = knob.Height = w * 52 / 124;
                 knob.IsVisible = !dpad;
-                var label = (TextBlock)stick.Children[1];
+                var face = stick.Children[1];
+                face.IsVisible = dpad;
+                var label = (TextBlock)stick.Children[2];
                 label.FontSize = 12 * scale;
                 label.Text = Label(id);
+                label.IsVisible = !dpad;
             }
             else
             {
