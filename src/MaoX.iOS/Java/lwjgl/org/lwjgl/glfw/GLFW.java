@@ -807,6 +807,11 @@ public class GLFW
         return GLFW_PLATFORM_X11;
     }
 
+    /** 26.1 起 GLX 会先问平台支不支持；iOS 这边按 X11 报。 */
+    public static boolean glfwPlatformSupported(int platform) {
+        return platform == GLFW_ANY_PLATFORM || platform == GLFW_PLATFORM_X11;
+    }
+
     @NativeType("GLFWwindow *")
     public static long glfwGetCurrentContext() {
         long __functionAddress = Functions.GetCurrentContext;
