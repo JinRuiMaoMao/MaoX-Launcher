@@ -439,8 +439,8 @@ public static class LauncherAudio
 
     public static readonly string[] PickerPatterns = Extensions.Select(e => "*" + e).ToArray();
 
-    /// <summary>桌面程序注册：path、是否背景音乐、是否单曲循环。</summary>
-    public static Action<string, bool, bool> PlayImpl { get; set; }
+    /// <summary>桌面程序注册：path、是否背景音乐、是否单曲循环。成功返回 true。</summary>
+    public static Func<string, bool, bool, bool> PlayImpl { get; set; }
 
     /// <summary>只停背景音乐（清除 BGM 时）。</summary>
     public static Action StopImpl { get; set; }
@@ -448,10 +448,16 @@ public static class LauncherAudio
     /// <summary>退出启动器时停掉所有声音。</summary>
     public static Action StopAllImpl { get; set; }
 
+    private static readonly object State = new();
     private static List<string> _tracks = [];
+    private static readonly HashSet<string> Failed = new(StringComparer.OrdinalIgnoreCase);
     private static int _index;
+    private static string _source = "";
+    private static FileSystemWatcher _watch;
+    private static CancellationTokenSource _reload;
 
     public static string Folder => AppPaths.MusicDir;
+    public static string LastError { get; private set; }
 
     public static bool IsAudio(string path) =>
         Extensions.Contains(Path.GetExtension(path ?? "").ToLowerInvariant());
@@ -483,56 +489,126 @@ public static class LauncherAudio
 
     public static void Play(string path, bool loop)
     {
-        if (loop)
+        try
         {
-            StartBgm(path);
-            return;
+            if (loop)
+            {
+                StartBgm(path);
+                return;
+            }
+            path = AppPaths.Rebase((path ?? "").Trim());
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                return;
+            if (PlayImpl != null)
+            {
+                if (!PlayImpl(path, false, false))
+                    LastError = path;
+                return;
+            }
+            PlayWavFallback(path, false);
         }
-        path = AppPaths.Rebase((path ?? "").Trim());
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return;
-        if (PlayImpl != null)
+        catch (Exception e)
         {
-            PlayImpl(path, false, false);
-            return;
+            LastError = e.Message;
         }
-        PlayWavFallback(path, false);
     }
 
     public static void StartBgm(string path)
     {
-        Stop();
-        _tracks = [.. ListTracks(path)];
-        _index = 0;
-        if (_tracks.Count == 0)
-            return;
-        PlayCurrent(_tracks.Count == 1);
+        lock (State)
+        {
+            _source = path ?? "";
+            ClearPlayback();
+            _tracks = [.. ListTracks(path)];
+            _index = 0;
+            Watch(ResolveWatchDir(path));
+            if (_tracks.Count == 0)
+                return;
+            PlayCurrent(_tracks.Count == 1);
+        }
     }
 
     /// <summary>一首播完后由桌面播放器调用，文件夹里的下一首接着放。</summary>
     public static void NotifyBgmEnded()
     {
-        if (_tracks.Count <= 1)
-            return;
-        _index = (_index + 1) % _tracks.Count;
-        PlayCurrent(false);
+        lock (State)
+        {
+            if (_tracks.Count <= 1)
+                return;
+            if (!SkipToNext())
+                return;
+            PlayCurrent(_tracks.Count(t => !Failed.Contains(t)) <= 1);
+        }
     }
 
     private static void PlayCurrent(bool loop)
     {
-        var path = _tracks[_index];
-        if (PlayImpl != null)
+        for (var i = 0; i < _tracks.Count; i++)
         {
-            PlayImpl(path, true, loop);
-            return;
+            var file = _tracks[_index];
+            try
+            {
+                var ok = PlayImpl != null ? PlayImpl(file, true, loop) : PlayWavOk(file, loop);
+                if (ok)
+                {
+                    LastError = null;
+                    return;
+                }
+                LastError = file;
+            }
+            catch (Exception e)
+            {
+                LastError = e.Message;
+            }
+            Failed.Add(file);
+            if (!SkipToNext())
+                return;
+            loop = _tracks.Count(t => !Failed.Contains(t)) <= 1;
         }
-        PlayWavFallback(path, loop);
+    }
+
+    private static bool SkipToNext()
+    {
+        if (_tracks.Count == 0)
+            return false;
+        var start = _index;
+        do
+        {
+            _index = (_index + 1) % _tracks.Count;
+            if (!Failed.Contains(_tracks[_index]))
+                return true;
+        } while (_index != start);
+        return false;
     }
 
     public static void Stop()
     {
+        lock (State)
+            ClearPlayback();
+    }
+
+    public static void StopAll()
+    {
+        lock (State)
+        {
+            _watch?.Dispose();
+            _watch = null;
+            _reload?.Cancel();
+            ClearPlayback();
+            if (StopAllImpl != null)
+            {
+                StopAllImpl();
+                return;
+            }
+            PlayWavFallback(null, false);
+        }
+    }
+
+    private static void ClearPlayback()
+    {
         _tracks = [];
         _index = 0;
+        Failed.Clear();
         if (StopImpl != null)
         {
             StopImpl();
@@ -541,16 +617,90 @@ public static class LauncherAudio
         PlayWavFallback(null, false);
     }
 
-    public static void StopAll()
+    private static string ResolveWatchDir(string path)
     {
-        _tracks = [];
-        _index = 0;
-        if (StopAllImpl != null)
-        {
-            StopAllImpl();
+        path = AppPaths.Rebase((path ?? "").Trim());
+        if (string.IsNullOrEmpty(path))
+            return Folder;
+        if (Directory.Exists(path))
+            return path;
+        if (File.Exists(path))
+            return Path.GetDirectoryName(path);
+        return Folder;
+    }
+
+    private static void Watch(string dir)
+    {
+        _watch?.Dispose();
+        _watch = null;
+        if (string.IsNullOrEmpty(dir))
             return;
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var watcher = new FileSystemWatcher(dir)
+            {
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                IncludeSubdirectories = false,
+                EnableRaisingEvents = true,
+            };
+            void Changed(object _, FileSystemEventArgs e)
+            {
+                if (IsAudio(e.Name))
+                    ScheduleReload();
+            }
+            watcher.Created += Changed;
+            watcher.Deleted += Changed;
+            watcher.Changed += Changed;
+            watcher.Renamed += (_, e) =>
+            {
+                if (IsAudio(e.Name) || IsAudio(e.OldName))
+                    ScheduleReload();
+            };
+            _watch = watcher;
         }
-        Stop();
+        catch (Exception)
+        {
+        }
+    }
+
+    private static void ScheduleReload()
+    {
+        _reload?.Cancel();
+        var cts = _reload = new CancellationTokenSource();
+        var source = _source;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            var next = ListTracks(source);
+            lock (State)
+            {
+                if (cts.IsCancellationRequested)
+                    return;
+                if (_tracks.Count == next.Count && _tracks.SequenceEqual(next, StringComparer.OrdinalIgnoreCase))
+                    return;
+            }
+            try
+            {
+                StartBgm(source);
+            }
+            catch (Exception)
+            {
+            }
+        });
+    }
+
+    private static bool PlayWavOk(string path, bool loop)
+    {
+        PlayWavFallback(path, loop);
+        return true;
     }
 
     private static void PlayWavFallback(string path, bool loop)

@@ -87,7 +87,16 @@ public partial class MainView : UserControl
         Cfg = LauncherConfig.Load();
         Http.ApplyNetwork(Cfg);
         ThemeManager.Apply(Cfg.Theme, Holiday.ResolveAccent(Cfg));
-        LauncherAudio.Play(Cfg.Bgm, true);
+        Loaded += (_, _) =>
+        {
+            try
+            {
+                LauncherAudio.Play(Cfg.Bgm, true);
+            }
+            catch (Exception)
+            {
+            }
+        };
         var egg = 0;
         DateTime eggAt = default;
         Brand.PointerPressed += (_, _) =>

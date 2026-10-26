@@ -843,6 +843,38 @@ internal static class SmokeTest
             || Platform.ImageExt([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) != ".png"
             || Platform.ImageExt([0xFF, 0xD8, 0xFF, 0xE0]) != ".jpg")
             throw new Exception("image picker filter");
+        if (OperatingSystem.IsWindows()
+            && AppContext.TryGetSwitch("System.Runtime.InteropServices.BuiltInComInterop.IsSupported", out var com)
+            && !com)
+            throw new Exception("COM is disabled; NAudio cannot decode MP3");
+        var wav = Path.Combine(Path.GetTempPath(), "maox-silent-" + Guid.NewGuid().ToString("N") + ".wav");
+        try
+        {
+            File.WriteAllBytes(wav, SilentWav());
+            LauncherAudio.Play(wav, true);
+            if (!string.IsNullOrEmpty(LauncherAudio.LastError))
+                throw new Exception("bgm play: " + LauncherAudio.LastError);
+            var mp3 = Directory.Exists(Path.Combine(AppContext.BaseDirectory, "Music"))
+                ? Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Music"), "*.mp3").FirstOrDefault()
+                : null;
+            if (mp3 != null)
+            {
+                LauncherAudio.Play(mp3, true);
+                if (!string.IsNullOrEmpty(LauncherAudio.LastError))
+                    throw new Exception("mp3 bgm: " + LauncherAudio.LastError);
+            }
+        }
+        finally
+        {
+            LauncherAudio.Stop();
+            try
+            {
+                File.Delete(wav);
+            }
+            catch (Exception)
+            {
+            }
+        }
         if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
             throw new Exception("liteloader missing");
         if (new LauncherConfig().AutoBackupWorlds)
@@ -962,4 +994,14 @@ internal static class SmokeTest
             return "game loaded but did not reach rendering in time: " + reached;
         throw new InvalidOperationException("游戏 3 分钟内没有输出任何启动信息，见 game.log");
     }
+
+    /// <summary>44 字节头 + 一帧静音，用来确认背景音乐解码不会把启动器崩掉。</summary>
+    private static byte[] SilentWav() =>
+    [
+        (byte)'R', (byte)'I', (byte)'F', (byte)'F', 38, 0, 0, 0,
+        (byte)'W', (byte)'A', (byte)'V', (byte)'E',
+        (byte)'f', (byte)'m', (byte)'t', (byte)' ', 16, 0, 0, 0,
+        1, 0, 1, 0, 0x40, 0x1F, 0, 0, 0x80, 0x3E, 0, 0, 2, 0, 16, 0,
+        (byte)'d', (byte)'a', (byte)'t', (byte)'a', 2, 0, 0, 0, 0, 0,
+    ];
 }

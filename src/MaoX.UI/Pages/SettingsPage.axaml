@@ -312,7 +312,7 @@
             </StackPanel>
             <StackPanel Spacing="8">
               <TextBlock Text="{c:Tr 背景音乐}" />
-              <TextBlock Text="{c:Tr 可以把多首曲子放进音乐文件夹，启动器会按文件名依次循环播放。}" Classes="small dim wrap" />
+              <TextBlock Text="{c:Tr 可以把多首曲子放进音乐文件夹，放入后会自动按文件名依次循环播放。}" Classes="small dim wrap" />
               <TextBox Name="BgmBox" Watermark="{c:Tr '文件、文件夹，或留空使用 Music 文件夹'}" />
               <WrapPanel ItemSpacing="8" LineSpacing="8">
                 <Button Content="{c:Tr 浏览文件}" Click="OnBrowseBgm" />

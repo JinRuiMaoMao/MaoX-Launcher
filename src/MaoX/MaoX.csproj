@@ -11,7 +11,8 @@
     <Product>MaoX Launcher</Product>
     <ApplicationIcon>..\MaoX.UI\Assets\icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <!-- NAudio 的 Media Foundation 解码 MP3 / FLAC / M4A 需要 COM。关掉后一播背景音乐启动器就会崩。 -->
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
   </PropertyGroup>
 
   <ItemGroup>

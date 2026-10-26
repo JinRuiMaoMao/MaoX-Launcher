@@ -27,18 +27,29 @@ internal static class DesktopAudio
         LauncherAudio.StopAllImpl = StopAll;
     }
 
-    private static void Play(string path, bool bgm, bool loop)
+    private static bool Play(string path, bool bgm, bool loop)
     {
-        if (Platform.IsWindows)
+        try
         {
-            PlayWindows(path, bgm, loop);
-            return;
+            if (Platform.IsWindows)
+            {
+                PlayWindows(path, bgm, loop);
+                return true;
+            }
+            PlayExternal(path, bgm, loop);
+            return true;
         }
-        PlayExternal(path, bgm, loop);
+        catch (Exception)
+        {
+            if (bgm)
+                StopBgm();
+            return false;
+        }
     }
 
     private static void PlayWindows(string path, bool bgm, bool loop)
     {
+        WaveOutEvent output;
         lock (Gate)
         {
             EnsureMf();
@@ -49,35 +60,45 @@ internal static class DesktopAudio
                 StopDevice(ref _bgmOut, ref _bgmStream);
                 var source = Open(path);
                 _bgmStream = loop ? new LoopStream(source) : source;
-                _bgmOut = new WaveOutEvent { DesiredLatency = 200 };
-                _bgmOut.Init(_bgmStream);
+                output = _bgmOut = new WaveOutEvent { DesiredLatency = 200 };
+                output.Init(_bgmStream);
                 if (!loop)
-                {
-                    _bgmOut.PlaybackStopped += (_, _) =>
-                    {
-                        lock (Gate)
-                        {
-                            if (gen != _bgmGen)
-                                return;
-                            StopDevice(ref _bgmOut, ref _bgmStream);
-                        }
-                        LauncherAudio.NotifyBgmEnded();
-                    };
-                }
-                _bgmOut.Play();
-                return;
+                    output.PlaybackStopped += (_, _) => QueueBgmEnded(gen);
             }
-            StopDevice(ref _sfxOut, ref _sfxStream);
-            _sfxStream = Open(path);
-            _sfxOut = new WaveOutEvent { DesiredLatency = 100 };
-            _sfxOut.Init(_sfxStream);
-            _sfxOut.PlaybackStopped += (_, _) =>
+            else
             {
-                lock (Gate)
-                    StopDevice(ref _sfxOut, ref _sfxStream);
-            };
-            _sfxOut.Play();
+                StopDevice(ref _sfxOut, ref _sfxStream);
+                _sfxStream = Open(path);
+                output = _sfxOut = new WaveOutEvent { DesiredLatency = 100 };
+                output.Init(_sfxStream);
+                output.PlaybackStopped += (_, _) =>
+                {
+                    lock (Gate)
+                        StopDevice(ref _sfxOut, ref _sfxStream);
+                };
+            }
         }
+        output.Play();
+    }
+
+    private static void QueueBgmEnded(int gen)
+    {
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            lock (Gate)
+            {
+                if (gen != _bgmGen)
+                    return;
+                StopDevice(ref _bgmOut, ref _bgmStream);
+            }
+            try
+            {
+                LauncherAudio.NotifyBgmEnded();
+            }
+            catch (Exception)
+            {
+            }
+        });
     }
 
     private static WaveStream Open(string path)
@@ -85,6 +106,17 @@ internal static class DesktopAudio
         var ext = Path.GetExtension(path).ToLowerInvariant();
         if (ext is ".ogg" or ".oga")
             return new VorbisWaveReader(path);
+        if (ext is ".wav")
+        {
+            try
+            {
+                return new AudioFileReader(path);
+            }
+            catch (Exception)
+            {
+                return new WaveFileReader(path);
+            }
+        }
         try
         {
             return new AudioFileReader(path);
