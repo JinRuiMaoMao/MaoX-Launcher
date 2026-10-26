@@ -209,7 +209,7 @@ public class ControlsView extends View implements SensorEventListener {
         mInventory = add(labels, "inventory", "Inventory", 69, false, true, true, null);
         mDrop = add(labels, "drop", "Drop", 81, false, true, true, null);
         mChat = add(labels, "chat", "Chat", 0, false, true, true, () -> {
-            CallbackBridge.sendKeyPress(84);
+            if (mGrabbing) CallbackBridge.sendKeyPress(84);
             mHandler.postDelayed(() -> showKeyboard(true), 150);
         });
         mView = add(labels, "view", "View", 294, false, true, true, null);

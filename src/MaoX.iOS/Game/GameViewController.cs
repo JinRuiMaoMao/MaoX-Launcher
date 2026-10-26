@@ -294,7 +294,7 @@ internal sealed class GameViewController : UIViewController
 
     public override UIRectEdge PreferredScreenEdgesDeferringSystemGestures => UIRectEdge.All;
 
-    public override bool CanBecomeFirstResponder => true;
+    public override bool CanBecomeFirstResponder => _controls is not { KeyboardShown: true };
 
     public override void ViewDidAppear(bool animated)
     {

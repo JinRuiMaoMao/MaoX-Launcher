@@ -13,7 +13,7 @@ namespace MaoX.iOS.Game;
 /// 其余区域拖动转视角、轻点使用 / 放置、长按攻击 / 挖掘；支持多指同时操作。
 /// 菜单里：手指就是鼠标，双指上下滑动滚动；按键和摇杆像 Pojav 一样常驻，方便关背包、点 GUI。
 /// </summary>
-internal sealed class ControlsView : UIView
+internal sealed class ControlsView : UIView, IUIKeyInput
 {
     private const double LongPressSeconds = 0.3;
     private static readonly object Stick = new(), Look = new(), Hotbar = new(), Nothing = new();
@@ -29,7 +29,6 @@ internal sealed class ControlsView : UIView
     private int _touchLogs;
     private readonly List<Button> _buttons = [];
     private readonly Dictionary<NativeHandle, object> _touches = [];
-    private readonly UITextField _input;
     private bool _grabbing;
     private int _windowWidth, _windowHeight;
 
@@ -89,7 +88,11 @@ internal sealed class ControlsView : UIView
 
     public Action KeyboardHidden { get; set; }
 
-    public bool KeyboardShown => _input.IsFirstResponder;
+    public bool KeyboardShown => IsFirstResponder;
+
+    public override bool CanBecomeFirstResponder => true;
+
+    public bool HasText => true;
 
     private readonly Button _jump, _sneak, _inventory, _drop, _chat, _view, _pause, _keyboard, _attack, _use;
 
@@ -117,7 +120,8 @@ internal sealed class ControlsView : UIView
         _drop = Add("drop", labels, Keys.Q, false, true, true, null);
         _chat = Add("chat", labels, 0, false, true, true, () =>
         {
-            Tap(Keys.T);
+            if (_grabbing)
+                Tap(Keys.T);
             NSTimer.CreateScheduledTimer(0.15, false, _ => ShowKeyboard(true));
         });
         _view = Add("view", labels, Keys.F5, false, true, true, null);
@@ -140,40 +144,6 @@ internal sealed class ControlsView : UIView
             });
         }
 
-        // 屏幕外的输入框接收输入法的文字；保留一个删不掉的空格，好让退格键一直有效
-        _input = new UITextField(new CGRect(0, -40, 10, 30))
-        {
-            Text = " ",
-            AutocorrectionType = UITextAutocorrectionType.No,
-            AutocapitalizationType = UITextAutocapitalizationType.None,
-            SpellCheckingType = UITextSpellCheckingType.No,
-            SmartQuotesType = UITextSmartQuotesType.No,
-            SmartDashesType = UITextSmartDashesType.No,
-            SmartInsertDeleteType = UITextSmartInsertDeleteType.No,
-            ReturnKeyType = UIReturnKeyType.Send,
-        };
-        _input.ShouldChangeCharacters = (_, _, replacement) =>
-        {
-            if (string.IsNullOrEmpty(replacement))
-            {
-                Tap(Keys.Backspace);
-                return false;
-            }
-            foreach (var c in replacement)
-            {
-                if (c == '\n')
-                    Tap(Keys.Enter);
-                else
-                    GameNative.SendChar(c);
-            }
-            return false;
-        };
-        _input.ShouldReturn = _ =>
-        {
-            Tap(Keys.Enter);
-            return false;
-        };
-        AddSubview(_input);
         if (_motion is { GyroAvailable: true })
         {
             _motion.GyroUpdateInterval = 1 / 60.0;
@@ -862,14 +832,33 @@ internal sealed class ControlsView : UIView
             return;
         if (show)
         {
-            _input.Text = " ";
-            _input.BecomeFirstResponder();
+            BecomeFirstResponder();
+            ReloadInputViews();
         }
         else
         {
-            _input.ResignFirstResponder();
+            ResignFirstResponder();
             KeyboardHidden?.Invoke();
         }
         SetNeedsDisplay();
     }
+
+    /// <summary>输入法提交的文字（拼音选字之后是汉字）逐字发给游戏。</summary>
+    public void InsertText(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+        foreach (var c in text)
+        {
+            if (c == '\n')
+            {
+                Tap(Keys.Enter);
+                ShowKeyboard(false);
+            }
+            else
+                GameNative.SendChar(c);
+        }
+    }
+
+    public void DeleteBackward() => Tap(Keys.Backspace);
 }
