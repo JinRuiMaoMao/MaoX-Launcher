@@ -839,6 +839,10 @@ internal static class SmokeTest
             {
             }
         }
+        if (!Platform.IsImageFilter("*.png", "*.jpg", "*.jpeg", "*.webp") || Platform.IsImageFilter("*.png", "*.zip")
+            || Platform.ImageExt([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) != ".png"
+            || Platform.ImageExt([0xFF, 0xD8, 0xFF, 0xE0]) != ".jpg")
+            throw new Exception("image picker filter");
         if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
             throw new Exception("liteloader missing");
         if (new LauncherConfig().AutoBackupWorlds)

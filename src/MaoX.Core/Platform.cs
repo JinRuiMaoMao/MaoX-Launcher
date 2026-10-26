@@ -55,6 +55,48 @@ public static class Platform
 
     public static Action<string> MobileOpenPath { get; set; }
 
+    /// <summary>手机上从系统相册选一张图，复制到启动器缓存后返回本地路径；取消返回 null。</summary>
+    public static Func<string[], Task<string>> MobilePickImage { get; set; }
+
+    public static bool IsImagePattern(string pattern)
+    {
+        var ext = (pattern ?? "").Trim().TrimStart('*').ToLowerInvariant();
+        return ext is ".png" or ".jpg" or ".jpeg" or ".webp" or ".bmp" or ".gif" or ".heic" or ".heif";
+    }
+
+    public static bool IsImageFilter(params string[] patterns) =>
+        patterns is { Length: > 0 } && patterns.All(IsImagePattern);
+
+    /// <summary>按文件头判断常见图片格式。HEIC 等识别不了时返回空。</summary>
+    public static string ImageExt(ReadOnlySpan<byte> data)
+    {
+        if (data.Length >= 8 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+            return ".png";
+        if (data.Length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+            return ".jpg";
+        if (data.Length >= 6 && data[0] == (byte)'G' && data[1] == (byte)'I' && data[2] == (byte)'F')
+            return ".gif";
+        if (data.Length >= 12 && data[0] == (byte)'R' && data[1] == (byte)'I' && data[2] == (byte)'F' && data[3] == (byte)'F'
+            && data[8] == (byte)'W' && data[9] == (byte)'E' && data[10] == (byte)'B' && data[11] == (byte)'P')
+            return ".webp";
+        if (data.Length >= 2 && data[0] == (byte)'B' && data[1] == (byte)'M')
+            return ".bmp";
+        return "";
+    }
+
+    public static string SavePicked(byte[] data, string ext)
+    {
+        if (string.IsNullOrEmpty(ext))
+            ext = ".bin";
+        if (!ext.StartsWith('.'))
+            ext = "." + ext;
+        var dir = Path.Combine(AppPaths.CacheDir, "picked");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, Guid.NewGuid().ToString("N") + ext.ToLowerInvariant());
+        File.WriteAllBytes(path, data);
+        return path;
+    }
+
     /// <summary>用系统文件管理器打开文件夹，或用默认程序打开文件。</summary>
     public static void OpenPath(string path)
     {

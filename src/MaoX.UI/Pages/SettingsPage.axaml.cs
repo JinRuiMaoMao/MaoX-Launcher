@@ -104,6 +104,8 @@ public partial class SettingsPage : UserControl, IPage
         AfterLaunchBox.ItemsSource = AfterLaunchModes.Select(s => T(s.Text)).ToList();
         AfterLaunchBox.SelectedIndex = Math.Max(0, Array.FindIndex(AfterLaunchModes, s => s.Key == cfg.AfterLaunch));
         BackgroundBox.Text = cfg.Background;
+        if (Platform.IsMobile)
+            BrowseBackgroundButton.Content = T("相册");
         MaskSlider.Value = Math.Clamp(cfg.BackgroundMask, 0, 90);
         MaskText.Text = $"{(int)MaskSlider.Value}%";
         AboutVersion.Text = $"MaoX Launcher v{Mc.LauncherVersion}";

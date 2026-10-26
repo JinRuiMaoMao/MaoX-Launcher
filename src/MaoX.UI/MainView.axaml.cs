@@ -850,15 +850,37 @@ public partial class MainView : UserControl
 
     public async Task<string> PickFile(string title, string filterName = null, params string[] patterns)
     {
-        var options = new Avalonia.Platform.Storage.FilePickerOpenOptions { Title = title };
+        if (Platform.IsMobile && Platform.MobilePickImage != null && Platform.IsImageFilter(patterns))
+            return await Platform.MobilePickImage(patterns);
+        var options = new FilePickerOpenOptions { Title = title };
         if (patterns.Length > 0)
             options.FileTypeFilter =
             [
-                new Avalonia.Platform.Storage.FilePickerFileType(filterName ?? T("文件")) { Patterns = patterns },
-                Avalonia.Platform.Storage.FilePickerFileTypes.All,
+                new FilePickerFileType(filterName ?? T("文件")) { Patterns = patterns },
+                FilePickerFileTypes.All,
             ];
         var result = await Storage.OpenFilePickerAsync(options);
-        return result.Count > 0 ? result[0].TryGetLocalPath() : null;
+        if (result.Count == 0)
+            return null;
+        return await LocalizePickedFile(result[0]);
+    }
+
+    /// <summary>电脑上通常是真实路径；手机上相册 / 文件选择器常常只有流，复制到缓存再给后面用。</summary>
+    private static async Task<string> LocalizePickedFile(IStorageFile file)
+    {
+        var local = file.TryGetLocalPath();
+        if (!string.IsNullOrEmpty(local) && File.Exists(local))
+            return local;
+        await using var source = await file.OpenReadAsync();
+        using var buffer = new MemoryStream();
+        await source.CopyToAsync(buffer);
+        var data = buffer.ToArray();
+        var ext = Path.GetExtension(file.Name);
+        if (string.IsNullOrEmpty(ext))
+            ext = Platform.ImageExt(data);
+        if (string.IsNullOrEmpty(ext))
+            ext = ".bin";
+        return Platform.SavePicked(data, ext);
     }
 
     public async Task<string> SaveFile(string title, string suggestedName, string filterName, params string[] patterns)

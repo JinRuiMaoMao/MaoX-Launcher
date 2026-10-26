@@ -280,12 +280,12 @@
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="Auto,*">
                 <TextBlock Text="{c:Tr 背景图片}" />
-                <TextBlock Grid.Column="1" Text="{c:Tr '铺满整个启动器，支持 PNG、JPG、WebP'}" Classes="small dim"
+                <TextBlock Grid.Column="1" Text="{c:Tr '铺满整个启动器。手机可从相册选择，也支持 PNG、JPG、WebP'}" Classes="small dim"
                            VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
               </Grid>
               <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBox Name="BackgroundBox" Watermark="{c:Tr 未设置}" LostFocus="OnBackgroundLostFocus" />
-                <Button Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseBackground" />
+                <Button Name="BrowseBackgroundButton" Grid.Column="1" Content="{c:Tr 浏览}" Margin="8,0,0,0" Click="OnBrowseBackground" />
                 <Button Grid.Column="2" Content="{c:Tr 清除}" Margin="8,0,0,0" Click="OnClearBackground" />
               </Grid>
             </StackPanel>

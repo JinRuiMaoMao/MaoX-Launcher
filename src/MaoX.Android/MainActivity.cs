@@ -1,6 +1,8 @@
 using Android.App;
+using Android.Content;
 using Android.Content.PM;
 using Android.OS;
+using Android.Provider;
 using Android.Views;
 using Avalonia;
 using Avalonia.Android;
@@ -16,11 +18,19 @@ namespace MaoX.Android;
                                  | ConfigChanges.KeyboardHidden | ConfigChanges.Navigation)]
 public class MainActivity : AvaloniaMainActivity<App>
 {
-    private AndroidTerracotta _terracotta;
+    private const int PhotoRequestCode = 0x5048;
 
-    protected override void OnActivityResult(int requestCode, Result resultCode, global::Android.Content.Intent data)
+    private AndroidTerracotta _terracotta;
+    private TaskCompletionSource<string> _photo;
+
+    protected override void OnActivityResult(int requestCode, Result resultCode, Intent data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
+        if (requestCode == PhotoRequestCode)
+        {
+            FinishPhoto(resultCode, data);
+            return;
+        }
         _terracotta?.OnActivityResult(requestCode, resultCode);
     }
 
@@ -34,6 +44,7 @@ public class MainActivity : AvaloniaMainActivity<App>
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
         GameHost.Install(this);
         Terracotta.Mobile = _terracotta = new AndroidTerracotta(this);
+        Platform.MobilePickImage = PickImageAsync;
         MojangGames.MobileProbe = ProbeApp;
         MojangGames.MobileLaunch = LaunchApp;
 #if !DEBUG
@@ -41,6 +52,95 @@ public class MainActivity : AvaloniaMainActivity<App>
         Updater.MobileInstaller = ApkInstaller.Install;
 #endif
         base.OnCreate(savedInstanceState);
+    }
+
+    private Task<string> PickImageAsync(string[] _)
+    {
+        _photo?.TrySetResult(null);
+        var tcs = _photo = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        RunOnUiThread(() =>
+        {
+            try
+            {
+                StartActivityForResult(PhotoIntent(), PhotoRequestCode);
+            }
+            catch (ActivityNotFoundException)
+            {
+                try
+                {
+                    StartActivityForResult(new Intent(Intent.ActionGetContent).SetType("image/*").AddCategory(Intent.CategoryOpenable),
+                        PhotoRequestCode);
+                }
+                catch (Exception e)
+                {
+                    tcs.TrySetException(e);
+                }
+            }
+            catch (Exception e)
+            {
+                tcs.TrySetException(e);
+            }
+        });
+        return tcs.Task;
+    }
+
+    private static Intent PhotoIntent()
+    {
+        if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu)
+            return new Intent(MediaStore.ActionPickImages);
+        return new Intent(Intent.ActionPick, MediaStore.Images.Media.ExternalContentUri);
+    }
+
+    private void FinishPhoto(Result resultCode, Intent data)
+    {
+        var tcs = _photo;
+        _photo = null;
+        if (tcs == null)
+            return;
+        var uri = data?.Data;
+        if (resultCode != Result.Ok || uri == null)
+        {
+            tcs.TrySetResult(null);
+            return;
+        }
+        Task.Run(() =>
+        {
+            try
+            {
+                tcs.TrySetResult(CopyPhoto(uri));
+            }
+            catch (Exception e)
+            {
+                tcs.TrySetException(e);
+            }
+        });
+    }
+
+    private string CopyPhoto(global::Android.Net.Uri uri)
+    {
+        using var input = ContentResolver!.OpenInputStream(uri)
+                          ?? throw new IOException(I18n.T("无法读取这张图片"));
+        using var buffer = new MemoryStream();
+        input.CopyTo(buffer);
+        var bytes = buffer.ToArray();
+        var ext = Platform.ImageExt(bytes);
+        if (string.IsNullOrEmpty(ext))
+        {
+            bytes = ToJpeg(bytes) ?? throw new IOException(I18n.T("无法读取这张图片"));
+            ext = ".jpg";
+        }
+        return Platform.SavePicked(bytes, ext);
+    }
+
+    private static byte[] ToJpeg(byte[] data)
+    {
+        using var input = new MemoryStream(data);
+        using var bitmap = global::Android.Graphics.BitmapFactory.DecodeStream(input);
+        if (bitmap == null)
+            return null;
+        using var output = new MemoryStream();
+        bitmap.Compress(global::Android.Graphics.Bitmap.CompressFormat.Jpeg, 92, output);
+        return output.ToArray();
     }
 
     private string ProbeApp(string package)

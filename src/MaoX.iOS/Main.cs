@@ -21,6 +21,7 @@ public static class Program
         Environment.SetEnvironmentVariable("MAOX_HOME", home);
         I18n.SetLanguage(LauncherConfig.Load().Language);
         Game.GameHost.Install();
+        Platform.MobilePickImage = IosPhotoPicker.Pick;
         AppDomain.CurrentDomain.UnhandledException += (_, e) => App.WriteCrashLog(e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
         // 基岩版注册了 minecraft:// 链接，能打开就说明装了（Info.plist 里要声明 LSApplicationQueriesSchemes）
