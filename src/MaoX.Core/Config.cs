@@ -135,9 +135,12 @@ public class LauncherConfig
     public int BgmVolume { get; set; } = 70;
     /// <summary>启动游戏时的音效路径（常见音频格式）。</summary>
     public string LaunchSfx { get; set; } = "";
-    /// <summary>节日自动换主题色。</summary>
+    /// <summary>节日自动换主题色和祝福语。</summary>
     public bool? HolidayTheme { get; set; }
     public bool HolidayThemeOn => HolidayTheme != false;
+    /// <summary>节日边角装饰图案。和换色分开，觉得碍眼可以关掉。</summary>
+    public bool? HolidayDecor { get; set; }
+    public bool HolidayDecorOn => HolidayDecor != false;
     /// <summary>下载限速 KB/s，0 = 不限制。</summary>
     public int DownloadSpeedLimit { get; set; }
     /// <summary>解析域名时优先使用 IPv6。</summary>
@@ -226,6 +229,7 @@ public class LauncherConfig
                     if (string.IsNullOrWhiteSpace(cfg.ProcessPriority))
                         cfg.ProcessPriority = "normal";
                     cfg.HolidayTheme ??= true;
+                    cfg.HolidayDecor ??= true;
                     cfg.Homepage = AppPaths.Rebase(cfg.Homepage);
                     cfg.Bgm = AppPaths.Rebase(cfg.Bgm);
                     cfg.BgmVolume = Math.Clamp(cfg.BgmVolume, 0, 100);

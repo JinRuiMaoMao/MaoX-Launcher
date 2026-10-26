@@ -71,6 +71,7 @@ public partial class SettingsPage : UserControl, IPage
         PreCmdBox.Text = cfg.PreLaunchCommand;
         PostCmdBox.Text = cfg.PostLaunchCommand;
         HolidaySwitch.IsChecked = cfg.HolidayThemeOn;
+        HolidayDecorSwitch.IsChecked = cfg.HolidayDecorOn;
         HomepagePresetBox.ItemsSource = Homepage.Presets.Select(p => T(p.Name)).ToList();
         var homeKey = Homepage.PresetKey(cfg.Homepage);
         HomepagePresetBox.SelectedIndex = Math.Max(0, Array.FindIndex(Homepage.Presets, p => p.Key == homeKey));
@@ -154,6 +155,11 @@ public partial class SettingsPage : UserControl, IPage
         {
             Cfg.HolidayTheme = HolidaySwitch.IsChecked == true;
             _holidayPreview = null;
+            ApplyTheme();
+        };
+        HolidayDecorSwitch.IsCheckedChanged += (_, _) =>
+        {
+            Cfg.HolidayDecor = HolidayDecorSwitch.IsChecked == true;
             ApplyTheme();
         };
         HomepageBox.LostFocus += (_, _) =>

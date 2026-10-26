@@ -7,6 +7,9 @@ public static class Holiday
 {
     public static HolidayTheme Active { get; set; }
 
+    /// <summary>是否画边角装饰。换色可以开着，图案可以单独关。</summary>
+    public static bool ShowDecor { get; set; } = true;
+
     public static readonly HolidayTheme[] All =
     [
         new("newyear", "元旦", "新年快乐", "#EAB308", new DateTime(2026, 1, 1)),

@@ -57,6 +57,7 @@ public static class ThemeManager
     public static void ApplyFor(LauncherConfig cfg, HolidayTheme preview = null, DateTime? now = null)
     {
         Holiday.Active = Holiday.Current(cfg, now, preview);
+        Holiday.ShowDecor = cfg?.HolidayDecorOn != false;
         Apply(cfg?.Theme ?? "dark", Holiday.Active?.Accent ?? cfg?.AccentColor ?? DefaultAccent);
     }
 

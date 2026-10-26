@@ -221,9 +221,16 @@
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="3" Margin="0,0,14,0">
                   <TextBlock Text="{c:Tr 节日主题}" />
-                  <TextBlock Text="{c:Tr 到节日会自动换主题色、祝福语和装饰图案，也可以点下面预览}" Classes="small dim wrap" />
+                  <TextBlock Text="{c:Tr 到节日会自动换主题色和祝福语，也可以点下面预览}" Classes="small dim wrap" />
                 </StackPanel>
                 <ToggleSwitch Name="HolidaySwitch" Grid.Column="1" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3" Margin="0,0,14,0">
+                  <TextBlock Text="{c:Tr 节日装饰}" />
+                  <TextBlock Text="{c:Tr 在边角画灯笼、月亮、雪花这类节日图案。觉得碍眼可以关掉}" Classes="small dim wrap" />
+                </StackPanel>
+                <ToggleSwitch Name="HolidayDecorSwitch" Grid.Column="1" />
               </Grid>
               <WrapPanel Name="HolidayChips" ItemSpacing="8" LineSpacing="8" />
             </StackPanel>

@@ -263,7 +263,7 @@ internal static class SmokeTest
                 ThemeManager.ApplyFor(window.Cfg, day);
                 if (!string.Equals(ThemeManager.ToHex(ThemeManager.Accent), day.Accent, StringComparison.OrdinalIgnoreCase))
                     throw new Exception($"{day.Name} applied {ThemeManager.ToHex(ThemeManager.Accent)} != {day.Accent}");
-                if (window.HolidayArt.Motif != day.Key)
+                if (!window.HolidayArt.Showing || window.HolidayArt.Motif != day.Key)
                     throw new Exception($"{day.Name} decor {window.HolidayArt.Motif}");
                 await Task.Delay(250);
                 Screenshot(window, Path.Combine(output, $"holiday-{day.Key}.png"));
@@ -273,6 +273,11 @@ internal static class SmokeTest
                 window.ShowPage("launch");
                 names.Add($"{day.Name} {day.Accent}");
             }
+            window.Cfg.HolidayDecor = false;
+            ThemeManager.ApplyFor(window.Cfg, Holiday.All[0]);
+            if (window.HolidayArt.Showing)
+                throw new Exception("holiday decor switch should hide art");
+            window.Cfg.HolidayDecor = true;
             ThemeManager.ApplyFor(window.Cfg);
             return string.Join("; ", names);
         });
@@ -889,6 +894,8 @@ internal static class SmokeTest
         var holidayOff = new LauncherConfig { HolidayTheme = false, AccentColor = "#00D9FF" };
         if (Holiday.ResolveAccent(holidayOff, new DateTime(2026, 12, 25)) != "#00D9FF")
             throw new Exception("holiday switch off");
+        if (new LauncherConfig { HolidayDecor = false }.HolidayDecorOn)
+            throw new Exception("holiday decor switch off");
         if (Holiday.All.Select(t => t.Key).Distinct().Count() != Holiday.All.Length
             || Holiday.All.Select(t => t.Accent).Distinct().Count() != Holiday.All.Length)
             throw new Exception("holiday keys/accents must be unique");
