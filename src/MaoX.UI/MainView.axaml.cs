@@ -140,6 +140,7 @@ public partial class MainView : UserControl
         LaunchPage = new LaunchPage();
         DownloadPage = new DownloadPage();
         ResourcesPage = new ResourcesPage();
+        DownloadPage.AttachResources(ResourcesPage);
         MultiplayerPage = new MultiplayerPage();
         ToolsPage = new ToolsPage();
         SettingsPage = new SettingsPage();
@@ -493,8 +494,18 @@ public partial class MainView : UserControl
 
     public void ShowPage(string key)
     {
+        string downloadTab = null;
+        if (key == "resources")
+        {
+            downloadTab = "community";
+            key = "download";
+        }
         if (_currentPage == key)
+        {
+            if (downloadTab != null)
+                DownloadPage.ShowTab(downloadTab);
             return;
+        }
         if (_currentPage == "settings")
             SaveSettings();
         if (_currentPage == "version")
@@ -506,27 +517,50 @@ public partial class MainView : UserControl
         else
             PageHost.IsTransitionReversed = from >= 0 && to < from;
         _currentPage = key;
-        foreach (var child in Nav.Children.OfType<RadioButton>())
-            child.IsChecked = (string)child.Tag == (key == "version" ? "launch" : key);
         var page = _pages[key];
         PageHost.Content = page;
         PageScroll.Offset = default;
         UpdatePageScroll();
         _navPillUntil = DateTime.UtcNow + PageTabs.Duration;
-        SyncNavPill(from >= 0);
         (page as IPage)?.OnShow();
+        if (downloadTab != null)
+            DownloadPage.ShowTab(downloadTab);
+        RefreshNav(from >= 0);
+    }
+
+    public void RefreshNav(bool animate = false)
+    {
+        foreach (var child in Nav.Children.OfType<RadioButton>())
+            child.IsChecked = (string)child.Tag == NavKey();
+        SyncNavPill(animate);
+    }
+
+    private string NavKey()
+    {
+        if (_currentPage == "version")
+            return "launch";
+        if (_currentPage == "download" && DownloadPage.CurrentTab != "vanilla")
+            return "resources";
+        return _currentPage;
     }
 
     private void SyncNavPill(bool animate)
     {
-        var tab = Nav.Children.OfType<RadioButton>().FirstOrDefault(b => (string)b.Tag == _currentPage);
+        var tab = Nav.Children.OfType<RadioButton>().FirstOrDefault(b => (string)b.Tag == NavKey());
         PageTabs.MovePill(NavPill, tab, animate);
     }
 
     private void OnNavClick(object sender, RoutedEventArgs e)
     {
-        if (sender is RadioButton { Tag: string key })
-            ShowPage(key);
+        if (sender is not RadioButton { Tag: string key })
+            return;
+        if (key == "download")
+        {
+            ShowPage("download");
+            DownloadPage.ShowTab("vanilla");
+            return;
+        }
+        ShowPage(key);
     }
 
     // ------------------------------------------------------------------ 日志与进度（可在任意线程调用）

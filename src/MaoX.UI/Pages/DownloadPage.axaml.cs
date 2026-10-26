@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using MaoX.Core;
@@ -17,7 +18,21 @@ public partial class DownloadPage : UserControl, IPage
         ["release"] = T("正式版"), ["snapshot"] = T("快照版"), ["old_beta"] = T("远古 Beta"), ["old_alpha"] = T("远古 Alpha"),
     };
 
+    private static readonly (string Key, string Title, string Subtitle)[] Tabs =
+    [
+        ("vanilla", "下载游戏", "选择一个 Minecraft 版本进行安装，已安装的版本会自动补全缺失文件"),
+        ("community", "社区资源", "从 Modrinth 和 CurseForge 浏览模组、整合包、数据包、资源包和光影"),
+        ("mod", "Mod", "为当前版本搜索并安装模组"),
+        ("modpack", "整合包", "安装整合包会创建一个新的游戏版本"),
+        ("datapack", "数据包", "把数据包安装到选中的存档里"),
+        ("resourcepack", "资源包", "为当前版本下载资源包"),
+        ("shader", "光影包", "为当前版本下载光影包"),
+    ];
+
     private static MainView Main => MainView.Current;
+    private ResourcesPage _resources;
+
+    public string CurrentTab { get; private set; } = "vanilla";
 
     public DownloadPage()
     {
@@ -26,10 +41,49 @@ public partial class DownloadPage : UserControl, IPage
         Main.VersionsChanged += FillList;
     }
 
+    public void AttachResources(ResourcesPage page)
+    {
+        _resources = page;
+        page.SetEmbedded(true);
+        ResourcesHost.Children.Add(page);
+        ShowTab(string.IsNullOrWhiteSpace(Main.Cfg.DownloadTab) ? "vanilla" : Main.Cfg.DownloadTab);
+    }
+
     public void OnShow()
     {
-        if (Main.Manifest == null && !Main.IsTaskRunning(T("获取版本列表")))
-            LoadManifest();
+        if (CurrentTab == "vanilla")
+        {
+            if (Main.Manifest == null && !Main.IsTaskRunning(T("获取版本列表")))
+                LoadManifest();
+            return;
+        }
+        _resources?.OnShow();
+    }
+
+    public void ShowTab(string key)
+    {
+        if (Tabs.All(t => t.Key != key))
+            key = "vanilla";
+        CurrentTab = key;
+        foreach (var button in new[] { TabVanilla, TabCommunity, TabMod, TabModpack, TabDatapack, TabResourcePack, TabShader })
+            button.IsChecked = (string)button.Tag == key;
+        var vanilla = key == "vanilla";
+        VanillaRoot.IsVisible = vanilla;
+        ResourcesHost.IsVisible = !vanilla;
+        RefreshButton.IsVisible = vanilla;
+        var tab = Tabs.First(t => t.Key == key);
+        PageTitle.Text = T(tab.Title);
+        PageSubtitle.Text = T(tab.Subtitle);
+        Main.Cfg.DownloadTab = key;
+        if (!vanilla)
+            _resources?.OpenSection(key);
+        Main.RefreshNav();
+    }
+
+    private void OnDownloadTabClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton { Tag: string key })
+            ShowTab(key);
     }
 
     private void OnRefresh(object sender, RoutedEventArgs e) => LoadManifest();

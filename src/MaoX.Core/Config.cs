@@ -181,6 +181,8 @@ public class LauncherConfig
     public string Language { get; set; } = "";
     /// <summary>设置页当前分页：launch / personal / other。</summary>
     public string SettingsTab { get; set; } = "launch";
+    /// <summary>下载页当前分页：vanilla / community / mod / modpack / datapack / resourcepack / shader。</summary>
+    public string DownloadTab { get; set; } = "vanilla";
     /// <summary>iOS 开启 JIT 的方式：auto = 原有方式（StikDebug / SideStore / TrollStore），builtin = 内置 StikJIT（实验）</summary>
     public string IosJitMethod { get; set; } = "auto";
     /// <summary>内置 JIT 连接的设备地址（LocalDevVPN 里的 Device IP），空 = StikJIT 默认的 10.7.0.1</summary>
@@ -218,6 +220,9 @@ public class LauncherConfig
                         cfg.UpdateChannel = "stable";
                     if (cfg.SettingsTab is not "personal" and not "other")
                         cfg.SettingsTab = "launch";
+                    if (cfg.DownloadTab is not "community" and not "mod" and not "modpack" and not "datapack"
+                        and not "resourcepack" and not "shader")
+                        cfg.DownloadTab = "vanilla";
                     if (string.IsNullOrWhiteSpace(cfg.ProcessPriority))
                         cfg.ProcessPriority = "normal";
                     cfg.HolidayTheme ??= true;

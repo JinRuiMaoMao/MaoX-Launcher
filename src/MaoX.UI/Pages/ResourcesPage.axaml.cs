@@ -93,6 +93,24 @@ public partial class ResourcesPage : UserControl, IPage
     /// <summary>版本设置改变后（如版本隔离），下次显示时重新读取目标。</summary>
     public void Invalidate() => _ctx = null;
 
+    public void SetEmbedded(bool embedded)
+    {
+        if (PageTitle != null)
+            PageTitle.IsVisible = !embedded;
+    }
+
+    /// <summary>community 显示全部分类；其余锁定到对应资源类型。</summary>
+    public void OpenSection(string kind)
+    {
+        var all = kind is "community" or "" or null;
+        KindChips.IsVisible = all;
+        if (!all && Mods.KindNames.ContainsKey(kind))
+            SetKind(kind);
+        else
+            Reset();
+        OnShow();
+    }
+
     // ------------------------------------------------------------------ 目标与类型
 
     public void OnShow()
@@ -282,7 +300,11 @@ public partial class ResourcesPage : UserControl, IPage
         }
     }
 
-    private void OnGoDownload(object sender, RoutedEventArgs e) => Main.ShowPage("download");
+    private void OnGoDownload(object sender, RoutedEventArgs e)
+    {
+        Main.ShowPage("download");
+        Main.DownloadPage.ShowTab("vanilla");
+    }
 
     // ------------------------------------------------------------------ 标签页
 

@@ -886,6 +886,8 @@ internal static class SmokeTest
             throw new Exception("bgm volume default");
         if (new LauncherConfig().SettingsTab != "launch")
             throw new Exception("settings tab default");
+        if (new LauncherConfig().DownloadTab != "vanilla")
+            throw new Exception("download tab default");
         LauncherAudio.Volume = 0.4f;
         if (Math.Abs(LauncherAudio.Volume - 0.4f) > 0.01)
             throw new Exception("bgm volume");

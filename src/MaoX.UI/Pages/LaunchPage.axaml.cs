@@ -705,8 +705,17 @@ public partial class LaunchPage : UserControl, IPage
         }
     }
 
-    private void OnDashDownload(object sender, RoutedEventArgs e) => Main.ShowPage("download");
-    private void OnDashResources(object sender, RoutedEventArgs e) => Main.ShowPage("resources");
+    private void OnDashDownload(object sender, RoutedEventArgs e)
+    {
+        Main.ShowPage("download");
+        Main.DownloadPage.ShowTab("vanilla");
+    }
+
+    private void OnDashResources(object sender, RoutedEventArgs e)
+    {
+        Main.ShowPage("download");
+        Main.DownloadPage.ShowTab("community");
+    }
     private void OnDashMultiplayer(object sender, RoutedEventArgs e) => Main.ShowPage("multiplayer");
     private void OnDashTools(object sender, RoutedEventArgs e) => Main.ShowPage("tools");
 
