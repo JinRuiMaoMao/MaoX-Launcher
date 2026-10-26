@@ -549,21 +549,19 @@
     <Setter Property="MinHeight" Value="0" />
   </Style>
   <Style Selector=".compact DockPanel#HeroDock">
-    <Setter Property="Margin" Value="18,12,18,14" />
+    <Setter Property="Margin" Value="14,8,14,10" />
   </Style>
   <Style Selector=".compact Grid#HeroControls">
-    <Setter Property="Margin" Value="0,10,0,0" />
+    <Setter Property="Margin" Value="0,8,0,0" />
+  </Style>
+  <Style Selector=".compact TextBlock#HeroOverline">
+    <Setter Property="IsVisible" Value="False" />
   </Style>
   <Style Selector="ScrollViewer#GameTabsScroll">
     <Setter Property="Margin" Value="0,0,0,22" />
   </Style>
   <Style Selector=".compact ScrollViewer#GameTabsScroll">
-    <Setter Property="Margin" Value="0,0,0,10" />
-  </Style>
-  <Style Selector=".compact Image#GameLogo">
-    <Setter Property="Width" Value="48" />
-    <Setter Property="Height" Value="48" />
-    <Setter Property="Margin" Value="0,0,12,0" />
+    <Setter Property="Margin" Value="0,0,0,8" />
   </Style>
   <Style Selector="Button#AccountPicker">
     <Setter Property="Width" Value="196" />
@@ -580,26 +578,46 @@
   <!-- 手机横屏（如 iPhone）宽度只有 600 左右，缩窄启动卡片上的控件 -->
   <Style Selector=".compact Button#AccountPicker">
     <Setter Property="Width" Value="148" />
+    <Setter Property="Height" Value="36" />
   </Style>
   <Style Selector=".compact ComboBox#GameDirBox">
     <Setter Property="Width" Value="120" />
+    <Setter Property="Height" Value="36" />
   </Style>
   <Style Selector=".compact ComboBox#VersionBox">
-    <Setter Property="MinWidth" Value="120" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Height" Value="36" />
   </Style>
   <Style Selector=".compact Button#LaunchButton">
-    <Setter Property="MinWidth" Value="120" />
+    <Setter Property="MinWidth" Value="108" />
+    <Setter Property="Height" Value="36" />
+  </Style>
+  <Style Selector=".compact Grid#HeroControls Button.icon">
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+  </Style>
+  <Style Selector=".compact ComboBox#SourceBox">
+    <Setter Property="Height" Value="36" />
   </Style>
   <Style Selector=".compact StackPanel#GameDirPanel">
     <Setter Property="Margin" Value="8,0,0,0" />
   </Style>
   <Style Selector=".compact TextBlock#HeroTitle">
-    <Setter Property="FontSize" Value="28" />
+    <Setter Property="FontSize" Value="22" />
+  </Style>
+  <Style Selector=".compact Image#GameLogo">
+    <Setter Property="Width" Value="40" />
+    <Setter Property="Height" Value="40" />
+    <Setter Property="Margin" Value="0,0,10,0" />
   </Style>
   <Style Selector=".compact c|Logo#Watermark">
-    <Setter Property="Width" Value="150" />
-    <Setter Property="Height" Value="170" />
-    <Setter Property="Margin" Value="0,0,20,-34" />
+    <Setter Property="Width" Value="110" />
+    <Setter Property="Height" Value="124" />
+    <Setter Property="Margin" Value="0,0,12,-24" />
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+  <Style Selector=".compact Grid#DashBody">
+    <Setter Property="Margin" Value="14,10,14,10" />
   </Style>
   <Style Selector=".compact Border#LogCard">
     <Setter Property="Margin" Value="0,12,0,0" />

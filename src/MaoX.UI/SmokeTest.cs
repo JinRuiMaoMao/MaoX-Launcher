@@ -213,6 +213,32 @@ internal static class SmokeTest
             });
         }
 
+        await Check("page launch mobile", async () =>
+        {
+            window.ShowPage("launch");
+            var minW = host.MinWidth;
+            var minH = host.MinHeight;
+            var w = host.Width;
+            var h = host.Height;
+            host.MinWidth = 400;
+            host.MinHeight = 280;
+            host.Width = 844;
+            host.Height = 390;
+            await Task.Delay(800);
+            Screenshot(window, Path.Combine(output, "page-launch-mobile.png"));
+            window.PageScroll.Offset = new Vector(0, 4000);
+            await Task.Delay(400);
+            Screenshot(window, Path.Combine(output, "page-launch-mobile-bottom.png"));
+            if (window.LaunchPage.NewsList.Bounds.Height <= 0)
+                throw new Exception("news should layout on the compact launch page");
+            host.Width = w;
+            host.Height = h;
+            host.MinWidth = minW;
+            host.MinHeight = minH;
+            await Task.Delay(300);
+            return "page-launch-mobile.png";
+        });
+
         await Check("mojang games", async () =>
         {
             var timer = Stopwatch.StartNew();

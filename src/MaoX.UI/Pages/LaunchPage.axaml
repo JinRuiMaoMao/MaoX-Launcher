@@ -55,7 +55,7 @@
                         SelectionChanged="OnGameDirChanged" />
             </StackPanel>
 
-            <Panel Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Bottom">
+            <Panel Name="VersionHost" Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Bottom">
               <StackPanel Name="SourcePanel" IsVisible="False">
                 <TextBlock Text="{c:Tr 安装来源}" Classes="label" />
                 <ComboBox Name="SourceBox" Height="40" HorizontalAlignment="Stretch" />
@@ -77,7 +77,7 @@
               </StackPanel>
             </Panel>
 
-            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="14,0,0,0"
+            <StackPanel Name="LaunchPanel" Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="14,0,0,0"
                         VerticalAlignment="Bottom">
               <Button Name="LaunchButton" Classes="primary" Height="40" Click="OnLaunchClick">
                 <c:IconLabel Name="LaunchLabel" Icon="play" Text="{c:Tr 启动游戏}" IconSize="18" Spacing="8" />
@@ -97,7 +97,7 @@
     </Border>
 
     <Border Name="DashCard" Grid.Row="1" Classes="card" Margin="0,14,0,0">
-      <Grid RowDefinitions="Auto,*" Margin="22,16,22,16">
+      <Grid Name="DashBody" RowDefinitions="Auto,*" Margin="22,16,22,16">
         <DockPanel>
           <c:IconLabel Icon="sparkle" Text="{c:Tr 动态}" Classes="cardhead" DockPanel.Dock="Top" />
           <WrapPanel Name="QuickActions" Margin="0,14,0,0" ItemSpacing="8" LineSpacing="8">

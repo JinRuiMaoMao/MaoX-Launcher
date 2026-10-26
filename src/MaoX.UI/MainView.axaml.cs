@@ -163,7 +163,12 @@ public partial class MainView : UserControl
             _started = true;
             // 手机上全屏显示，把状态栏和导航栏的空间留给界面
             if (Platform.IsMobile && TopLevel.GetTopLevel(this)?.InsetsManager is { } insets)
+            {
+                insets.DisplayEdgeToEdgePreference = true;
                 insets.IsSystemBarVisible = false;
+                ApplySafeArea(insets.SafeAreaPadding);
+                insets.SafeAreaChanged += (_, e) => ApplySafeArea(e.SafeAreaPadding);
+            }
             SettingsPage.DetectJavaInBackground();
             Updater.CleanupOldVersion();
             if (Cfg.AutoCheckUpdate && Updater.CanSelfUpdate && !SmokeTest.Active)
@@ -443,19 +448,29 @@ public partial class MainView : UserControl
         Dispatcher.UIThread.Post(() => SyncNavPill(false), DispatcherPriority.Render);
     }
 
-    /// <summary>列表类页面放不下时的最小高度（设置页和启动页自己能滚动/能放下，不需要）。</summary>
+    /// <summary>避开刘海、横条和圆角，避免启动页底部新闻被系统手势条挡住。</summary>
+    private void ApplySafeArea(Thickness pad)
+    {
+        Padding = new Thickness(pad.Left, pad.Top, pad.Right, Math.Max(pad.Bottom, Platform.IsMobile ? 10 : 0));
+        ToastLayer.Margin = new Thickness(0, 0, 16 + pad.Right, 16 + Math.Max(pad.Bottom, 8));
+    }
+
+    /// <summary>列表类页面放不下时的最小高度。启动页在紧凑布局下按内容高度排，由 RefreshPageScroll 打开滚动。</summary>
     private static readonly Dictionary<string, double> MinPageHeight = new()
     {
         ["download"] = 470, ["resources"] = 520, ["multiplayer"] = 470, ["tools"] = 520,
     };
 
+    public void RefreshPageScroll() => UpdatePageScroll();
+
     private void UpdatePageScroll()
     {
         var viewport = PageScroll.Bounds.Height - PageHost.Margin.Top - PageHost.Margin.Bottom;
+        var launch = _currentPage == "launch";
         var need = _currentPage != null && MinPageHeight.TryGetValue(_currentPage, out var h) ? h : 0;
-        var scroll = viewport > 0 && viewport < need;
+        var scroll = launch || viewport > 0 && viewport < need;
         PageScroll.VerticalScrollBarVisibility = scroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
-        PageHost.Height = scroll ? need : double.NaN;
+        PageHost.Height = launch || !scroll ? double.NaN : need;
         if (!scroll)
             PageScroll.Offset = default;
     }

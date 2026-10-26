@@ -60,8 +60,8 @@ public partial class LaunchPage : UserControl, IPage
         UpdateAccount();
         RefreshGameDirs();
         ApplyLiveLog();
-        SizeChanged += (_, _) => LayoutDash();
-        LayoutDash();
+        SizeChanged += (_, _) => LayoutLaunch();
+        LayoutLaunch();
         PageTabs.PreparePill(GameTabPill);
         GameTabs.LayoutUpdated += (_, _) =>
         {
@@ -350,7 +350,10 @@ public partial class LaunchPage : UserControl, IPage
         var dirs = Main.Cfg.AllGameDirs();
         GameDirPanel.IsVisible = dirs.Count > 1;
         if (dirs.Count <= 1)
+        {
+            LayoutHero();
             return;
+        }
         var labels = dirs.Select(d =>
         {
             var name = string.IsNullOrWhiteSpace(d.Name) ? Path.GetFileName(d.Path) : d.Name;
@@ -367,6 +370,7 @@ public partial class LaunchPage : UserControl, IPage
         if (GameDirBox.SelectedIndex != index)
             GameDirBox.SelectedIndex = index;
         _updatingDirs = false;
+        LayoutHero();
         ToolTip.SetTip(GameDirBox, dirs[index].Path);
     }
 
@@ -454,14 +458,82 @@ public partial class LaunchPage : UserControl, IPage
 
     public void ReloadDash() => LoadDashInfo();
 
+    /// <summary>窄屏才上下叠 Wiki 卡片；手机横屏宽度够，左右并排，新闻才不会被顶出屏幕。</summary>
+    private bool Narrow => Bounds.Width > 0 && Bounds.Width < 520;
+
+    private bool CompactUi => Platform.IsMobile || Main.Classes.Contains("compact") || Narrow;
+
+    private double ArtHeight => CompactUi ? 88 : 132;
+
+    private void LayoutLaunch()
+    {
+        LayoutHero();
+        LayoutDash();
+        ApplyArtHeights();
+        Main.RefreshPageScroll();
+    }
+
+    /// <summary>启动卡和动态都按内容高度排，整页一起滚动，下面的新闻才能滑出来。</summary>
+    private void LayoutHero()
+    {
+        LaunchRoot.RowDefinitions = new RowDefinitions("Auto,Auto");
+        DashBody.RowDefinitions = new RowDefinitions("Auto,Auto");
+        if (Narrow)
+        {
+            var rows = GameDirPanel.IsVisible ? "Auto,Auto,Auto,Auto" : "Auto,Auto,Auto";
+            HeroControls.ColumnDefinitions = new ColumnDefinitions("*");
+            HeroControls.RowDefinitions = new RowDefinitions(rows);
+            PlaceHero(AccountPanel, 0, 0, default);
+            var row = 1;
+            if (GameDirPanel.IsVisible)
+                PlaceHero(GameDirPanel, 0, row++, new Thickness(0, 8, 0, 0));
+            PlaceHero(VersionHost, 0, row++, new Thickness(0, 8, 0, 0));
+            PlaceHero(LaunchPanel, 0, row, new Thickness(0, 8, 0, 0));
+            AccountPicker.ClearValue(WidthProperty);
+            AccountPicker.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            LaunchButton.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            LaunchButton.MinWidth = 0;
+            return;
+        }
+        HeroControls.ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto");
+        HeroControls.RowDefinitions = new RowDefinitions("Auto");
+        PlaceHero(AccountPanel, 0, 0, default);
+        PlaceHero(GameDirPanel, 1, 0, new Thickness(14, 0, 0, 0));
+        PlaceHero(VersionHost, 2, 0, new Thickness(14, 0, 0, 0));
+        PlaceHero(LaunchPanel, 3, 0, new Thickness(14, 0, 0, 0));
+        AccountPicker.ClearValue(WidthProperty);
+        AccountPicker.ClearValue(HorizontalAlignmentProperty);
+        LaunchButton.ClearValue(HorizontalAlignmentProperty);
+        LaunchButton.ClearValue(MinWidthProperty);
+    }
+
+    private static void PlaceHero(Control control, int column, int row, Thickness margin)
+    {
+        Grid.SetColumn(control, column);
+        Grid.SetRow(control, row);
+        control.Margin = margin;
+    }
+
     private void LayoutDash()
     {
-        var stack = Platform.IsMobile || Main.Classes.Contains("compact") || Bounds.Width > 0 && Bounds.Width < 760;
+        var stack = Narrow;
         DashColumns.ColumnDefinitions = stack ? new ColumnDefinitions("*") : new ColumnDefinitions("*,*");
         DashColumns.RowDefinitions = stack ? new RowDefinitions("Auto,Auto") : new RowDefinitions("Auto");
         Grid.SetColumn(UpcomingPanel, stack ? 0 : 1);
         Grid.SetRow(UpcomingPanel, stack ? 1 : 0);
-        UpcomingPanel.Margin = stack ? new Thickness(0, 16, 0, 0) : new Thickness(18, 0, 0, 0);
+        UpcomingPanel.Margin = stack ? new Thickness(0, 12, 0, 0) : new Thickness(14, 0, 0, 0);
+    }
+
+    private void ApplyArtHeights()
+    {
+        var h = ArtHeight;
+        foreach (var list in new[] { LatestList, UpcomingList, NewsList })
+        {
+            foreach (var img in list.GetVisualDescendants().OfType<Image>())
+                img.Height = h;
+            foreach (var border in list.GetVisualDescendants().OfType<Border>().Where(b => b.Child is Image))
+                border.Height = h;
+        }
     }
 
     private async void LoadDashInfo()
@@ -530,10 +602,10 @@ public partial class LaunchPage : UserControl, IPage
             list.Children.Add(new TextBlock { Text = T("暂时没有内容"), Classes = { "muted" } });
             return;
         }
-        var picture = new Image { Stretch = Stretch.UniformToFill, Height = 132 };
+        var picture = new Image { Stretch = Stretch.UniformToFill, Height = ArtHeight };
         var art = new Border
         {
-            Height = 132, ClipToBounds = true, CornerRadius = new CornerRadius(11, 11, 0, 0), Child = picture,
+            Height = ArtHeight, ClipToBounds = true, CornerRadius = new CornerRadius(11, 11, 0, 0), Child = picture,
         };
         var title = new TextBlock
         {
@@ -569,10 +641,10 @@ public partial class LaunchPage : UserControl, IPage
             NewsList.Children.Add(new TextBlock { Text = T("暂时没有内容"), Classes = { "muted" } });
             return;
         }
-        var picture = new Image { Stretch = Stretch.UniformToFill, Height = 132 };
+        var picture = new Image { Stretch = Stretch.UniformToFill, Height = ArtHeight };
         var art = new Border
         {
-            Height = 132, ClipToBounds = true, CornerRadius = new CornerRadius(11, 11, 0, 0), Child = picture,
+            Height = ArtHeight, ClipToBounds = true, CornerRadius = new CornerRadius(11, 11, 0, 0), Child = picture,
             IsVisible = false,
         };
         var box = new StackPanel { Spacing = 4 };
