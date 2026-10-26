@@ -249,6 +249,29 @@ internal static class SmokeTest
             });
         }
 
+        await Check("holiday themes", async () =>
+        {
+            window.Cfg.HolidayTheme = true;
+            window.ShowPage("launch");
+            window.SettingsPage.ShowTab("personal");
+            var names = new List<string>();
+            foreach (var day in Holiday.All)
+            {
+                ThemeManager.Apply(window.Cfg.Theme, Holiday.ResolveAccent(window.Cfg, day.Date));
+                if (!string.Equals(ThemeManager.ToHex(ThemeManager.Accent), day.Accent, StringComparison.OrdinalIgnoreCase))
+                    throw new Exception($"{day.Name} applied {ThemeManager.ToHex(ThemeManager.Accent)} != {day.Accent}");
+                await Task.Delay(250);
+                Screenshot(window, Path.Combine(output, $"holiday-{day.Key}.png"));
+                window.ShowPage("settings");
+                await Task.Delay(200);
+                Screenshot(window, Path.Combine(output, $"holiday-{day.Key}-settings.png"));
+                window.ShowPage("launch");
+                names.Add($"{day.Name} {day.Accent}");
+            }
+            ThemeManager.Apply(window.Cfg.Theme, window.Cfg.AccentColor ?? ThemeManager.DefaultAccent);
+            return string.Join("; ", names);
+        });
+
         await Check("page launch mobile", async () =>
         {
             window.ShowPage("launch");
@@ -847,8 +870,20 @@ internal static class SmokeTest
         var local = Isolation.Resolve(new JsonObject { ["isolation"] = false }, cfg);
         if (local != Isolation.Off)
             throw new Exception("isolation version override: " + local);
-        if (Holiday.AccentOrNull(new DateTime(2026, 12, 25)) != "#FACC15")
-            throw new Exception("holiday christmas");
+        foreach (var day in Holiday.All)
+        {
+            if (Holiday.AccentOrNull(day.Date) != day.Accent)
+                throw new Exception($"holiday {day.Name}: {Holiday.AccentOrNull(day.Date)}");
+        }
+        if (Holiday.AccentOrNull(new DateTime(2026, 12, 19)) != null
+            || Holiday.AccentOrNull(new DateTime(2026, 12, 27)) != null
+            || Holiday.AccentOrNull(new DateTime(2026, 1, 4)) != null
+            || Holiday.AccentOrNull(new DateTime(2026, 2, 21)) != null
+            || Holiday.AccentOrNull(new DateTime(2026, 7, 1)) != null)
+            throw new Exception("holiday should be off outside the windows");
+        var holidayOff = new LauncherConfig { HolidayTheme = false, AccentColor = "#00D9FF" };
+        if (Holiday.ResolveAccent(holidayOff, new DateTime(2026, 12, 25)) != "#00D9FF")
+            throw new Exception("holiday switch off");
         if (ModCn.Title("sodium", "Sodium") is not { Length: > 6 })
             throw new Exception("mod cn sodium");
         if (HelpFaq.Items.Length < 4 || SkinSites.All.Length < 3)
