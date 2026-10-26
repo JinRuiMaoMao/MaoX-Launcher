@@ -95,8 +95,22 @@
     </Grid>
 
     <!-- 提示气泡 -->
-    <StackPanel Name="ToastLayer" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,52"
+    <StackPanel Name="ToastLayer" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,88"
                 Spacing="10" />
+
+    <!-- 右下角背景音乐：滑条调音量，左键停止/继续，右键下一首 -->
+    <Border Name="BgmDock" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,16"
+            Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+            CornerRadius="24" Padding="12,6,6,6" PointerWheelChanged="OnBgmWheel">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Slider Name="BgmVolumeSlider" Width="108" Minimum="0" Maximum="100" Value="70"
+                VerticalAlignment="Center" ToolTip.Tip="{c:Tr 背景音乐音量}" />
+        <Button Name="BgmButton" Classes="bgm" ToolTip.Tip="{c:Tr 左键停止或继续，右键下一首}"
+                PointerPressed="OnBgmButtonPressed" ContextRequested="OnBgmContext" PointerWheelChanged="OnBgmWheel">
+          <c:Icon Name="BgmIcon" Kind="music" Size="20" />
+        </Button>
+      </StackPanel>
+    </Border>
 
     <!-- 窗口内对话框 -->
     <Panel Name="DialogLayer" IsVisible="False">

@@ -131,6 +131,8 @@ public class LauncherConfig
     public string Homepage { get; set; } = "";
     /// <summary>背景音乐：单个文件、文件夹，或留空使用启动器目录下的 Music 文件夹（和 PCL 一样可放多首）。</summary>
     public string Bgm { get; set; } = "";
+    /// <summary>背景音乐音量 0–100。</summary>
+    public int BgmVolume { get; set; } = 70;
     /// <summary>启动游戏时的音效路径（常见音频格式）。</summary>
     public string LaunchSfx { get; set; } = "";
     /// <summary>节日自动换主题色。</summary>
@@ -217,6 +219,7 @@ public class LauncherConfig
                     cfg.HolidayTheme ??= true;
                     cfg.Homepage = AppPaths.Rebase(cfg.Homepage);
                     cfg.Bgm = AppPaths.Rebase(cfg.Bgm);
+                    cfg.BgmVolume = Math.Clamp(cfg.BgmVolume, 0, 100);
                     cfg.LaunchSfx = AppPaths.Rebase(cfg.LaunchSfx);
                     foreach (var dir in cfg.ExtraDirs)
                         dir.Path = AppPaths.Rebase(dir.Path ?? "");

@@ -320,6 +320,13 @@
                 <Button Content="{c:Tr 打开文件夹}" Click="OnOpenBgmFolder" />
                 <Button Content="{c:Tr 清除}" Click="OnClearBgm" />
               </WrapPanel>
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Text="{c:Tr 音量}" VerticalAlignment="Center" />
+                <Slider Name="BgmVolumeSlider" Grid.Column="1" Minimum="0" Maximum="100" Margin="12,0"
+                        VerticalAlignment="Center" />
+                <TextBlock Name="BgmVolumeText" Grid.Column="2" Classes="accent bold" VerticalAlignment="Center" />
+              </Grid>
+              <TextBlock Text="{c:Tr 右下角音符：左键停止或继续，右键下一首。}" Classes="small dim wrap" />
             </StackPanel>
             <StackPanel Spacing="8">
               <TextBlock Text="{c:Tr 启动音效}" />

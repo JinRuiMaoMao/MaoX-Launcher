@@ -448,16 +448,62 @@ public static class LauncherAudio
     /// <summary>退出启动器时停掉所有声音。</summary>
     public static Action StopAllImpl { get; set; }
 
+    /// <summary>0–1。正在播的时候立刻改音量。</summary>
+    public static Action<float> SetVolumeImpl { get; set; }
+
+    public static event Action Changed;
+
     private static readonly object State = new();
     private static List<string> _tracks = [];
     private static readonly HashSet<string> Failed = new(StringComparer.OrdinalIgnoreCase);
     private static int _index;
     private static string _source = "";
+    private static float _volume = 0.7f;
     private static FileSystemWatcher _watch;
     private static CancellationTokenSource _reload;
 
     public static string Folder => AppPaths.MusicDir;
     public static string LastError { get; private set; }
+    public static bool IsPlaying { get; private set; }
+
+    public static float Volume
+    {
+        get => _volume;
+        set
+        {
+            _volume = Math.Clamp(value, 0, 1);
+            try
+            {
+                SetVolumeImpl?.Invoke(_volume);
+            }
+            catch (Exception)
+            {
+            }
+            RaiseChanged();
+        }
+    }
+
+    public static string CurrentTitle
+    {
+        get
+        {
+            lock (State)
+            {
+                if ((uint)_index >= (uint)_tracks.Count)
+                    return "";
+                return Path.GetFileNameWithoutExtension(_tracks[_index]);
+            }
+        }
+    }
+
+    public static int TrackCount
+    {
+        get
+        {
+            lock (State)
+                return _tracks.Count;
+        }
+    }
 
     public static bool IsAudio(string path) =>
         Extensions.Contains(Path.GetExtension(path ?? "").ToLowerInvariant());
@@ -523,9 +569,86 @@ public static class LauncherAudio
             _index = 0;
             Watch(ResolveWatchDir(path));
             if (_tracks.Count == 0)
+            {
+                RaiseChanged();
                 return;
+            }
             PlayCurrent(_tracks.Count == 1);
         }
+        RaiseChanged();
+    }
+
+    /// <summary>左键：正在播就停，停着就继续。</summary>
+    public static void Toggle()
+    {
+        if (IsPlaying)
+        {
+            Pause();
+            return;
+        }
+        Resume();
+    }
+
+    public static void Pause()
+    {
+        lock (State)
+        {
+            if (!IsPlaying)
+                return;
+            IsPlaying = false;
+            try
+            {
+                StopImpl?.Invoke();
+            }
+            catch (Exception)
+            {
+            }
+        }
+        RaiseChanged();
+    }
+
+    public static void Resume()
+    {
+        lock (State)
+        {
+            if (IsPlaying)
+                return;
+            if (_tracks.Count == 0)
+            {
+                _tracks = [.. ListTracks(_source)];
+                _index = 0;
+            }
+            if (_tracks.Count == 0)
+                return;
+            PlayCurrent(_tracks.Count(t => !Failed.Contains(t)) <= 1);
+        }
+        RaiseChanged();
+    }
+
+    /// <summary>右键：下一首。停着的时候也会开始播。</summary>
+    public static void Next()
+    {
+        lock (State)
+        {
+            if (_tracks.Count == 0)
+                _tracks = [.. ListTracks(_source)];
+            if (_tracks.Count == 0)
+                return;
+            try
+            {
+                StopImpl?.Invoke();
+            }
+            catch (Exception)
+            {
+            }
+            IsPlaying = false;
+            if (_tracks.Count > 1 && !SkipToNext())
+                _index = 0;
+            else if (_tracks.Count == 1)
+                _index = 0;
+            PlayCurrent(_tracks.Count(t => !Failed.Contains(t)) <= 1);
+        }
+        RaiseChanged();
     }
 
     /// <summary>一首播完后由桌面播放器调用，文件夹里的下一首接着放。</summary>
@@ -539,6 +662,7 @@ public static class LauncherAudio
                 return;
             PlayCurrent(_tracks.Count(t => !Failed.Contains(t)) <= 1);
         }
+        RaiseChanged();
     }
 
     private static void PlayCurrent(bool loop)
@@ -552,6 +676,7 @@ public static class LauncherAudio
                 if (ok)
                 {
                     LastError = null;
+                    IsPlaying = true;
                     return;
                 }
                 LastError = file;
@@ -561,6 +686,7 @@ public static class LauncherAudio
                 LastError = e.Message;
             }
             Failed.Add(file);
+            IsPlaying = false;
             if (!SkipToNext())
                 return;
             loop = _tracks.Count(t => !Failed.Contains(t)) <= 1;
@@ -585,6 +711,7 @@ public static class LauncherAudio
     {
         lock (State)
             ClearPlayback();
+        RaiseChanged();
     }
 
     public static void StopAll()
@@ -596,12 +723,11 @@ public static class LauncherAudio
             _reload?.Cancel();
             ClearPlayback();
             if (StopAllImpl != null)
-            {
                 StopAllImpl();
-                return;
-            }
-            PlayWavFallback(null, false);
+            else
+                PlayWavFallback(null, false);
         }
+        RaiseChanged();
     }
 
     private static void ClearPlayback()
@@ -609,12 +735,24 @@ public static class LauncherAudio
         _tracks = [];
         _index = 0;
         Failed.Clear();
+        IsPlaying = false;
         if (StopImpl != null)
         {
             StopImpl();
             return;
         }
         PlayWavFallback(null, false);
+    }
+
+    private static void RaiseChanged()
+    {
+        try
+        {
+            Changed?.Invoke();
+        }
+        catch (Exception)
+        {
+        }
     }
 
     private static string ResolveWatchDir(string path)

@@ -76,6 +76,7 @@ public partial class SettingsPage : UserControl, IPage
         HomepageBox.Text = homeKey == "custom" ? cfg.Homepage : "";
         HomepageBox.IsVisible = homeKey == "custom";
         BgmBox.Text = cfg.Bgm;
+        SyncBgmVolume(cfg.BgmVolume);
         SfxBox.Text = cfg.LaunchSfx;
         ChannelBox.ItemsSource = UpdateChannels.Select(c => T(c.Text)).ToList();
         ChannelBox.SelectedIndex = Math.Max(0, Array.FindIndex(UpdateChannels, c => c.Key == cfg.UpdateChannel));
@@ -157,6 +158,7 @@ public partial class SettingsPage : UserControl, IPage
                 Cfg.Homepage = (HomepageBox.Text ?? "").Trim();
         };
         BgmBox.LostFocus += (_, _) => ApplyBgm((BgmBox.Text ?? "").Trim());
+        BgmVolumeSlider.ValueChanged += (_, _) => Main.SetBgmVolume((int)BgmVolumeSlider.Value);
         SfxBox.LostFocus += (_, _) => Cfg.LaunchSfx = (SfxBox.Text ?? "").Trim();
         GyroSwitch.IsCheckedChanged += (_, _) =>
         {
@@ -684,6 +686,15 @@ public partial class SettingsPage : UserControl, IPage
 
     private void RefreshSpeedLimit() =>
         SpeedLimitText.Text = Cfg.DownloadSpeedLimit <= 0 ? T("不限制") : $"{Cfg.DownloadSpeedLimit} KB/s";
+
+    public void SyncBgmVolume(int percent)
+    {
+        percent = Math.Clamp(percent, 0, 100);
+        if (BgmVolumeSlider != null && Math.Abs(BgmVolumeSlider.Value - percent) > 0.5)
+            BgmVolumeSlider.Value = percent;
+        if (BgmVolumeText != null)
+            BgmVolumeText.Text = $"{percent}%";
+    }
 
     private void ApplyBgm(string path)
     {

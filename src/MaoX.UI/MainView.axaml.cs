@@ -91,12 +91,16 @@ public partial class MainView : UserControl
         {
             try
             {
+                SetBgmVolume(Cfg.BgmVolume, persist: false);
                 LauncherAudio.Play(Cfg.Bgm, true);
             }
             catch (Exception)
             {
             }
         };
+        BgmVolumeSlider.ValueChanged += (_, _) => SetBgmVolume((int)BgmVolumeSlider.Value);
+        LauncherAudio.Changed += () => Dispatcher.UIThread.Post(RefreshBgmButton);
+        RefreshBgmButton();
         var egg = 0;
         DateTime eggAt = default;
         Brand.PointerPressed += (_, _) =>
@@ -460,7 +464,9 @@ public partial class MainView : UserControl
     private void ApplySafeArea(Thickness pad)
     {
         Padding = new Thickness(pad.Left, pad.Top, pad.Right, Math.Max(pad.Bottom, Platform.IsMobile ? 10 : 0));
-        ToastLayer.Margin = new Thickness(0, 0, 16 + pad.Right, 16 + Math.Max(pad.Bottom, 8));
+        var bottom = 16 + Math.Max(pad.Bottom, Platform.IsMobile ? 8 : 0);
+        ToastLayer.Margin = new Thickness(0, 0, 16 + pad.Right, 72 + Math.Max(pad.Bottom, 8));
+        BgmDock.Margin = new Thickness(0, 0, 16 + pad.Right, bottom);
     }
 
     /// <summary>列表类页面放不下时的最小高度。启动页在紧凑布局下按内容高度排，由 RefreshPageScroll 打开滚动。</summary>
@@ -1382,6 +1388,74 @@ public partial class MainView : UserControl
         foreach (var task in Tasks.Where(t => t.Running))
             task.Cancel.Cancel();
         return true;
+    }
+
+    private bool _bgmVolumeBusy;
+
+    public void SetBgmVolume(int percent, bool persist = true)
+    {
+        percent = Math.Clamp(percent, 0, 100);
+        if (_bgmVolumeBusy)
+            return;
+        _bgmVolumeBusy = true;
+        try
+        {
+            Cfg.BgmVolume = percent;
+            LauncherAudio.Volume = percent / 100f;
+            if (Math.Abs(BgmVolumeSlider.Value - percent) > 0.5)
+                BgmVolumeSlider.Value = percent;
+            SettingsPage?.SyncBgmVolume(percent);
+        }
+        finally
+        {
+            _bgmVolumeBusy = false;
+        }
+        if (persist)
+        {
+            try
+            {
+                Cfg.Save();
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    private void OnBgmButtonPressed(object sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(BgmButton).Properties.IsLeftButtonPressed)
+            return;
+        if (LauncherAudio.IsPlaying)
+            LauncherAudio.Pause();
+        else
+            LauncherAudio.Resume();
+        e.Handled = true;
+    }
+
+    private void OnBgmContext(object sender, ContextRequestedEventArgs e)
+    {
+        LauncherAudio.Next();
+        var title = LauncherAudio.CurrentTitle;
+        if (!string.IsNullOrEmpty(title))
+            Toast(F("下一首：{0}", title), "info");
+        e.Handled = true;
+    }
+
+    private void OnBgmWheel(object sender, PointerWheelEventArgs e)
+    {
+        SetBgmVolume(Cfg.BgmVolume + (e.Delta.Y > 0 ? 5 : -5));
+        e.Handled = true;
+    }
+
+    private void RefreshBgmButton()
+    {
+        BgmButton.Classes.Set("playing", LauncherAudio.IsPlaying);
+        BgmIcon.Opacity = LauncherAudio.IsPlaying ? 1 : 0.55;
+        var title = LauncherAudio.CurrentTitle;
+        ToolTip.SetTip(BgmButton, string.IsNullOrEmpty(title)
+            ? T("左键停止或继续，右键下一首")
+            : F("{0}\n左键停止或继续，右键下一首", title));
     }
 
     /// <summary>界面关闭后保存配置、关闭联机。</summary>

@@ -875,6 +875,14 @@ internal static class SmokeTest
             {
             }
         }
+        if (new LauncherConfig().BgmVolume != 70)
+            throw new Exception("bgm volume default");
+        LauncherAudio.Volume = 0.4f;
+        if (Math.Abs(LauncherAudio.Volume - 0.4f) > 0.01)
+            throw new Exception("bgm volume");
+        LauncherAudio.Next();
+        LauncherAudio.Toggle();
+        LauncherAudio.Pause();
         if (!Loaders.All.Contains("liteloader") || Mc.LoaderNames["liteloader"] != "LiteLoader")
             throw new Exception("liteloader missing");
         if (new LauncherConfig().AutoBackupWorlds)

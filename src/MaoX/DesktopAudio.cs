@@ -19,16 +19,19 @@ internal static class DesktopAudio
     private static Process _bgmProcess, _sfxProcess;
     private static CancellationTokenSource _bgmLoop;
     private static int _bgmGen;
+    private static float _volume = 0.7f;
 
     public static void Register()
     {
         LauncherAudio.PlayImpl = Play;
         LauncherAudio.StopImpl = StopBgm;
         LauncherAudio.StopAllImpl = StopAll;
+        LauncherAudio.SetVolumeImpl = SetVolume;
     }
 
     private static bool Play(string path, bool bgm, bool loop)
     {
+        _volume = LauncherAudio.Volume;
         try
         {
             if (Platform.IsWindows)
@@ -62,6 +65,7 @@ internal static class DesktopAudio
                 _bgmStream = loop ? new LoopStream(source) : source;
                 output = _bgmOut = new WaveOutEvent { DesiredLatency = 200 };
                 output.Init(_bgmStream);
+                output.Volume = _volume;
                 if (!loop)
                     output.PlaybackStopped += (_, _) => QueueBgmEnded(gen);
             }
@@ -185,14 +189,31 @@ internal static class DesktopAudio
         _sfxProcess = start();
     }
 
+    private static void SetVolume(float volume)
+    {
+        _volume = Math.Clamp(volume, 0, 1);
+        lock (Gate)
+        {
+            try
+            {
+                if (_bgmOut != null)
+                    _bgmOut.Volume = _volume;
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
     private static Func<Process> ExternalStart(string path)
     {
+        var percent = (int)Math.Round(_volume * 100);
         if (Platform.IsMac)
-            return () => Start("afplay", Quote(path));
+            return () => Start("afplay", $"-v {_volume.ToString(System.Globalization.CultureInfo.InvariantCulture)} {Quote(path)}");
         foreach (var (file, args) in new[]
                  {
-                     ("ffplay", "-nodisp -autoexit -loglevel quiet " + Quote(path)),
-                     ("mpv", "--no-video --really-quiet " + Quote(path)),
+                     ("ffplay", $"-nodisp -autoexit -loglevel quiet -volume {percent} {Quote(path)}"),
+                     ("mpv", $"--no-video --really-quiet --volume={percent} {Quote(path)}"),
                  })
         {
             if (HasCommand(file))
