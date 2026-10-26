@@ -740,6 +740,9 @@ internal static class SmokeTest
         var back = ControlLayout.FromJson(json, "test");
         if (!back.Gyro || Math.Abs(back.Sensitivity - 1.2) > 0.01)
             throw new Exception("layout roundtrip gyro/sensitivity");
+        var custom = ControlLayout.FromJson((JsonObject)JsonNode.Parse("""{"buttons":[{"label":"X","keys":[69]}]}"""), "t");
+        if (custom.Buttons is not [{ InGame: true, InMenu: true }])
+            throw new Exception("custom buttons should stay visible in menus by default");
         var home = Path.GetFullPath(AppPaths.DefaultMinecraftDir);
         var official = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "maox-official-mc"));
         var dirs = new LauncherConfig

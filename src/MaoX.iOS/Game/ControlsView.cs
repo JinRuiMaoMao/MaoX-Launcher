@@ -11,7 +11,7 @@ namespace MaoX.iOS.Game;
 /// 触屏操作层，盖在游戏画面上（和安卓版 ControlsView 一致）。
 /// 游戏中：左下摇杆移动（推到边缘疾跑），右侧跳跃 / 潜行等按钮，点快捷栏切换物品，
 /// 其余区域拖动转视角、轻点使用 / 放置、长按攻击 / 挖掘；支持多指同时操作。
-/// 菜单里：手指就是鼠标，双指上下滑动滚动；背包和暂停留着，方便再按 E / Esc 关掉界面。
+/// 菜单里：手指就是鼠标，双指上下滑动滚动；按键和摇杆像 Pojav 一样常驻，方便关背包、点 GUI。
 /// </summary>
 internal sealed class ControlsView : UIView
 {
@@ -108,24 +108,24 @@ internal sealed class ControlsView : UIView
         MultipleTouchEnabled = true;
         ContentMode = UIViewContentMode.Redraw;
 
-        _jump = Add("jump", labels, Keys.Space, false, true, false, null);
+        // 内置键和摇杆全局常驻（和 Pojav 一样）：打开背包后指针会松开，不能把操作层藏掉
+        _jump = Add("jump", labels, Keys.Space, false, true, true, null);
         _jump.Round = true;
-        _sneak = Add("sneak", labels, Keys.LeftShift, true, true, false, null);
+        _sneak = Add("sneak", labels, Keys.LeftShift, true, true, true, null);
         _sneak.Round = true;
-        // 背包 / 暂停在 GUI 里也要能点：打开背包后指针会松开，只显示 inMenu 的键，否则关不掉
         _inventory = Add("inventory", labels, Keys.E, false, true, true, null);
-        _drop = Add("drop", labels, Keys.Q, false, true, false, null);
-        _chat = Add("chat", labels, 0, false, true, false, () =>
+        _drop = Add("drop", labels, Keys.Q, false, true, true, null);
+        _chat = Add("chat", labels, 0, false, true, true, () =>
         {
             Tap(Keys.T);
             NSTimer.CreateScheduledTimer(0.15, false, _ => ShowKeyboard(true));
         });
-        _view = Add("view", labels, Keys.F5, false, true, false, null);
+        _view = Add("view", labels, Keys.F5, false, true, true, null);
         _pause = Add("pause", labels, Keys.Escape, false, true, true, null);
         _keyboard = Add("keyboard", labels, 0, false, true, true, () => ShowKeyboard(!KeyboardShown));
         // 拆分控制的攻击 / 使用按钮：按住的同时拖动可以继续转视角
-        _attack = Add("attack", labels, ControlKeys.MouseLeft, false, true, false, null);
-        _use = Add("use", labels, ControlKeys.MouseRight, false, true, false, null);
+        _attack = Add("attack", labels, ControlKeys.MouseLeft, false, true, true, null);
+        _use = Add("use", labels, ControlKeys.MouseRight, false, true, true, null);
         foreach (var b in new[] { _attack, _use })
         {
             b.Round = true;
@@ -473,15 +473,15 @@ internal sealed class ControlsView : UIView
                 SelectSlot(slot);
                 return;
             }
-            if (_stickZone.Contains(new CGPoint(x, y)))
-            {
-                _touches[id] = Stick;
-                if (_dpadMode)
-                    UpdateDpad(x, y, true);
-                else
-                    UpdateStick(x, y);
-                return;
-            }
+        }
+        if (!_stickHidden && _stickZone.Contains(new CGPoint(x, y)))
+        {
+            _touches[id] = Stick;
+            if (_dpadMode)
+                UpdateDpad(x, y, true);
+            else
+                UpdateStick(x, y);
+            return;
         }
         if (_lookTouch != NativeHandle.Zero)
         {
@@ -782,11 +782,11 @@ internal sealed class ControlsView : UIView
             UIColor.Black.SetStroke();
             arrow.Stroke();
         }
-        if (_grabbing && !_gamepadActive && !_stickHidden && _dpadMode)
+        if (!_gamepadActive && !_stickHidden && _dpadMode)
         {
             DrawDpad();
         }
-        else if (_grabbing && !_gamepadActive && !_stickHidden)
+        else if (!_gamepadActive && !_stickHidden)
         {
             var ring = UIBezierPath.FromOval(new CGRect(_stickX - _stickRadius, _stickY - _stickRadius,
                                                         _stickRadius * 2, _stickRadius * 2));

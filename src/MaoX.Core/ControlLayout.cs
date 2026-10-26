@@ -15,7 +15,7 @@ public class ControlLayout
     /// <summary>移动方式：摇杆（推到边缘疾跑），或基岩版的方向键（按住前进时出现斜向键，双击前进疾跑）。</summary>
     public const string Joystick = "joystick", Dpad = "dpad";
 
-    /// <summary>可以摆放的按键，顺序也是编辑器里的绘制顺序。attack / use 只在拆分控制时显示。inventory / pause / keyboard 在菜单里也会留下，避免打开背包后关不掉。</summary>
+    /// <summary>可以摆放的按键，顺序也是编辑器里的绘制顺序。attack / use 只在拆分控制时显示。内置键和摇杆默认游戏中、菜单里都常驻（和 Pojav 一样）。</summary>
     public static readonly string[] Ids = ["stick", "jump", "sneak", "inventory", "drop", "chat", "view", "pause", "keyboard", "attack", "use"];
 
     public string Name { get; set; } = "";
@@ -158,8 +158,8 @@ public class ControlLayout
                     Height = node.Get("h")?.GetValue<double>() ?? 56,
                     Round = node.Bool("round"),
                     Toggle = node.Bool("toggle"),
-                    InGame = node.Get("inGame") == null || node.Bool("inGame"),
-                    InMenu = node.Bool("inMenu"),
+                    InGame = node.Bool("inGame", true),
+                    InMenu = node.Bool("inMenu", true),
                 });
             }
         }
@@ -184,7 +184,7 @@ public record ControlButton
     /// <summary>按一下按住，再按一下松开</summary>
     public bool Toggle { get; set; }
     public bool InGame { get; set; } = true;
-    public bool InMenu { get; set; }
+    public bool InMenu { get; set; } = true;
 
     /// <summary>按键上显示的文字：没起名字时显示绑定的键</summary>
     public string Label => string.IsNullOrWhiteSpace(Name) ? ControlKeys.Describe(Keys) : Name.Trim();

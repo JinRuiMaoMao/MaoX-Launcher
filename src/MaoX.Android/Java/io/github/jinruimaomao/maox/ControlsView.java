@@ -37,7 +37,7 @@ import java.util.List;
  * 触屏操作层，盖在游戏画面上。
  * 游戏中：左下摇杆移动（推到边缘疾跑），右侧跳跃 / 潜行等按钮，点快捷栏切换物品，
  * 其余区域拖动转视角、轻点使用 / 放置、长按攻击 / 挖掘；支持多指同时操作。
- * 菜单里：手指就是鼠标，双指上下滑动滚动；背包和暂停留着，方便再按 E / Esc 关掉界面。
+ * 菜单里：手指就是鼠标，双指上下滑动滚动；按键和摇杆像 Pojav 一样常驻，方便关背包、点 GUI。
  */
 public class ControlsView extends View implements SensorEventListener {
     private static final long LONG_PRESS_MS = 300;
@@ -201,23 +201,23 @@ public class ControlsView extends View implements SensorEventListener {
         mText.setTextSize(13 * mDp);
         mText.setFakeBoldText(true);
 
-        mJump = add(labels, "jump", "Jump", 32, false, true, false, null);
+        // 内置键和摇杆全局常驻（和 Pojav 一样）：打开背包后指针会松开，不能把操作层藏掉
+        mJump = add(labels, "jump", "Jump", 32, false, true, true, null);
         mJump.round = true;
-        mSneak = add(labels, "sneak", "Sneak", Keys.GLFW_KEY_LEFT_SHIFT, true, true, false, null);
+        mSneak = add(labels, "sneak", "Sneak", Keys.GLFW_KEY_LEFT_SHIFT, true, true, true, null);
         mSneak.round = true;
-        // 背包 / 暂停在 GUI 里也要能点：打开背包后指针会松开，只显示 inMenu 的键，否则关不掉
         mInventory = add(labels, "inventory", "Inventory", 69, false, true, true, null);
-        mDrop = add(labels, "drop", "Drop", 81, false, true, false, null);
-        mChat = add(labels, "chat", "Chat", 0, false, true, false, () -> {
+        mDrop = add(labels, "drop", "Drop", 81, false, true, true, null);
+        mChat = add(labels, "chat", "Chat", 0, false, true, true, () -> {
             CallbackBridge.sendKeyPress(84);
             mHandler.postDelayed(() -> showKeyboard(true), 150);
         });
-        mView = add(labels, "view", "View", 294, false, true, false, null);
+        mView = add(labels, "view", "View", 294, false, true, true, null);
         mPause = add(labels, "pause", "Pause", Keys.GLFW_KEY_ESCAPE, false, true, true, null);
         mKeyboard = add(labels, "keyboard", "Keyboard", 0, false, true, true, this::toggleKeyboard);
         // 拆分控制的攻击 / 使用按钮：按住的同时拖动可以继续转视角
-        mAttack = add(labels, "attack", "Attack", MOUSE_LEFT, false, true, false, null);
-        mUse = add(labels, "use", "Use", MOUSE_RIGHT, false, true, false, null);
+        mAttack = add(labels, "attack", "Attack", MOUSE_LEFT, false, true, true, null);
+        mUse = add(labels, "use", "Use", MOUSE_RIGHT, false, true, true, null);
         for (Button b : new Button[] {mAttack, mUse}) {
             b.round = true;
             b.look = true;
@@ -232,7 +232,7 @@ public class ControlsView extends View implements SensorEventListener {
             int[] keys = new int[codes == null ? 0 : codes.length()];
             for (int k = 0; k < keys.length; k++) keys[k] = codes.optInt(k);
             Button b = new Button("custom" + i, c.optString("label", "?"), keys, c.optBoolean("toggle", false),
-                    c.optBoolean("inGame", true), c.optBoolean("inMenu", false), null);
+                    c.optBoolean("inGame", true), c.optBoolean("inMenu", true), null);
             b.round = c.optBoolean("round", false);
             b.custom = c;
             mButtons.add(b);
@@ -440,12 +440,12 @@ public class ControlsView extends View implements SensorEventListener {
                 selectSlot(slot);
                 return;
             }
-            if (mStickZone.contains(x, y)) {
-                mPointers.put(id, STICK);
-                if (mDpadMode) updateDpad(x, y, true);
-                else updateStick(x, y);
-                return;
-            }
+        }
+        if (!mStickHidden && mStickZone.contains(x, y)) {
+            mPointers.put(id, STICK);
+            if (mDpadMode) updateDpad(x, y, true);
+            else updateStick(x, y);
+            return;
         }
         if (mLookPointer != -1) {
             // 菜单里第二根手指：上下滑动滚动
@@ -699,9 +699,9 @@ public class ControlsView extends View implements SensorEventListener {
             mStroke.setColor(Color.BLACK);
             canvas.drawPath(mArrow, mStroke);
         }
-        if (mGrabbing && !mGamepadActive && !mStickHidden && mDpadMode) {
+        if (!mGamepadActive && !mStickHidden && mDpadMode) {
             drawDpad(canvas);
-        } else if (mGrabbing && !mGamepadActive && !mStickHidden) {
+        } else if (!mGamepadActive && !mStickHidden) {
             mFill.setColor(fade(0x33000000));
             mStroke.setColor(fade(0x66FFFFFF));
             canvas.drawCircle(mStickX, mStickY, mStickRadius, mFill);
