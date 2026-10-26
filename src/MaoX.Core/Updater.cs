@@ -16,6 +16,8 @@ public static class Updater
     public const string Repo = "JinRuiMaoMao/MaoX-Launcher";
     public const string RepoUrl = "https://github.com/" + Repo;
     public const string ReleasesUrl = RepoUrl + "/releases";
+    public const string AfdianUrl = "https://afdian.com/a/MaoX_Laun";
+    public const string DiscordUrl = "https://discord.gg/dkt2QHGQYe";
     private const string LatestApi = "https://api.github.com/repos/" + Repo + "/releases/latest";
     private const string ReleasesApi = "https://api.github.com/repos/" + Repo + "/releases";
 

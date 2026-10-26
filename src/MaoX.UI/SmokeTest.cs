@@ -639,6 +639,8 @@ internal static class SmokeTest
             throw new Exception("zh_tw settings: " + I18n.Lookup("zh_tw", "设置"));
         if (I18n.Lookup("en_us", "实时日志") != "Live log")
             throw new Exception("en live log: " + I18n.Lookup("en_us", "实时日志"));
+        if (I18n.Lookup("en_us", "爱发电") != "Afdian")
+            throw new Exception("en afdian: " + I18n.Lookup("en_us", "爱发电"));
         if (I18n.Lookup("zh_tw", "实时日志") != "即時日誌")
             throw new Exception("zh_tw live log: " + I18n.Lookup("zh_tw", "实时日志"));
         var ja = I18n.Lookup("ja_jp", "启动游戏");
@@ -762,6 +764,11 @@ internal static class SmokeTest
             throw new Exception("mod cn sodium");
         if (HelpFaq.Items.Length < 4 || SkinSites.All.Length < 3)
             throw new Exception("help/skins");
+        if (!Updater.AfdianUrl.Contains("afdian.com/a/MaoX_Laun", StringComparison.Ordinal)
+            || !Updater.DiscordUrl.Contains("discord.gg/dkt2QHGQYe", StringComparison.Ordinal))
+            throw new Exception("community links");
+        if (HelpFaq.Items.All(i => i.Q != "怎么支持和反馈？"))
+            throw new Exception("support faq");
         if (!LauncherAudio.Extensions.Contains(".mp3") || !LauncherAudio.Extensions.Contains(".flac")
             || !LauncherAudio.PickerPatterns.Contains("*.ogg"))
             throw new Exception("audio extensions");

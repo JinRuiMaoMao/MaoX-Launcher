@@ -171,6 +171,7 @@ public static class HelpFaq
         ("外置登录皮肤不显示？", "用 LittleSkin、Blessing Skin 或 Ely.by 等皮肤站的认证服务器地址登录。默认已经填好 LittleSkin。"),
         ("iOS 上打不开游戏？", "需要 JIT。用 StikDebug / SideStore / TrollStore，或设置里打开内置 JIT（实验）。26.3 及以上目前还不能启动。"),
         ("启动器如何更新？", "设置里可以检查更新。更新频道选「预览」时会包含测试版。正式版会通过 GitHub Release 自动提示。"),
+        ("怎么支持和反馈？", "爱发电可以支持开发，Discord 方便聊天和反馈，也可以在 GitHub 提 Issue。入口在设置「关于」和工具页「赞助」。"),
     ];
 }
 

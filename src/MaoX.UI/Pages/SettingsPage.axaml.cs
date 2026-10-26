@@ -789,6 +789,10 @@ public partial class SettingsPage : UserControl, IPage
 
     private void OnOpenRepo(object sender, RoutedEventArgs e) => Platform.OpenUrl(Updater.RepoUrl);
 
+    private void OnOpenAfdian(object sender, RoutedEventArgs e) => Platform.OpenUrl(Updater.AfdianUrl);
+
+    private void OnOpenDiscord(object sender, RoutedEventArgs e) => Platform.OpenUrl(Updater.DiscordUrl);
+
     private async void OnLicenses(object sender, RoutedEventArgs e)
     {
         var lines = new List<string>

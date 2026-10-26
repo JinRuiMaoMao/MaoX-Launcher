@@ -21,6 +21,11 @@
 Windows 版是单个 exe，放在哪个文件夹，游戏和配置就保存在哪个文件夹。
 Mac 版解压后拖进"应用程序"；首次打开如果提示无法验证开发者，右键点击 → 打开，或到"系统设置 → 隐私与安全性"点"仍要打开"。
 
+## 社区
+
+- 爱发电：https://afdian.com/a/MaoX_Laun
+- Discord：https://discord.gg/dkt2QHGQYe
+
 ## 从源码构建
 
 需要 [.NET 10 SDK](https://dotnet.microsoft.com/download)。

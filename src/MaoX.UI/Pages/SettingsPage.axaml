@@ -337,12 +337,18 @@
               <TextBlock Name="AboutVersion" FontSize="16" FontWeight="SemiBold" />
               <TextBlock Name="AboutPlatform" Classes="small muted" />
             </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <WrapPanel Grid.Column="2" ItemSpacing="10" LineSpacing="8" VerticalAlignment="Center">
               <StackPanel Name="AutoUpdatePanel" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <ComboBox Name="ChannelBox" MinWidth="110" SelectionChanged="OnChannelChanged" />
                 <TextBlock Text="{c:Tr 自动检查更新}" VerticalAlignment="Center" />
                 <ToggleSwitch Name="AutoUpdateSwitch" OnContent="" OffContent="" MinWidth="0" />
               </StackPanel>
+              <Button Click="OnOpenAfdian">
+                <c:IconLabel Icon="sparkle" Text="{c:Tr 爱发电}" />
+              </Button>
+              <Button Click="OnOpenDiscord">
+                <c:IconLabel Icon="people" Text="Discord" />
+              </Button>
               <Button Click="OnOpenRepo">
                 <c:IconLabel Icon="link" Text="GitHub" />
               </Button>
@@ -350,7 +356,7 @@
               <Button Name="CheckUpdateButton" Classes="primary" Click="OnCheckUpdate">
                 <c:IconLabel Icon="refresh" Text="{c:Tr 检查更新}" />
               </Button>
-            </StackPanel>
+            </WrapPanel>
           </Grid>
         </Border>
       </Grid>

@@ -438,15 +438,26 @@ public class ToolsPage : UserControl, IPage
     {
         var hint = new TextBlock
         {
-            Text = T("如果喜欢 MaoX，可以在 GitHub 点 Star，或打开发布页支持一下。"),
+            Text = T("如果喜欢 MaoX，可以在爱发电支持开发，加入 Discord，或在 GitHub 点 Star。"),
             Classes = { "muted", "wrap" },
         };
+        var afdian = DialogView.MakeButton(T("爱发电"), icon: "sparkle", onClick: () => Platform.OpenUrl(Updater.AfdianUrl));
+        var discord = DialogView.MakeButton("Discord", icon: "people", onClick: () => Platform.OpenUrl(Updater.DiscordUrl));
         var star = DialogView.MakeButton(T("打开 GitHub"), icon: "link", onClick: () => Platform.OpenUrl(Updater.RepoUrl));
         var rel = DialogView.MakeButton(T("打开发布页"), icon: "external", onClick: () => Platform.OpenUrl(Updater.ReleasesUrl));
         return new StackPanel
         {
             Spacing = 8,
-            Children = { hint, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { star, rel } } },
+            Children =
+            {
+                hint,
+                new WrapPanel
+                {
+                    ItemSpacing = 8,
+                    LineSpacing = 8,
+                    Children = { afdian, discord, star, rel },
+                },
+            },
         };
     }
 
