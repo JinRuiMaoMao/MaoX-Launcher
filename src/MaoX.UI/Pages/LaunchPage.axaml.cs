@@ -450,7 +450,6 @@ public partial class LaunchPage : UserControl, IPage
     }
 
     private static McSiteFeed.Snapshot _feed;
-    private static DateTime _feedAt;
     private int _infoId;
 
     public void ReloadDash() => LoadDashInfo();
@@ -468,41 +467,21 @@ public partial class LaunchPage : UserControl, IPage
     private async void LoadDashInfo()
     {
         var id = ++_infoId;
-        _ = FillDrop(LatestList, new McSiteFeed.Item(T("正在获取…"), "", ""));
-        _ = FillDrop(UpcomingList, new McSiteFeed.Item(T("正在获取…"), "", ""));
         NewsTitle.Text = T("最新新闻");
-        FillNewsItem(new McSiteFeed.Item(T("正在获取…"), "", ""));
+        if (_feed != null)
+            await ApplyDash(_feed, id);
+        else
+        {
+            _ = FillDrop(LatestList, new McSiteFeed.Item(T("正在获取…"), "", ""));
+            _ = FillDrop(UpcomingList, new McSiteFeed.Item(T("正在获取…"), "", ""));
+            _ = FillNewsItem(new McSiteFeed.Item(T("正在获取…"), "", ""));
+        }
         try
         {
-            if (_feed == null || DateTime.UtcNow - _feedAt > TimeSpan.FromMinutes(30))
-            {
-                _feed = await McSiteFeed.FetchAsync();
-                _feedAt = DateTime.UtcNow;
-            }
+            _feed = await McSiteFeed.FetchAsync();
             if (id != _infoId)
                 return;
-            await Task.WhenAll(FillDrop(LatestList, _feed.Latest), FillDrop(UpcomingList, _feed.Upcoming));
-            var source = (Main.Cfg.Homepage ?? "").Trim();
-            if (source.Length > 0 && !source.Equals("preset:news", StringComparison.OrdinalIgnoreCase))
-            {
-                NewsTitle.Text = T("主页");
-                try
-                {
-                    var cards = await Homepage.LoadAsync(source);
-                    if (id != _infoId)
-                        return;
-                    var card = cards.FirstOrDefault();
-                    FillNewsItem(card == null ? null : new McSiteFeed.Item(card.Title, card.Text, card.Url));
-                }
-                catch (Exception e)
-                {
-                    if (id != _infoId)
-                        return;
-                    FillNewsItem(new McSiteFeed.Item(F("主页加载失败：{0}", e.Message), "", ""));
-                }
-            }
-            else
-                FillNewsItem(_feed.News);
+            await ApplyDash(_feed, id);
         }
         catch (Exception e)
         {
@@ -510,7 +489,36 @@ public partial class LaunchPage : UserControl, IPage
                 return;
             _ = FillDrop(LatestList, null);
             _ = FillDrop(UpcomingList, null);
-            FillNewsItem(new McSiteFeed.Item(F("动态加载失败：{0}", e.Message), "", ""));
+            await FillNewsItem(new McSiteFeed.Item(F("动态加载失败：{0}", e.Message), "", ""));
+        }
+    }
+
+    private async Task ApplyDash(McSiteFeed.Snapshot feed, int id)
+    {
+        await Task.WhenAll(FillDrop(LatestList, feed.Latest), FillDrop(UpcomingList, feed.Upcoming));
+        var source = (Main.Cfg.Homepage ?? "").Trim();
+        if (source.Length > 0 && !source.Equals("preset:news", StringComparison.OrdinalIgnoreCase))
+        {
+            NewsTitle.Text = T("主页");
+            try
+            {
+                var cards = await Homepage.LoadAsync(source);
+                if (id != _infoId)
+                    return;
+                var card = cards.FirstOrDefault();
+                await FillNewsItem(card == null ? null : new McSiteFeed.Item(card.Title, card.Text, card.Url));
+            }
+            catch (Exception e)
+            {
+                if (id != _infoId)
+                    return;
+                await FillNewsItem(new McSiteFeed.Item(F("主页加载失败：{0}", e.Message), "", ""));
+            }
+        }
+        else
+        {
+            NewsTitle.Text = T("最新新闻");
+            await FillNewsItem(feed.News);
         }
     }
 
@@ -553,7 +561,7 @@ public partial class LaunchPage : UserControl, IPage
             await LoadArt(picture, image);
     }
 
-    private void FillNewsItem(McSiteFeed.Item item)
+    private async Task FillNewsItem(McSiteFeed.Item item)
     {
         NewsList.Children.Clear();
         if (item == null)
@@ -561,22 +569,45 @@ public partial class LaunchPage : UserControl, IPage
             NewsList.Children.Add(new TextBlock { Text = T("暂时没有内容"), Classes = { "muted" } });
             return;
         }
+        var picture = new Image { Stretch = Stretch.UniformToFill, Height = 132 };
+        var art = new Border
+        {
+            Height = 132, ClipToBounds = true, CornerRadius = new CornerRadius(11, 11, 0, 0), Child = picture,
+            IsVisible = false,
+        };
         var box = new StackPanel { Spacing = 4 };
-        box.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
+        box.Children.Add(new TextBlock
+        {
+            Text = item.Title, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(12, 10, 12, item.Text.Length > 0 ? 0 : 12),
+        });
         if (item.Text.Length > 0)
-            box.Children.Add(new TextBlock { Text = item.Text, Classes = { "small", "muted", "wrap" } });
-        var row = new Border { Classes = { "row" }, Padding = new Thickness(12, 10), Child = box };
+            box.Children.Add(new TextBlock
+            {
+                Text = item.Text, Classes = { "small", "muted", "wrap" }, Margin = new Thickness(12, 0, 12, 12),
+            });
+        var card = new Border
+        {
+            Classes = { "row" }, Padding = new Thickness(0), ClipToBounds = true,
+            Child = new StackPanel { Children = { art, box } },
+        };
         if (!string.IsNullOrWhiteSpace(item.Url))
         {
-            row.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            card.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
             var url = item.Url;
-            row.PointerPressed += (_, e) =>
+            card.PointerPressed += (_, e) =>
             {
-                if (e.GetCurrentPoint(row).Properties.IsLeftButtonPressed)
+                if (e.GetCurrentPoint(card).Properties.IsLeftButtonPressed)
                     Platform.OpenUrl(url);
             };
         }
-        NewsList.Children.Add(row);
+        NewsList.Children.Add(card);
+        var image = ThemeManager.IsLight ? item.ImageLight ?? item.Image : item.Image ?? item.ImageLight;
+        if (!string.IsNullOrWhiteSpace(image))
+        {
+            art.IsVisible = true;
+            await LoadArt(picture, image);
+        }
     }
 
     private static readonly Dictionary<string, Bitmap> _art = new(StringComparer.OrdinalIgnoreCase);

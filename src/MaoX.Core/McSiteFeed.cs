@@ -1,17 +1,39 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using static MaoX.Core.I18n;
 
 namespace MaoX.Core;
 
-/// <summary>Minecraft Wiki 首页 Latest / Upcoming，以及 minecraft.net 最新新闻。</summary>
+/// <summary>Minecraft Wiki 首页 Latest / Upcoming，以及 minecraft.net 新闻页置顶文章。</summary>
 public static class McSiteFeed
 {
     public const string Wiki = "https://minecraft.wiki";
     public const string MinecraftNet = "https://www.minecraft.net";
+    public const string LauncherNews = "https://launchercontent.mojang.com/v2/news.json";
 
     public record Item(string Title, string Text, string Url, string Image = null, string ImageLight = null);
 
     public record Snapshot(Item Latest, Item Upcoming, Item News);
+
+    /// <summary>官网新闻页语言码，跟当前启动器语言走。</summary>
+    public static string SiteLang() => Language switch
+    {
+        "zh_cn" => "zh-hans",
+        "zh_tw" or "zh_hk" or "lzh" => "zh-hant",
+        "ja_jp" => "ja-jp",
+        "ko_kr" => "ko-kr",
+        "de_de" or "de_at" or "de_ch" => "de-de",
+        "fr_fr" or "fr_ca" or "fr_ch" => "fr-fr",
+        "es_es" or "es_mx" or "es_ar" => "es-es",
+        "pt_br" => "pt-br",
+        "pt_pt" => "pt-pt",
+        "ru_ru" => "ru-ru",
+        "it_it" => "it-it",
+        "pl_pl" => "pl-pl",
+        _ => "en-us",
+    };
+
+    public static string ArticlesUrl => $"{MinecraftNet}/{SiteLang()}/articles";
 
     public static async Task<Snapshot> FetchAsync(CancellationToken cancel = default)
     {
@@ -19,7 +41,8 @@ public static class McSiteFeed
         var page = Http.SendAsync(
             Wiki + "/api.php?action=parse&page=Minecraft_Wiki&prop=text&format=json&formatversion=2",
             timeout: 15, cancel: cancel);
-        var news = Http.SendAsync("https://launchercontent.mojang.com/v2/news.json", timeout: 15, cancel: cancel);
+        var articles = Http.SendAsync(ArticlesUrl, timeout: 15, cancel: cancel);
+        var news = Http.SendAsync(LauncherNews, timeout: 15, cancel: cancel);
         try
         {
             var result = await page;
@@ -39,12 +62,24 @@ public static class McSiteFeed
         }
         try
         {
-            var result = await news;
+            var result = await articles;
             if (result.Ok)
-                article = ParseNews(result.Json()).FirstOrDefault();
+                article = ParseArticles(result.Text).FirstOrDefault();
         }
         catch (Exception)
         {
+        }
+        if (article == null)
+        {
+            try
+            {
+                var result = await news;
+                if (result.Ok)
+                    article = ParseNews(result.Json()).FirstOrDefault();
+            }
+            catch (Exception)
+            {
+            }
         }
         return new Snapshot(latest, upcoming, article);
     }
@@ -118,6 +153,28 @@ public static class McSiteFeed
         }).Where(item => item.Title.Length > 0).Take(1).ToList();
     }
 
+    /// <summary>按官网 /articles 置顶卡片顺序解析，第一张就是页面上最前面那条。</summary>
+    public static List<Item> ParseArticles(string html)
+    {
+        var list = new List<Item>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match card in Regex.Matches(html ?? "",
+                     @"class=""MC_tiledHeroA_card""[\s\S]*?(?=class=""MC_tiledHeroA_card""|data-mc-mount=""ResultGroupAApp""|$)",
+                     RegexOptions.IgnoreCase))
+        {
+            var block = card.Value;
+            var title = Plain(Regex.Match(block, @"<h2\b[^>]*>([\s\S]*?)</h2>", RegexOptions.IgnoreCase).Groups[1].Value);
+            var href = Regex.Match(block, @"href=""(/[^""]*/article/[^""]+)""", RegexOptions.IgnoreCase);
+            if (title.Length == 0 || !href.Success || !seen.Add(href.Groups[1].Value))
+                continue;
+            var blurb = Regex.Match(block, @"class=""MC_tiledHeroA_blurb""[^>]*>([\s\S]*?)</div>", RegexOptions.IgnoreCase);
+            var img = Regex.Match(block, @"<img[^>]+src=""([^""]+)""", RegexOptions.IgnoreCase);
+            var image = img.Success ? AbsoluteNet(System.Net.WebUtility.HtmlDecode(img.Groups[1].Value)) : null;
+            list.Add(new Item(title, blurb.Success ? Plain(blurb.Groups[1].Value) : "", AbsoluteNet(href.Groups[1].Value), image));
+        }
+        return list;
+    }
+
     public static string WikiPage(string title)
     {
         title = (title ?? "").Trim().Replace(' ', '_');
@@ -132,6 +189,16 @@ public static class McSiteFeed
         if (!href.StartsWith('/'))
             href = "/" + href;
         return Wiki + href;
+    }
+
+    public static string AbsoluteNet(string href)
+    {
+        href = (href ?? "").Trim();
+        if (href.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return href;
+        if (!href.StartsWith('/'))
+            href = "/" + href;
+        return MinecraftNet + href;
     }
 
     public static string Plain(string html)

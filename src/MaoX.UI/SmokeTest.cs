@@ -670,6 +670,15 @@ internal static class SmokeTest
             """{"entries":[{"title":"Hello","text":"World","readMoreLink":"https://www.minecraft.net/article/hello"},{"title":"Old","text":"x","readMoreLink":"https://www.minecraft.net/article/old"}]}"""));
         if (news.Count != 1 || news[0].Title != "Hello" || !news[0].Url.Contains("minecraft.net"))
             throw new Exception("news");
+        var articles = McSiteFeed.ParseArticles(
+            """<div class="MC_tiledHeroA_card"><img class="MC_tiledHeroA_poster_img" src="/content/dam/pizza.jpg"/><h2 class="MC_Heading_3">Domino’s x Minecraft Dungeons II</h2><div class="MC_tiledHeroA_blurb"><p>Fuel up!</p></div><a href="/en-us/article/dominos-minecraft-dungeons-ii">Check it out!</a></div><div class="MC_tiledHeroA_card"><img src="/content/dam/ice.jpg"/><h2>Everything you can test</h2><a href="/en-us/article/drop-4-2026-testing">Test</a></div>""");
+        if (articles.Count != 2 || articles[0].Title != "Domino’s x Minecraft Dungeons II"
+            || !articles[0].Url.Contains("/article/dominos-minecraft-dungeons-ii", StringComparison.Ordinal)
+            || articles[0].Image is not { } cover || !cover.Contains("pizza.jpg", StringComparison.Ordinal)
+            || articles[1].Title != "Everything you can test")
+            throw new Exception("articles: " + string.Join(',', articles.Select(a => a.Title + "/" + a.Image)));
+        if (!McSiteFeed.ArticlesUrl.Contains("/articles", StringComparison.Ordinal))
+            throw new Exception("articles url: " + McSiteFeed.ArticlesUrl);
         if (!McSiteFeed.WikiPage("Java Edition 26.3").EndsWith("/w/Java_Edition_26.3", StringComparison.Ordinal))
             throw new Exception("wiki url: " + McSiteFeed.WikiPage("Java Edition 26.3"));
         return $"versions={map.Count} drops={drops.Count}";
