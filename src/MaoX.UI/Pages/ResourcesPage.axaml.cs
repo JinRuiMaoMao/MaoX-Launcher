@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -21,6 +22,7 @@ public partial class ResourcesPage : UserControl, IPage
     private const int PageSize = 20;
 
     private record Target(string Version, string Loader, string LoaderVersion, string Game, string GameDir);
+    private record FavoriteItem(string Key);
 
     private Target _ctx;
     private string _kind = "mod";
@@ -51,6 +53,17 @@ public partial class ResourcesPage : UserControl, IPage
     public ResourcesPage()
     {
         InitializeComponent();
+        LocalList.ItemTemplate = new FuncDataTemplate<object>((item, _) => item switch
+        {
+            LocalFile file => LocalRow(file),
+            FavoriteItem fav => FavoriteRow(fav.Key),
+            string text => new TextBlock
+            {
+                Text = text, Classes = { "muted" }, HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 30),
+            },
+            _ => new TextBlock(),
+        }, true);
         foreach (var kind in Mods.Kinds)
         {
             var chip = new ToggleButton { Classes = { "chip" }, Content = T(kind.Name), IsChecked = kind.Key == _kind };
@@ -362,10 +375,10 @@ public partial class ResourcesPage : UserControl, IPage
         Control show = content switch
         {
             "empty" => EmptyView,
-            "local" => LocalView,
+            "local" => LocalList,
             _ => BrowseView,
         };
-        Control[] views = [EmptyView, BrowseView, LocalView];
+        Control[] views = [EmptyView, BrowseView, LocalList];
         if (_tabReady && _shownContent != content)
             PageTabs.Swap(show, views, PageTabs.Direction(TabKeys, _shownContent ?? _tab, _tab));
         else
@@ -704,40 +717,32 @@ public partial class ResourcesPage : UserControl, IPage
 
     private async void RenderFavorites()
     {
-        LocalList.Children.Clear();
-        var keys = Main.Cfg.FavoriteMods ?? [];
-        if (keys.Count == 0)
-        {
-            LocalList.Children.Add(new TextBlock
-            {
-                Text = T("还没有收藏。在 Modrinth / CurseForge 列表里点星星即可收藏。"),
-                Classes = { "muted" }, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 30),
-            });
-            return;
-        }
-        foreach (var key in keys.ToList())
-        {
-            var parts = key.Split(':', 2);
-            if (parts.Length != 2)
-                continue;
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-            row.Children.Add(new TextBlock { Text = parts[1] + "  ·  " + parts[0], VerticalAlignment = VerticalAlignment.Center });
-            var open = new Button { Content = T("打开"), Margin = new Thickness(8, 0, 0, 0) };
-            var source = parts[0];
-            var id = parts[1];
-            open.Click += (_, _) =>
-            {
-                _tab = source is "curseforge" ? "curseforge" : "modrinth";
-                _source = _tab;
-                SearchBox.Text = id;
-                ShowTab();
-                Search(true);
-            };
-            Grid.SetColumn(open, 1);
-            row.Children.Add(open);
-            LocalList.Children.Add(new Border { Classes = { "row" }, Padding = new Thickness(16, 10), Child = row });
-        }
+        var keys = (Main.Cfg.FavoriteMods ?? []).Where(k => k.Split(':', 2).Length == 2).ToList();
+        LocalList.ItemsSource = keys.Count == 0
+            ? new object[] { T("还没有收藏。在 Modrinth / CurseForge 列表里点星星即可收藏。") }
+            : keys.Select(k => (object)new FavoriteItem(k)).ToList();
         await Task.CompletedTask;
+    }
+
+    private Control FavoriteRow(string key)
+    {
+        var parts = key.Split(':', 2);
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        row.Children.Add(new TextBlock { Text = parts[1] + "  ·  " + parts[0], VerticalAlignment = VerticalAlignment.Center });
+        var open = new Button { Content = T("打开"), Margin = new Thickness(8, 0, 0, 0) };
+        var source = parts[0];
+        var id = parts[1];
+        open.Click += (_, _) =>
+        {
+            _tab = source is "curseforge" ? "curseforge" : "modrinth";
+            _source = _tab;
+            SearchBox.Text = id;
+            ShowTab();
+            Search(true);
+        };
+        Grid.SetColumn(open, 1);
+        row.Children.Add(open);
+        return new Border { Classes = { "row" }, Padding = new Thickness(16, 10), Margin = new Thickness(0, 0, 0, 8), Child = row };
     }
 
     private void MarkInstalled()
@@ -807,60 +812,60 @@ public partial class ResourcesPage : UserControl, IPage
 
     private void RenderLocal()
     {
-        LocalList.Children.Clear();
         if (_localItems.Count == 0)
         {
-            LocalList.Children.Add(new TextBlock
+            LocalList.ItemsSource = new object[]
             {
-                Text = F("还没有安装{0}，去 Modrinth 或 CurseForge 装一些吧", T(Mods.KindNames[_kind])),
-                Classes = { "muted" }, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 30),
-            });
+                F("还没有安装{0}，去 Modrinth 或 CurseForge 装一些吧", T(Mods.KindNames[_kind])),
+            };
             return;
         }
+        LocalList.ItemsSource = _localItems.Cast<object>().ToList();
+    }
+
+    private Control LocalRow(LocalFile item)
+    {
         var success = (IBrush)Application.Current!.FindResource("Success")!;
         var accent = (IBrush)Application.Current!.FindResource("Accent")!;
-        foreach (var item in _localItems)
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
+        if (_kind == "mod")
         {
-            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
-            if (_kind == "mod")
-            {
-                var toggle = new ToggleSwitch { IsChecked = item.Enabled, Margin = new Thickness(0, 0, 14, 0) };
-                toggle.IsCheckedChanged += (_, _) => Toggle(item, toggle);
-                grid.Children.Add(toggle);
-            }
-            else
-            {
-                grid.Children.Add(new Icon { Kind = item.IsDir ? "folder" : "pack", Size = 22, Foreground = accent, Margin = new Thickness(4, 0, 16, 0) });
-            }
-            var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-            var name = new TextBlock { Text = item.Name, FontWeight = FontWeight.SemiBold };
-            if (!item.Enabled)
-                name.Classes.Add("dim");
-            line.Children.Add(name);
-            if (!string.IsNullOrEmpty(item.Version))
-                line.Children.Add(new TextBlock { Text = item.Version, Classes = { "small", "muted" }, VerticalAlignment = VerticalAlignment.Center });
-            _updates.TryGetValue(item.Path, out var update);
-            if (update != null)
-                line.Children.Add(new TextBlock { Text = F("可更新 → {0}", update.Version), Classes = { "small", "bold" }, Foreground = success, VerticalAlignment = VerticalAlignment.Center });
-            var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
-            text.Children.Add(line);
-            text.Children.Add(new TextBlock { Text = item.Filename, Classes = { "small", "dim" } });
-            Grid.SetColumn(text, 1);
-            grid.Children.Add(text);
-            if (update != null)
-            {
-                var updateButton = new Button { Content = new IconLabel { Icon = "download", Text = T("更新") }, Margin = new Thickness(0, 0, 6, 0) };
-                updateButton.Click += (_, _) => RunUpdates([update]);
-                Grid.SetColumn(updateButton, 2);
-                grid.Children.Add(updateButton);
-            }
-            var delete = new Button { Classes = { "ghost", "danger-text" }, Content = new Icon { Kind = "delete", Size = 17 }, Padding = new Thickness(9, 0) };
-            ToolTip.SetTip(delete, T("删除"));
-            delete.Click += (_, _) => Delete(item);
-            Grid.SetColumn(delete, 3);
-            grid.Children.Add(delete);
-            LocalList.Children.Add(new Border { Classes = { "row" }, Padding = new Thickness(16, 10, 10, 10), Child = grid });
+            var toggle = new ToggleSwitch { IsChecked = item.Enabled, Margin = new Thickness(0, 0, 14, 0) };
+            toggle.IsCheckedChanged += (_, _) => Toggle(item, toggle);
+            grid.Children.Add(toggle);
         }
+        else
+        {
+            grid.Children.Add(new Icon { Kind = item.IsDir ? "folder" : "pack", Size = 22, Foreground = accent, Margin = new Thickness(4, 0, 16, 0) });
+        }
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        var name = new TextBlock { Text = item.Name, FontWeight = FontWeight.SemiBold };
+        if (!item.Enabled)
+            name.Classes.Add("dim");
+        line.Children.Add(name);
+        if (!string.IsNullOrEmpty(item.Version))
+            line.Children.Add(new TextBlock { Text = item.Version, Classes = { "small", "muted" }, VerticalAlignment = VerticalAlignment.Center });
+        _updates.TryGetValue(item.Path, out var update);
+        if (update != null)
+            line.Children.Add(new TextBlock { Text = F("可更新 → {0}", update.Version), Classes = { "small", "bold" }, Foreground = success, VerticalAlignment = VerticalAlignment.Center });
+        var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(line);
+        text.Children.Add(new TextBlock { Text = item.Filename, Classes = { "small", "dim" } });
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+        if (update != null)
+        {
+            var updateButton = new Button { Content = new IconLabel { Icon = "download", Text = T("更新") }, Margin = new Thickness(0, 0, 6, 0) };
+            updateButton.Click += (_, _) => RunUpdates([update]);
+            Grid.SetColumn(updateButton, 2);
+            grid.Children.Add(updateButton);
+        }
+        var delete = new Button { Classes = { "ghost", "danger-text" }, Content = new Icon { Kind = "delete", Size = 17 }, Padding = new Thickness(9, 0) };
+        ToolTip.SetTip(delete, T("删除"));
+        delete.Click += (_, _) => Delete(item);
+        Grid.SetColumn(delete, 3);
+        grid.Children.Add(delete);
+        return new Border { Classes = { "row" }, Padding = new Thickness(16, 10, 10, 10), Margin = new Thickness(0, 0, 0, 8), Child = grid };
     }
 
     private async void Toggle(LocalFile mod, ToggleSwitch toggle)

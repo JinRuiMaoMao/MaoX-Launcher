@@ -71,9 +71,7 @@
       <ScrollViewer Name="BrowseView" Padding="0,0,12,0">
         <StackPanel Name="BrowseList" Spacing="10" />
       </ScrollViewer>
-      <ScrollViewer Name="LocalView" Padding="0,0,12,0" IsVisible="False">
-        <StackPanel Name="LocalList" Spacing="8" />
-      </ScrollViewer>
+      <ListBox Name="LocalList" Classes="plain" Padding="0,0,12,0" IsVisible="False" />
       <StackPanel Name="EmptyView" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
                   Margin="0,0,0,60" Spacing="6">
         <c:Icon Kind="paw" Filled="True" Size="50" StrokeWidth="0" Foreground="{StaticResource Dim}" />

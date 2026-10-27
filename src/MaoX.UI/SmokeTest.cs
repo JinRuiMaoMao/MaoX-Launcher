@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -113,6 +114,7 @@ internal static class SmokeTest
         await Check("auto memory", () => Task.FromResult(CheckAutoMemory()));
         await Check("launcher extras", () => Task.FromResult(CheckExtras()));
         await Check("pcl extras", () => Task.FromResult(CheckPclExtras()));
+        await Check("large mod list", () => CheckLargeModList());
         await Check("languages", () => Task.FromResult(CheckLanguages()));
         await Check("site feed", () => Task.FromResult(CheckMcSiteFeed()));
         await Check("game dir switch", () => Task.FromResult(CheckGameDirSwitch(window)));
@@ -835,6 +837,49 @@ internal static class SmokeTest
             try
             {
                 Directory.Delete(official, true);
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    private static async Task<string> CheckLargeModList()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "maox-smoke-modlist-" + Guid.NewGuid().ToString("N")[..8]);
+        var mods = Path.Combine(root, "mods");
+        Directory.CreateDirectory(mods);
+        try
+        {
+            const int count = 120;
+            for (var i = 0; i < count; i++)
+            {
+                using var zip = ZipFile.Open(Path.Combine(mods, $"dummy-{i:D3}.jar"), ZipArchiveMode.Create);
+                var entry = zip.CreateEntry("fabric.mod.json");
+                await using var stream = entry.Open();
+                var json = $"{{\"id\":\"dummy{i}\",\"name\":\"Dummy {i}\",\"version\":\"1.0.{i}\"}}";
+                await stream.WriteAsync(Encoding.UTF8.GetBytes(json));
+            }
+            var watch = Stopwatch.StartNew();
+            var listed = Mods.ListLocalMods(mods);
+            var readMs = watch.ElapsedMilliseconds;
+            if (listed.Count != count)
+                throw new Exception($"listed {listed.Count}, expected {count}");
+            if (listed.Any(m => string.IsNullOrEmpty(m.Name) || string.IsNullOrEmpty(m.Version)))
+                throw new Exception("mod name/version missing");
+            watch.Restart();
+            var card = new Dialogs.VersionFilesCard(() => root, true);
+            await Task.Delay(400);
+            var uiMs = watch.ElapsedMilliseconds;
+            if (readMs > 4000)
+                throw new Exception($"ListLocalMods took {readMs}ms for {count} jars");
+            return $"{count} mods listed in {readMs}ms, card {uiMs}ms ({card.GetType().Name})";
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, true);
             }
             catch (Exception)
             {

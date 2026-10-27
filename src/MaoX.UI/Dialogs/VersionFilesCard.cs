@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -21,11 +22,14 @@ public class VersionFilesCard : UserControl
     private readonly List<Kind> _kinds = [];
     private readonly Dictionary<string, ToggleButton> _tabs = [];
     private readonly Dictionary<string, int> _counts = [];
-    private readonly StackPanel _list = new() { Spacing = 6 };
+    private readonly ListBox _list = new() { Classes = { "plain" }, MaxHeight = 300, Padding = new Thickness(0, 0, 8, 0) };
+    private readonly TextBlock _empty = new() { Classes = { "muted", "wrap" }, Margin = new Thickness(0, 6) };
     private readonly TextBox _search = new() { Watermark = T("搜索"), MinWidth = 150 };
+    private readonly DispatcherTimer _searchDebounce = new() { Interval = TimeSpan.FromMilliseconds(160) };
     private Kind _kind;
     private List<LocalFile> _items = [];
     private readonly Dictionary<string, Bitmap> _icons = [];
+    private readonly Dictionary<string, (Image Image, Control Placeholder)> _iconViews = [];
     private int _loadId;
 
     private static MainView Main => MainView.Current;
@@ -49,7 +53,17 @@ public class VersionFilesCard : UserControl
         }
 
         _search.InnerLeftContent = new Icon { Kind = "search", Size = 15, Margin = new Thickness(10, 0, 0, 0), Foreground = Res("Dim") };
-        _search.TextChanged += (_, _) => Render();
+        _searchDebounce.Tick += (_, _) =>
+        {
+            _searchDebounce.Stop();
+            Render();
+        };
+        _search.TextChanged += (_, _) =>
+        {
+            _searchDebounce.Stop();
+            _searchDebounce.Start();
+        };
+        _list.ItemTemplate = new FuncDataTemplate<LocalFile>((item, _) => Row(item), true);
         var add = DialogView.MakeButton(T("导入"), icon: "file", onClick: Import);
         var open = DialogView.MakeButton(T("打开文件夹"), "ghost", "folder", () =>
         {
@@ -68,11 +82,10 @@ public class VersionFilesCard : UserControl
         bar.Children.Add(tools);
         bar.Children.Add(tabs);
 
-        var scroll = new ScrollViewer { Content = _list, MaxHeight = 300, Padding = new Thickness(0, 0, 8, 0) };
         var body = new DockPanel();
         DockPanel.SetDock(bar, Dock.Top);
         body.Children.Add(bar);
-        body.Children.Add(scroll);
+        body.Children.Add(new Panel { Children = { _empty, _list } });
 
         Content = VersionDialog.SubCard(modded ? T("模组与资源") : T("资源包与光影"), "layers", body);
 
@@ -152,7 +165,7 @@ public class VersionFilesCard : UserControl
             return;
         _ = Task.Run(() =>
         {
-            foreach (var path in paths)
+            Parallel.ForEach(paths, new ParallelOptions { MaxDegreeOfParallelism = 4 }, path =>
             {
                 if (id != _loadId)
                     return;
@@ -176,34 +189,43 @@ public class VersionFilesCard : UserControl
                 {
                     bitmap = null;
                 }
+                if (bitmap == null)
+                    return;
                 Dispatcher.UIThread.Post(() =>
                 {
+                    if (id != _loadId)
+                    {
+                        bitmap.Dispose();
+                        return;
+                    }
                     _icons[path] = bitmap;
-                    if (bitmap != null && id == _loadId)
-                        Render();
+                    if (_iconViews.TryGetValue(path, out var view))
+                    {
+                        view.Image.Source = bitmap;
+                        if (bitmap.PixelSize.Width < 64)
+                            RenderOptions.SetBitmapInterpolationMode(view.Image, BitmapInterpolationMode.None);
+                        view.Image.IsVisible = true;
+                        view.Placeholder.IsVisible = false;
+                    }
                 });
-            }
+            });
         });
     }
 
     private void Render()
     {
-        _list.Children.Clear();
         var filter = (_search.Text ?? "").Trim();
         var items = filter.Length == 0
             ? _items
             : _items.Where(i => (i.Name ?? "").Contains(filter, StringComparison.OrdinalIgnoreCase)
                                 || i.Filename.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (items.Count == 0)
-        {
-            var text = _items.Count > 0
-                ? T("没有找到匹配的内容")
-                : F("还没有{0}。可以在「下载」页下载，或者点「导入」添加文件", _kind.Name);
-            _list.Children.Add(new TextBlock { Text = text, Classes = { "muted", "wrap" }, Margin = new Thickness(0, 6) });
-            return;
-        }
-        foreach (var item in items)
-            _list.Children.Add(Row(item));
+        _empty.IsVisible = items.Count == 0;
+        _list.IsVisible = items.Count > 0;
+        _empty.Text = _items.Count > 0
+            ? T("没有找到匹配的内容")
+            : F("还没有{0}。可以在「下载」页下载，或者点「导入」添加文件", _kind.Name);
+        _iconViews.Clear();
+        _list.ItemsSource = items;
     }
 
     private Control Row(LocalFile item)
@@ -217,22 +239,21 @@ public class VersionFilesCard : UserControl
         }
 
         _icons.TryGetValue(item.Path, out var bitmap);
-        Control icon;
-        if (bitmap != null)
+        var image = new Image { Source = bitmap, Stretch = Stretch.UniformToFill, IsVisible = bitmap != null };
+        if (bitmap != null && bitmap.PixelSize.Width < 64)
+            RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.None);
+        var placeholder = new Border
         {
-            var image = new Image { Source = bitmap, Stretch = Stretch.UniformToFill };
-            if (bitmap.PixelSize.Width < 64)
-                RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.None);
-            icon = new Border { Width = 36, Height = 36, CornerRadius = new CornerRadius(7), ClipToBounds = true, Child = image };
-        }
-        else
+            Width = 36, Height = 36, CornerRadius = new CornerRadius(7), Background = Res("AccentDim"),
+            IsVisible = bitmap == null,
+            Child = new Icon { Kind = item.IsDir ? "folder" : _kind.Icon, Size = 18, Foreground = Res("Accent") },
+        };
+        _iconViews[item.Path] = (image, placeholder);
+        var icon = new Border
         {
-            icon = new Border
-            {
-                Width = 36, Height = 36, CornerRadius = new CornerRadius(7), Background = Res("AccentDim"),
-                Child = new Icon { Kind = item.IsDir ? "folder" : _kind.Icon, Size = 18, Foreground = Res("Accent") },
-            };
-        }
+            Width = 36, Height = 36, CornerRadius = new CornerRadius(7), ClipToBounds = true,
+            Child = new Panel { Children = { placeholder, image } },
+        };
         if (!item.Enabled)
             icon.Opacity = 0.4;
         Grid.SetColumn(icon, 1);
@@ -258,7 +279,7 @@ public class VersionFilesCard : UserControl
         delete.Click += (_, _) => Delete(item);
         Grid.SetColumn(delete, 3);
         grid.Children.Add(delete);
-        return new Border { Classes = { "row" }, Padding = new Thickness(10, 7), Child = grid };
+        return new Border { Classes = { "row" }, Padding = new Thickness(10, 7), Margin = new Thickness(0, 0, 0, 6), Child = grid };
     }
 
     private async void Toggle(LocalFile mod, ToggleSwitch toggle)

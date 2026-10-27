@@ -430,6 +430,15 @@ public static partial class Mods
 
     private static string NonEmpty(params string[] values) => values.FirstOrDefault(v => !string.IsNullOrEmpty(v));
 
+    private static string ReadZipText(ZipArchive zip, string member)
+    {
+        var entry = zip.GetEntry(member);
+        if (entry == null)
+            return null;
+        using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
+        return reader.ReadToEnd();
+    }
+
     /// <summary>从模组 jar 读取必需前置的 mod id（忽略 minecraft / java / 加载器本身）。</summary>
     public static List<string> ReadDependencies(string path)
     {
@@ -437,27 +446,21 @@ public static partial class Mods
         try
         {
             using var zip = ZipFile.OpenRead(path);
-            var names = zip.Entries.Select(e => e.FullName).ToHashSet();
-            string Read(string member)
+            if (ReadZipText(zip, "fabric.mod.json") is { } fabric)
             {
-                using var reader = new StreamReader(zip.GetEntry(member)!.Open(), Encoding.UTF8);
-                return reader.ReadToEnd();
-            }
-            if (names.Contains("fabric.mod.json"))
-            {
-                var data = ParseLenient(Read("fabric.mod.json"));
+                var data = ParseLenient(fabric);
                 foreach (var key in new[] { "depends", "dependsOverrides" })
                     AddDepends(ids, data.Get(key));
             }
-            else if (names.Contains("quilt.mod.json"))
+            else if (ReadZipText(zip, "quilt.mod.json") is { } quilt)
             {
-                AddDepends(ids, ParseLenient(Read("quilt.mod.json")).Get("quilt_loader")?.Get("depends"));
+                AddDepends(ids, ParseLenient(quilt).Get("quilt_loader")?.Get("depends"));
             }
             else
             {
-                var toml = new[] { "META-INF/neoforge.mods.toml", "META-INF/mods.toml" }.FirstOrDefault(names.Contains);
+                var toml = ReadZipText(zip, "META-INF/neoforge.mods.toml") ?? ReadZipText(zip, "META-INF/mods.toml");
                 if (toml != null)
-                    AddForgeDepends(ids, Read(toml));
+                    AddForgeDepends(ids, toml);
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException
@@ -507,50 +510,63 @@ public static partial class Mods
         }
     }
 
+    private static readonly ConcurrentDictionary<string, (long Length, long Mtime, string Name, string Version)> ModInfoCache = new();
+
     /// <summary>从模组 jar 中读取名称与版本，支持 Fabric / Quilt / Forge / NeoForge / 旧版 mcmod.info。</summary>
     public static (string Name, string Version) ReadModInfo(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists)
+                return (null, null);
+            if (ModInfoCache.TryGetValue(path, out var cached)
+                && cached.Length == info.Length && cached.Mtime == info.LastWriteTimeUtc.Ticks)
+                return (cached.Name, cached.Version);
+            var result = ReadModInfoCore(path);
+            ModInfoCache[path] = (info.Length, info.LastWriteTimeUtc.Ticks, result.Name, result.Version);
+            return result;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return (null, null);
+        }
+    }
+
+    private static (string Name, string Version) ReadModInfoCore(string path)
     {
         string name = null, version = null;
         try
         {
             using var zip = ZipFile.OpenRead(path);
-            var names = zip.Entries.Select(e => e.FullName).ToHashSet();
-
-            string Read(string member)
+            if (ReadZipText(zip, "fabric.mod.json") is { } fabric)
             {
-                using var reader = new StreamReader(zip.GetEntry(member)!.Open(), Encoding.UTF8);
-                return reader.ReadToEnd();
-            }
-
-            if (names.Contains("fabric.mod.json"))
-            {
-                var data = ParseLenient(Read("fabric.mod.json"));
+                var data = ParseLenient(fabric);
                 name = NonEmpty(data.Str("name"), data.Str("id"));
                 version = data.Str("version");
             }
-            else if (names.Contains("quilt.mod.json"))
+            else if (ReadZipText(zip, "quilt.mod.json") is { } quilt)
             {
-                var data = ParseLenient(Read("quilt.mod.json")).Get("quilt_loader");
+                var data = ParseLenient(quilt).Get("quilt_loader");
                 name = NonEmpty(data.Get("metadata").Str("name"), data.Str("id"));
                 version = data.Str("version");
             }
             else
             {
-                var toml = new[] { "META-INF/neoforge.mods.toml", "META-INF/mods.toml" }.FirstOrDefault(names.Contains);
+                var toml = ReadZipText(zip, "META-INF/neoforge.mods.toml") ?? ReadZipText(zip, "META-INF/mods.toml");
                 if (toml != null)
                 {
-                    var text = Read(toml);
-                    name = TomlValue(text, "displayName");
-                    version = TomlValue(text, "version");
-                    if (version != null && version.Contains("${") && names.Contains("META-INF/MANIFEST.MF"))
+                    name = TomlValue(toml, "displayName");
+                    version = TomlValue(toml, "version");
+                    if (version != null && version.Contains("${") && ReadZipText(zip, "META-INF/MANIFEST.MF") is { } manifest)
                     {
-                        var m = ImplementationVersion().Match(Read("META-INF/MANIFEST.MF"));
+                        var m = ImplementationVersion().Match(manifest);
                         version = m.Success ? m.Groups[1].Value : null;
                     }
                 }
-                else if (names.Contains("mcmod.info"))
+                else if (ReadZipText(zip, "mcmod.info") is { } info)
                 {
-                    var data = ParseLenient(Read("mcmod.info"));
+                    var data = ParseLenient(info);
                     var entries = data is JsonObject ? data.Arr("modList") : data as JsonArray;
                     var first = entries?.Count > 0 ? entries[0] : null;
                     if (first != null)
@@ -583,15 +599,6 @@ public static partial class Mods
             }
             using var zip = ZipFile.OpenRead(path);
 
-            string Read(string member)
-            {
-                var entry = zip.GetEntry(member);
-                if (entry == null)
-                    return null;
-                using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
-                return reader.ReadToEnd();
-            }
-
             // fabric / quilt 的 icon 可以是路径，也可以是 {"尺寸": 路径}，取不超过 128 的最大尺寸
             static string PickIcon(JsonNode icon)
             {
@@ -605,14 +612,14 @@ public static partial class Mods
             }
 
             var candidates = new List<string>();
-            if (Read("fabric.mod.json") is { } fabric)
+            if (ReadZipText(zip, "fabric.mod.json") is { } fabric)
                 candidates.Add(PickIcon(ParseLenient(fabric)?["icon"]));
-            if (Read("quilt.mod.json") is { } quilt)
+            if (ReadZipText(zip, "quilt.mod.json") is { } quilt)
                 candidates.Add(PickIcon(ParseLenient(quilt)?["quilt_loader"]?["metadata"]?["icon"]));
             foreach (var toml in new[] { "META-INF/neoforge.mods.toml", "META-INF/mods.toml" })
-                if (Read(toml) is { } text)
+                if (ReadZipText(zip, toml) is { } text)
                     candidates.Add(TomlValue(text, "logoFile"));
-            if (Read("mcmod.info") is { } info)
+            if (ReadZipText(zip, "mcmod.info") is { } info)
             {
                 var data = ParseLenient(info);
                 var entries = data is JsonObject ? data.Arr("modList") : data as JsonArray;
@@ -653,24 +660,28 @@ public static partial class Mods
     {
         if (!Directory.Exists(modsDir))
             return [];
-        var mods = new List<LocalFile>();
-        foreach (var filename in SortedEntries(modsDir))
+        var files = SortedEntries(modsDir).Where(filename =>
         {
             var lower = filename.ToLowerInvariant();
-            if (!(lower.EndsWith(".jar") || lower.EndsWith(".jar.disabled") || lower.EndsWith(".zip")))
-                continue;
+            return lower.EndsWith(".jar") || lower.EndsWith(".jar.disabled") || lower.EndsWith(".zip");
+        }).ToList();
+        var mods = new LocalFile[files.Count];
+        Parallel.For(0, files.Count, i =>
+        {
+            var filename = files[i];
+            var lower = filename.ToLowerInvariant();
             var path = Path.Combine(modsDir, filename);
             var (name, version) = ReadModInfo(path);
-            mods.Add(new LocalFile
+            mods[i] = new LocalFile
             {
                 Filename = filename,
                 Path = path,
                 Enabled = !lower.EndsWith(".disabled"),
                 Name = name ?? ModSuffix().Replace(filename, ""),
                 Version = version,
-            });
-        }
-        return mods;
+            };
+        });
+        return [.. mods];
     }
 
     /// <summary>资源包、光影包、数据包文件夹中的 zip 与已解压的文件夹。</summary>
