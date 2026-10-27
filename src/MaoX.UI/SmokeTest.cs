@@ -684,6 +684,10 @@ internal static class SmokeTest
 
         await Check("version compare", () =>
         {
+            if (!Updater.IsNewer("2.2.0.2", "2.2.0"))
+                throw new Exception("2.2.0.2 must look newer to 2.2.0");
+            if (!Updater.IsNewer("2.2.0.2", "2.2.0-HotFix.1"))
+                throw new Exception("2.2.0.2 must look newer than HotFix.1");
             if (!Updater.IsNewer("2.2.0-HotFix.1", "2.2.0"))
                 throw new Exception("hotfix should be newer than the same numeric version");
             if (Updater.IsNewer("2.2.0", "2.2.0-HotFix.1"))
