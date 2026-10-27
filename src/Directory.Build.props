@@ -2,6 +2,8 @@
   <PropertyGroup>
     <!-- 启动器版本号：发布时打 tag v<版本号>，GitHub Actions 会检查两者一致 -->
     <Version>2.2.0-HotFix.1</Version>
+    <VersionCore Condition="$(Version.Contains('-'))">$(Version.Substring(0, $(Version.IndexOf('-'))))</VersionCore>
+    <VersionCore Condition="'$(VersionCore)' == ''">$(Version)</VersionCore>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 </Project>

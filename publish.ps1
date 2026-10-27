@@ -26,8 +26,8 @@ $version = (Select-Xml -Path (Join-Path $root "src\Directory.Build.props") -XPat
 
 function Fetch-Terracotta([string]$rid) {
     $dest = Join-Path $root "build\terracotta\$rid\terracotta.pkg.tar.gz"
-    & (Join-Path $root "packaging\fetch-terracotta.ps1") -Rid $rid -Dest $dest
-    if ($LASTEXITCODE -ne 0) { throw "下载陶瓦联机失败（$rid）" }
+    & (Join-Path $root "packaging\fetch-terracotta.ps1") -Rid $rid -Dest $dest | Out-Null
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dest)) { throw "下载陶瓦联机失败（$rid）" }
 }
 
 function Publish([string]$rid, [string[]]$extra) {

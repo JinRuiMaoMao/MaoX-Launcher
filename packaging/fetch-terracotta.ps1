@@ -39,7 +39,7 @@ $urls = if ($env:CI -eq "true") { @($github) + $mirrors } else { $mirrors + @($g
 
 if (Test-Path -LiteralPath $Dest) {
     $actual = (Get-FileHash -LiteralPath $Dest -Algorithm SHA512).Hash.ToLowerInvariant()
-    if ($actual -eq $hash) { return $Dest }
+    if ($actual -eq $hash) { exit 0 }
     Remove-Item -LiteralPath $Dest -Force
 }
 
@@ -63,7 +63,7 @@ foreach ($url in $urls) {
         $actual = (Get-FileHash -LiteralPath $tmp -Algorithm SHA512).Hash.ToLowerInvariant()
         if ($actual -ne $hash) { throw "SHA-512 不符" }
         Move-Item -LiteralPath $tmp -Destination $Dest -Force
-        return $Dest
+        exit 0
     }
     catch {
         Write-Host ("  失败：{0}" -f $_.Exception.Message) -ForegroundColor DarkYellow

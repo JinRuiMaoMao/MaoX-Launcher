@@ -13,7 +13,7 @@
     <ApplicationId>io.github.jinruimaomao.maox</ApplicationId>
     <ApplicationTitle>MaoX Launcher</ApplicationTitle>
     <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
-    <ApplicationVersion>$(Version)</ApplicationVersion>
+    <ApplicationVersion>$(VersionCore)</ApplicationVersion>
   </PropertyGroup>
 
   <ItemGroup>
