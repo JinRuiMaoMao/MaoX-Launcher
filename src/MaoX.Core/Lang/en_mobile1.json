@@ -24,6 +24,7 @@
   "MaoX Launcher 使用了以下开源项目，感谢它们的作者：": "MaoX Launcher uses the following open-source projects. Thanks to their authors:",
   "陶瓦联机 Terracotta（{0}）— AGPL-3.0": "Terracotta multiplayer ({0}) — AGPL-3.0",
   "使用时下载的独立程序": "a separate program downloaded when used",
+  "随启动器附带的独立程序": "a separate program bundled with the launcher",
   "Amethyst-Android（{0}）— LGPL-3.0": "Amethyst-Android ({0}) — LGPL-3.0",
   "游戏启动层": "game launch layer",
   "OpenJDK（{0}）— GPL-2.0 with Classpath Exception": "OpenJDK ({0}) — GPL-2.0 with Classpath Exception",

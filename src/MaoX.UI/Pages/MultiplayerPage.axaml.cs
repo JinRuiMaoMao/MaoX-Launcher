@@ -12,7 +12,7 @@ using static MaoX.Core.I18n;
 
 namespace MaoX.Pages;
 
-/// <summary>多人联机（陶瓦联机）：下载 / 启动服务，创建或加入房间。</summary>
+/// <summary>多人联机（陶瓦联机）：启用附带组件或下载 / 启动服务，创建或加入房间。</summary>
 public partial class MultiplayerPage : UserControl, IPage
 {
     private static readonly HashSet<string> RoomStates =
@@ -121,11 +121,14 @@ public partial class MultiplayerPage : UserControl, IPage
     private async void Install()
     {
         SetPhase("installing");
-        await Main.RunTask(T("下载陶瓦联机"), () => _tc.InstallAsync((d, t) => Main.Progress(d, t, T("下载陶瓦联机"))));
+        var title = Terracotta.HasBundledPackage() ? T("启用陶瓦联机") : T("下载陶瓦联机");
+        await Main.RunTask(title, () => _tc.InstallAsync((d, t) => Main.Progress(d, t, title)));
         if (await _tc.InstalledAsync())
             Start();
         else
-            SetPhase("fatal", T("下载陶瓦联机失败，请检查网络后重试。"));
+            SetPhase("fatal", Terracotta.HasBundledPackage()
+                ? T("启用陶瓦联机失败，请重试。")
+                : T("下载陶瓦联机失败，请检查网络后重试。"));
     }
 
     private async void Start()
@@ -372,7 +375,7 @@ public partial class MultiplayerPage : UserControl, IPage
             "exception" => ExceptionView(),
             _ => CenterCard("people", _phase switch
             {
-                "installing" => T("正在下载陶瓦联机…"),
+                "installing" => Terracotta.HasBundledPackage() ? T("正在启用陶瓦联机…") : T("正在下载陶瓦联机…"),
                 "starting" => T("正在启动联机服务…"),
                 _ => T("正在准备…"),
             }, Platform.IsWindows ? T("首次启动时 Windows 可能会询问是否允许网络访问，请选择允许。") : "", "Accent", null, true),
@@ -419,12 +422,22 @@ public partial class MultiplayerPage : UserControl, IPage
 
     private Control MissingView()
     {
-        var text = T("首次使用需要下载陶瓦联机组件（约 8 MB），下载后会自动启动。\n" +
+        var bundled = Terracotta.HasBundledPackage();
+        string text;
+        if (bundled && Platform.IsMac)
+            text = T("联机组件已随启动器附带。首次启用时 macOS 会弹出系统密码框把它安装到「应用程序」。\n" +
+                     "它基于 EasyTier 建立点对点连接，不需要公网 IP。");
+        else if (bundled)
+            text = T("联机组件已随启动器附带，启用后会自动启动。\n" +
                      "它基于 EasyTier 建立点对点连接，不需要公网 IP，也不需要管理员权限。");
-        if (Platform.IsMac)
+        else if (Platform.IsMac)
             text = T("首次使用需要下载陶瓦联机组件，macOS 上会弹出系统密码框把它安装到「应用程序」。\n" +
                      "它基于 EasyTier 建立点对点连接，不需要公网 IP。");
-        return CenterCard("people", T("启用多人联机"), text, "Accent", MakeButton(T("下载并启用"), "primary", "download", Install));
+        else
+            text = T("首次使用需要下载陶瓦联机组件（约 8 MB），下载后会自动启动。\n" +
+                     "它基于 EasyTier 建立点对点连接，不需要公网 IP，也不需要管理员权限。");
+        return CenterCard("people", T("启用多人联机"), text, "Accent",
+            MakeButton(bundled ? T("启用") : T("下载并启用"), "primary", bundled ? "play" : "download", Install));
     }
 
     private Control Steps(params string[] steps)

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Formats.Tar;
 using System.Globalization;
 using System.IO.Compression;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using static MaoX.Core.I18n;
@@ -40,7 +41,7 @@ public interface IMobileTerracotta
 /// <summary>
 /// 多人联机：集成 Terracotta | 陶瓦联机。
 /// 陶瓦联机基于 EasyTier 的 P2P 组网，无需公网 IP，邀请码与 HMCL、PCL 社区版互通。
-/// 启动器只下载并运行未经修改的官方程序，通过它提供的本地 HTTP 接口交互。
+/// 启动器随安装包附带未经修改的官方程序；没有附带时再从镜像下载。通过它提供的本地 HTTP 接口交互。
 /// Terracotta 版权归 Burning_TNT 所有，以 AGPL-3.0 许可发布：https://github.com/burningtnt/Terracotta
 /// macOS 上与 HMCL 相同：除了运行包内的命令行程序，还需要用管理员权限安装包内的 .pkg（/Applications/terracotta.app）。
 /// </summary>
@@ -51,7 +52,10 @@ public class Terracotta : IDisposable
     public const string NodeListUrl = "https://terracotta.glavo.site/nodes";
     public const string MacAppPath = "/Applications/terracotta.app";
 
-    /// <summary>下载地址模板，{version} / {name} 会被替换。</summary>
+    /// <summary>随启动器打包时嵌入的官方安装包资源名。</summary>
+    public const string BundledResourceName = "maox.terracotta";
+
+    /// <summary>下载地址模板，{version} / {name} 会被替换。中国用户实际下载时国内镜像排在 GitHub 前面。</summary>
     public static readonly string[] Downloads =
     [
         "https://github.com/burningtnt/Terracotta/releases/download/v{version}/{name}",
@@ -224,12 +228,55 @@ public class Terracotta : IDisposable
     public static string PackageName(string classifier) =>
         IsAndroidClassifier(classifier) ? $"terracotta-{Version}-{classifier}.so" : $"terracotta-{Version}-{classifier}-pkg.tar.gz";
 
-    /// <summary>安装包的下载地址（官方 GitHub 优先，其后为镜像）。</summary>
+    /// <summary>安装包的下载地址。中国用户先走 alist / cnb / GitHub 加速，再回落到官方 GitHub。</summary>
     public static List<string> PackageUrls(string classifier)
     {
-        var urls = Downloads.Select(u => u.Replace("{version}", Version).Replace("{name}", PackageName(classifier))).ToList();
-        urls.AddRange(Downloader.GithubMirrors.Select(m => m + urls[0]));
-        return urls;
+        string Expand(string template) => template.Replace("{version}", Version).Replace("{name}", PackageName(classifier));
+        var github = Expand(Downloads[0]);
+        var alist = Expand(Downloads[1]);
+        var cnb = Expand(Downloads[2]);
+        var proxies = Downloader.GithubMirrors.Select(m => m + github);
+        return InChina()
+            ? [alist, cnb, ..proxies, github]
+            : [github, alist, cnb, ..proxies];
+    }
+
+    /// <summary>当前平台的安装包是否已经打进启动器（解压即可，不用再从网上拉）。</summary>
+    public static bool HasBundledPackage(string classifier = null)
+    {
+        classifier ??= CurrentClassifier();
+        if (string.IsNullOrEmpty(classifier) || IsAndroidClassifier(classifier) || classifier == IosClassifier)
+            return false;
+        using var stream = OpenBundledPackage(classifier);
+        return stream != null;
+    }
+
+    private static Stream OpenBundledPackage(string classifier)
+    {
+        foreach (var assembly in new[] { Assembly.GetEntryAssembly(), typeof(Terracotta).Assembly }
+                     .Where(a => a != null).Distinct())
+        {
+            var resource = assembly.GetManifestResourceStream(BundledResourceName);
+            if (resource != null)
+                return resource;
+        }
+        var name = PackageName(classifier);
+        foreach (var dir in new[]
+                 {
+                     AppContext.BaseDirectory,
+                     Path.Combine(AppContext.BaseDirectory, "terracotta"),
+                     Path.GetDirectoryName(Environment.ProcessPath) ?? "",
+                 })
+        {
+            if (string.IsNullOrEmpty(dir))
+                continue;
+            foreach (var file in new[] { Path.Combine(dir, name), Path.Combine(dir, "terracotta.pkg.tar.gz") })
+            {
+                if (File.Exists(file))
+                    return File.OpenRead(file);
+            }
+        }
+        return null;
     }
 
     /// <summary>包内主程序的文件名。</summary>
@@ -268,11 +315,53 @@ public class Terracotta : IDisposable
     {
         if (!Supported)
             throw new TerracottaException(T("当前系统暂不支持陶瓦联机"));
-        if (!await Task.Run(FilesVerified, cancel))
+        if (!await Task.Run(FilesVerified, cancel) && !await TryExtractBundledAsync(progress, cancel))
             await DownloadAndExtractAsync(progress, cancel);
         if (IsMacPackage && !Directory.Exists(MacAppPath))
             await InstallMacPackageAsync(cancel);
         Log(T("陶瓦联机安装完成"));
+    }
+
+    private async Task<bool> TryExtractBundledAsync(Action<int, int> progress, CancellationToken cancel)
+    {
+        if (IsAndroidClassifier(Classifier))
+            return false;
+        Stream source = null;
+        var archive = Path.Combine(Path.GetTempPath(), "maox-bundled-" + PackageName(Classifier));
+        try
+        {
+            source = OpenBundledPackage(Classifier);
+            if (source == null)
+                return false;
+            Log(T("正在启用随启动器附带的陶瓦联机…"));
+            progress?.Invoke(0, 1);
+            await using (var file = new FileStream(archive, FileMode.Create, FileAccess.Write, FileShare.None))
+                await source.CopyToAsync(file, cancel);
+            if (await Task.Run(() => Http.FileSha512(archive), cancel) != Packages[Classifier].Hash)
+            {
+                File.Delete(archive);
+                Log(T("附带的陶瓦联机安装包校验失败，改为重新下载"));
+                return false;
+            }
+            await Task.Run(() => Extract(archive), cancel);
+            File.Delete(archive);
+            _verified = true;
+            progress?.Invoke(1, 1);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or TerracottaException
+                                      or InvalidDataException or OperationCanceledException)
+        {
+            try { File.Delete(archive); } catch (IOException) { }
+            if (e is OperationCanceledException)
+                throw;
+            Log(F("附带的陶瓦联机无法解压（{0}），改为重新下载", e.Message));
+            return false;
+        }
+        finally
+        {
+            source?.Dispose();
+        }
     }
 
     private async Task DownloadAndExtractAsync(Action<int, int> progress, CancellationToken cancel)

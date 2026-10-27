@@ -13,6 +13,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- NAudio 的 Media Foundation 解码 MP3 / FLAC / M4A 需要 COM。关掉后一播背景音乐启动器就会崩。 -->
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- 发布脚本把对应平台的陶瓦官方包放到这里，嵌入后用户不用再从 GitHub 下载。 -->
+    <_TcRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_TcRid>
+    <_TcRid Condition="'$(_TcRid)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-x64</_TcRid>
+    <TerracottaPackage Condition="'$(TerracottaPackage)' == '' and '$(_TcRid)' != ''">$(MSBuildThisFileDirectory)..\..\build\terracotta\$(_TcRid)\terracotta.pkg.tar.gz</TerracottaPackage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +27,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MaoX.UI\MaoX.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TerracottaPackage)' != '' and Exists('$(TerracottaPackage)')">
+    <EmbeddedResource Include="$(TerracottaPackage)" LogicalName="maox.terracotta" />
   </ItemGroup>
 
 </Project>

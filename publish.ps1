@@ -24,7 +24,14 @@ if (-not $dotnet) {
 }
 $version = (Select-Xml -Path (Join-Path $root "src\Directory.Build.props") -XPath "//Version").Node.InnerText
 
+function Fetch-Terracotta([string]$rid) {
+    $dest = Join-Path $root "build\terracotta\$rid\terracotta.pkg.tar.gz"
+    & (Join-Path $root "packaging\fetch-terracotta.ps1") -Rid $rid -Dest $dest
+    if ($LASTEXITCODE -ne 0) { throw "下载陶瓦联机失败（$rid）" }
+}
+
 function Publish([string]$rid, [string[]]$extra) {
+    Fetch-Terracotta $rid
     $out = Join-Path $work $rid
     if (Test-Path $out) { Remove-Item $out -Recurse -Force }
     Write-Host "> 发布 $rid" -ForegroundColor Cyan

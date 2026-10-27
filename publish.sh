@@ -7,6 +7,7 @@ cd "$(dirname "$0")"
 VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Directory.Build.props | head -n 1)
 
 for RID in osx-arm64 osx-x64; do
+  bash packaging/fetch-terracotta.sh "$RID" "build/terracotta/$RID/terracotta.pkg.tar.gz"
   OUT="build/publish/$RID"
   rm -rf "$OUT"
   dotnet publish src/MaoX/MaoX.csproj -nologo -c Release -r "$RID" --self-contained true \

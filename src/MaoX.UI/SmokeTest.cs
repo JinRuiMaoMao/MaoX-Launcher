@@ -619,6 +619,41 @@ internal static class SmokeTest
             return $"opened versions of {title.Text}";
         }, required: false);
 
+        await Check("terracotta urls", () =>
+        {
+            var urls = Terracotta.PackageUrls("windows-x86_64");
+            if (urls.Count < 4 || !urls.Exists(u => u.Contains("alist.8mi.tech", StringComparison.Ordinal))
+                || !urls.Exists(u => u.Contains("cnb.cool", StringComparison.Ordinal))
+                || !urls.Exists(u => u.Contains("github.com/burningtnt/Terracotta", StringComparison.Ordinal)))
+                throw new Exception("package url list is incomplete: " + string.Join(" | ", urls));
+            var github = urls.FindIndex(u => u.StartsWith("https://github.com/", StringComparison.Ordinal));
+            var alist = urls.FindIndex(u => u.Contains("alist.8mi.tech", StringComparison.Ordinal));
+            if (TimeZoneInfo.Local.BaseUtcOffset == TimeSpan.FromHours(8) && github >= 0 && alist >= 0 && github < alist)
+                throw new Exception("China mirrors should be tried before GitHub: " + string.Join(" | ", urls));
+            return Task.FromResult((Terracotta.HasBundledPackage() ? "bundled, " : "download fallback, ") + urls.Count + " urls");
+        });
+
+        await Check("terracotta bundle", async () =>
+        {
+            if (!Terracotta.HasBundledPackage())
+                return "not embedded";
+            if (Platform.IsMac)
+                return "embedded";
+            var dir = Path.Combine(Path.GetTempPath(), "maox-tc-bundle-" + Guid.NewGuid().ToString("n"));
+            try
+            {
+                var tc = new Terracotta(dir, window.MakeLauncher().Dl, _ => { });
+                await tc.InstallAsync((_, _) => { });
+                if (!await tc.InstalledAsync())
+                    throw new Exception("bundled package did not install");
+                return "extracted bundled package";
+            }
+            finally
+            {
+                try { Directory.Delete(dir, true); } catch (IOException) { }
+            }
+        });
+
         await Check("terracotta", async () =>
         {
             var tc = new Terracotta(null, window.MakeLauncher().Dl, _ => { })

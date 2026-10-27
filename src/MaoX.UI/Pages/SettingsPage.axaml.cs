@@ -921,7 +921,8 @@ public partial class SettingsPage : UserControl, IPage
         {
             "Avalonia — MIT",
             "SharpCompress — MIT",
-            F("陶瓦联机 Terracotta（{0}）— AGPL-3.0", T("使用时下载的独立程序")),
+            F("陶瓦联机 Terracotta（{0}）— AGPL-3.0",
+              T(Terracotta.HasBundledPackage() ? "随启动器附带的独立程序" : "使用时下载的独立程序")),
         };
         if (Platform.IsAndroid)
         {

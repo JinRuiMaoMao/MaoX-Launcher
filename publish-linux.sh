@@ -5,6 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 for RID in linux-x64 linux-arm64; do
+  bash packaging/fetch-terracotta.sh "$RID" "build/terracotta/$RID/terracotta.pkg.tar.gz"
   OUT="build/publish/$RID"
   rm -rf "$OUT"
   dotnet publish src/MaoX/MaoX.csproj -nologo -c Release -r "$RID" --self-contained true \
