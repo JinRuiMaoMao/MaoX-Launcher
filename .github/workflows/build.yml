@@ -2,7 +2,8 @@
 #   发布新版本：改 src/Directory.Build.props 里的 Version，提交后
 #   git tag -a v2.0.1 -m "更新内容..." && git push origin v2.0.1
 #   标签说明会作为更新说明显示在启动器的更新提示里。
-#   Release 发布后 discord-release.yml 会推到 Discord（需配置 DISCORD_WEBHOOK）。
+#   Release 由本工作流用 GITHUB_TOKEN 创建，不会触发 discord-release.yml；
+#   所以创建完成后在本 job 里直接推 Discord（需配置 DISCORD_WEBHOOK）。
 name: Build
 
 on:
@@ -546,3 +547,10 @@ jobs:
           iPhone/iPad 下载 `MaoX-Launcher-iOS.ipa`，用 SideStore / AltStore / TrollStore 安装（需要 iOS 15 或更高版本）；启动游戏需要 JIT：iOS 17.4 以上装 StikDebug，启动器会自动请求开启。Forge / NeoForge / OptiFine 请在电脑上安装好再把版本文件夹复制到手机。
           EOF
           gh release create "$GITHUB_REF_NAME" artifacts/* --title "MaoX Launcher $GITHUB_REF_NAME" --notes-file notes.md
+
+      - name: Post release to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node .github/scripts/post-discord-release.mjs

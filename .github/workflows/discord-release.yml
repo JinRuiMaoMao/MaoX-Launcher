@@ -1,57 +1,29 @@
-# Release 一经发布就推到 Discord（事件驱动，不是轮询）。
+# 网站上手动发 Release 时走这条；CI 打的 tag 由 build.yml 在创建 Release 后直接推 Discord
+#（GITHUB_TOKEN 创建的 Release 不会触发本文件的 release 事件）。
 # 在仓库 Settings → Secrets and variables → Actions 里添加 DISCORD_WEBHOOK，
 # 值为 Discord 频道 Webhook 网址（不要在末尾加 /github）。
 # 标签说明用中文，空一行后写 ## English 再写英文，Discord 会做成中英双语。
+# 漏发时：Actions → Discord release → Run workflow，填 tag（如 v2.2.0）。
 name: Discord release
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要通报的 Release 标签
+        required: true
+        default: v2.2.0
 
 jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - name: Post release to Discord
-        uses: actions/github-script@v7
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          script: |
-            const webhook = process.env.DISCORD_WEBHOOK;
-            if (!webhook) {
-              core.info('未设置 DISCORD_WEBHOOK，跳过通知');
-              return;
-            }
-            const rel = context.payload.release;
-            let raw = (rel.body || '').replace(/\r\n/g, '\n').trim();
-            const cut = raw.indexOf('\n---\n');
-            if (cut >= 0)
-              raw = raw.slice(0, cut).trim();
-            const split = raw.match(/\n##\s*English\s*\n/i);
-            const zh = (split ? raw.slice(0, split.index) : raw).replace(/^##\s*中文\s*\n/i, '').trim();
-            const en = split ? raw.slice(split.index + split[0].length).trim() : '';
-            let body = zh && en
-              ? `**中文**\n${zh}\n\n**English**\n${en}`
-              : (zh || en || '新版本已发布。 / A new version is out.');
-            if (body.length > 4000)
-              body = body.slice(0, 4000) + '…';
-            const res = await fetch(webhook, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                username: 'MaoX Launcher',
-                embeds: [{
-                  title: rel.name || `MaoX Launcher ${rel.tag_name}`,
-                  url: rel.html_url,
-                  description: body,
-                  color: 0x00D9FF,
-                  fields: [
-                    { name: '版本 / Version', value: rel.tag_name, inline: true },
-                    { name: '下载 / Download', value: `[打开 Release / Open Release](${rel.html_url})`, inline: true },
-                  ],
-                }],
-              }),
-            });
-            if (!res.ok)
-              throw new Error(`Discord ${res.status}: ${await res.text()}`);
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node .github/scripts/post-discord-release.mjs
