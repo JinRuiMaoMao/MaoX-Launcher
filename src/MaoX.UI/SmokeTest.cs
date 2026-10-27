@@ -627,6 +627,8 @@ internal static class SmokeTest
             };
             if (!tc.Supported)
                 return "not supported on this platform";
+            if (tc.ProcessGone)
+                throw new Exception("ProcessGone before start");
             if (!await tc.InstalledAsync())
             {
                 if (Platform.IsMac && !tc.NonInteractiveInstall)

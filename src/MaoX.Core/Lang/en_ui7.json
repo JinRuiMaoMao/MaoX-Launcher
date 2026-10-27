@@ -151,5 +151,7 @@
   "这个版本没有整合包文件清单。重新安装整合包后就能自动补全": "This version has no pack file list. Reinstall the pack to enable automatic repair",
   "已补全 {0} 个文件": "Repaired {0} files",
   "没有需要补全的文件": "Nothing needs repairing",
-  "安装整合包会创建一个新的游戏版本，之后启动会自动补全缺失的模组": "Installing a pack creates a new version. Missing mods are downloaded again on launch"
+  "安装整合包会创建一个新的游戏版本，之后启动会自动补全缺失的模组": "Installing a pack creates a new version. Missing mods are downloaded again on launch",
+  "联机服务出现问题，已停止联机": "The relay had a problem, so the session was stopped",
+  "联机服务已在后台停止，下次打开联机页会重新启动": "The relay was stopped in the background and will start again the next time you open Multiplayer"
 }

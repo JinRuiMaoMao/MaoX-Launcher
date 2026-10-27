@@ -160,6 +160,22 @@ public class Terracotta : IDisposable
     public int? Port { get; private set; }
     public bool Supported => Classifier != null;
 
+    /// <summary>本对象拉起的进程已经退出（接口可能还短暂存活，或服务卡死）。</summary>
+    public bool ProcessGone
+    {
+        get
+        {
+            try
+            {
+                return !IsMobile && _process != null && _process.HasExited;
+            }
+            catch (InvalidOperationException)
+            {
+                return true;
+            }
+        }
+    }
+
     /// <summary>macOS 上用 sudo -n 代替弹出密码框安装 .pkg（CI 里没人能输密码，但 sudo 免密）。</summary>
     public bool NonInteractiveInstall { get; set; }
 

@@ -30,6 +30,8 @@ public partial class MultiplayerPage : UserControl, IPage
     private int _prevProfiles;
     private string _signature;
     private bool _polling;
+    private int _failStreak;
+    private DateTime? _idleSince;
     private readonly DispatcherTimer _poll;
     private readonly TextBox _code = new() { Watermark = "U/XXXX-XXXX-XXXX-XXXX" };
 
@@ -150,12 +152,18 @@ public partial class MultiplayerPage : UserControl, IPage
 
     // ------------------------------------------------------------------ 轮询
 
+    private static readonly TimeSpan IdleStopAfter = TimeSpan.FromMinutes(3);
+    private const int FailLimit = 2;
+
+    /// <summary>人不在联机房间页、也没进房间时，后台挂着的陶瓦服务过一段时间会自己坏掉。</summary>
+    private bool WatchingRoom => _tab == "room" && IsEffectivelyVisible;
+
     private void Schedule(int? delay = null)
     {
         _poll.Stop();
         if (_phase != "ready")
             return;
-        _poll.Interval = TimeSpan.FromMilliseconds(delay ?? (IsEffectivelyVisible ? 1000 : 3000));
+        _poll.Interval = TimeSpan.FromMilliseconds(delay ?? (WatchingRoom ? 1000 : 3000));
         _poll.Start();
     }
 
@@ -166,7 +174,28 @@ public partial class MultiplayerPage : UserControl, IPage
         _polling = true;
         try
         {
+            if (!InRoom && !WatchingRoom)
+            {
+                _idleSince ??= DateTime.UtcNow;
+                if (DateTime.UtcNow - _idleSince >= IdleStopAfter)
+                {
+                    await SleepDaemon();
+                    return;
+                }
+            }
+            else
+            {
+                _idleSince = null;
+            }
+
+            if (_tc.ProcessGone)
+            {
+                await StopOnline(T("陶瓦联机已停止运行"));
+                return;
+            }
+
             var state = await Task.Run(() => _tc.StateAsync());
+            _failStreak = 0;
             var previous = _state?.Str("state");
             var current = state.Str("state");
             var profiles = state.Arr("profiles")?.Count ?? 0;
@@ -176,23 +205,80 @@ public partial class MultiplayerPage : UserControl, IPage
                 Main.Toast(T("已成功加入房间"));
             _prevProfiles = profiles;
             _state = state;
+            if (current == "exception")
+            {
+                var kind = state.Int("type", -1);
+                var message = kind >= 0 && kind < Terracotta.Exceptions.Count
+                    ? Terracotta.Exceptions[kind]
+                    : T("联机出现未知错误");
+                await StopOnline(message);
+                return;
+            }
             _polling = false;
             Render();
             Schedule();
         }
         catch (Exception)
         {
-            _polling = false;
-            if (!await _tc.AliveAsync())
-            {
-                _state = null;
-                SetPhase("fatal", T("陶瓦联机已停止运行"));
-            }
+            _failStreak++;
+            if (_failStreak >= FailLimit || _tc.ProcessGone || !await _tc.AliveAsync())
+                await StopOnline(T("联机服务出现问题，已停止联机"));
             else
             {
+                _polling = false;
                 Schedule();
             }
         }
+    }
+
+    /// <summary>服务坏了或房间已断：退出房间并关掉陶瓦进程，避免后台挂着一个半死的服务。</summary>
+    private async Task StopOnline(string reason)
+    {
+        _poll.Stop();
+        _failStreak = 0;
+        _idleSince = null;
+        if (!_tc.ProcessGone)
+        {
+            try
+            {
+                await Task.Run(() => _tc.LeaveAsync());
+            }
+            catch (Exception)
+            {
+            }
+        }
+        try
+        {
+            await _tc.ShutdownAsync();
+        }
+        catch (Exception)
+        {
+        }
+        _state = null;
+        _polling = false;
+        SetPhase("fatal", reason);
+        Main.Log(F("[警告] {0}", reason), "warn");
+        Main.Toast(T("联机服务出现问题，已停止联机"), "warn");
+    }
+
+    /// <summary>没在房间里又离开联机页：关掉后台进程，下次打开再拉起来。</summary>
+    private async Task SleepDaemon()
+    {
+        _poll.Stop();
+        _idleSince = null;
+        _failStreak = 0;
+        try
+        {
+            await _tc.ShutdownAsync();
+        }
+        catch (Exception)
+        {
+        }
+        _state = null;
+        _phase = "init";
+        _signature = null;
+        _polling = false;
+        Main.Log(T("联机服务已在后台停止，下次打开联机页会重新启动"));
     }
 
     private async void Action(Func<Task> action, string errorTitle)
