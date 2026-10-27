@@ -23,7 +23,7 @@ public partial class DownloadPage : UserControl, IPage
         ("vanilla", "下载游戏", "选择一个 Minecraft 版本进行安装，已安装的版本会自动补全缺失文件"),
         ("community", "社区资源", "从 Modrinth 和 CurseForge 浏览模组、整合包、数据包、资源包和光影"),
         ("mod", "Mod", "为当前版本搜索并安装模组"),
-        ("modpack", "整合包", "安装整合包会创建一个新的游戏版本"),
+        ("modpack", "整合包", "安装整合包会创建一个新的游戏版本，之后启动会自动补全缺失的模组"),
         ("datapack", "数据包", "把数据包安装到选中的存档里"),
         ("resourcepack", "资源包", "为当前版本下载资源包"),
         ("shader", "光影包", "为当前版本下载光影包"),

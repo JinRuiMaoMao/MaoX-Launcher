@@ -357,6 +357,7 @@ public class VersionSettingsPage : UserControl, IPage
         left.Children.Add(delete);
         left.Children.Add(DialogView.MakeButton(T("重命名"), onClick: Rename));
         left.Children.Add(DialogView.MakeButton(T("复制"), onClick: Duplicate));
+        left.Children.Add(DialogView.MakeButton(T("补全文件"), icon: "download", onClick: RepairFiles));
         var export = DialogView.MakeButton(T("导出"), icon: "upload");
         var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedLeft };
         menu.Items.Add(MenuEntry(T("导出整合包"), Export));
@@ -1003,6 +1004,19 @@ public class VersionSettingsPage : UserControl, IPage
     }
 
     private void Export() => _ = Main.ShowDialogAsync(new ModpackExportDialog(_version));
+
+    private async void RepairFiles()
+    {
+        if (!Modpack.HasIndex(_gl, _version))
+        {
+            Main.Toast(T("这个版本没有整合包文件清单。重新安装整合包后就能自动补全"), "warn");
+            return;
+        }
+        var missing = Modpack.CountMissing(Modpack.LoadTasks(_gl, _version));
+        await Main.RunTask(T("补全文件"), () => Modpack.RepairAsync(_gl, _version, Main.Log, Main.Progress, missingOnly: false),
+                           count => Main.Toast(count > 0 ? F("已补全 {0} 个文件", count)
+                               : missing == 0 ? T("整合包文件完整") : T("没有需要补全的文件")));
+    }
 
     private static MenuItem MenuEntry(string text, Action onClick)
     {

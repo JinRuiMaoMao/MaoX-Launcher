@@ -274,7 +274,7 @@ public partial class ResourcesPage : UserControl, IPage
         if (_kind == "modpack")
         {
             if (!_embedded)
-                InfoRest.Text = T("安装整合包会创建一个新的游戏版本");
+                InfoRest.Text = T("安装整合包会创建一个新的游戏版本，之后启动会自动补全缺失的模组");
         }
         else if (_ctx?.Version != null && Available())
         {

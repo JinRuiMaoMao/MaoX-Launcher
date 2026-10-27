@@ -509,6 +509,15 @@ public static class LaunchCheck
         var data = Json.TryReadFile(gl.VersionJsonPath(version));
         var required = data?.Obj("javaVersion")?.Int("majorVersion", 8) ?? 8;
         items.Add(new CheckItem(T("需要的 Java"), F("Java {0} 或兼容版本", required), "ok"));
+
+        var packFiles = Modpack.LoadTasks(gl, version);
+        if (packFiles.Count > 0)
+        {
+            var missing = Modpack.CountMissing(packFiles);
+            items.Add(missing > 0
+                ? new CheckItem(T("整合包文件不完整"), F("缺少 {0} 个文件，启动时会自动补全", missing), "warn")
+                : new CheckItem(T("整合包文件"), F("{0} 个文件", packFiles.Count), "ok"));
+        }
         return items;
     }
 

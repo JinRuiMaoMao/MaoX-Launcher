@@ -299,8 +299,9 @@ public static class Modpack
                 var overrides = info.Raw.Str("overrides");
                 prefixes = [string.IsNullOrEmpty(overrides) ? "overrides" : overrides];
             }
+            SaveTasks(gl, name, tasks, info);
             log(F("正在下载整合包中的 {0} 个文件...", tasks.Count));
-            await gl.Dl.DownloadManyAsync(tasks, (d, t) => progress?.Invoke(d, t, T("下载整合包文件")));
+            await RepairAsync(gl, name, log, progress, missingOnly: false);
             var extracted = await Task.Run(() => ExtractOverrides(path, prefixes, gameDir));
             log(F("已解压 {0} 个配置文件", extracted));
             await gl.PrepareAsync(name);
@@ -311,6 +312,96 @@ public static class Modpack
             throw;
         }
         return name;
+    }
+
+    public const string FilesFile = "modpack-files.json";
+
+    public static string FilesPath(GameLauncher gl, string version) =>
+        gl.PathOf("versions", version, FilesFile);
+
+    public static bool HasIndex(GameLauncher gl, string version) => File.Exists(FilesPath(gl, version));
+
+    /// <summary>把整合包文件清单存进版本目录，之后安装收尾和启动都能按清单补缺。</summary>
+    public static void SaveTasks(GameLauncher gl, string version, IReadOnlyList<DownloadTask> tasks, ModpackManifest info)
+    {
+        var gameDir = gl.GameDirFor(version);
+        var files = new JsonArray();
+        foreach (var task in tasks)
+        {
+            files.Add(new JsonObject
+            {
+                ["path"] = RelTo(gameDir, task.Path),
+                ["url"] = task.Url,
+                ["sha1"] = task.Sha1,
+                ["size"] = task.Size,
+                ["alternates"] = new JsonArray(task.Alternates.Select(a => (JsonNode)a).ToArray()),
+            });
+        }
+        Json.WriteFile(FilesPath(gl, version), new JsonObject
+        {
+            ["name"] = info.Name,
+            ["format"] = info.Format,
+            ["files"] = files,
+        });
+    }
+
+    public static List<DownloadTask> LoadTasks(GameLauncher gl, string version)
+    {
+        var data = Json.TryReadFile(FilesPath(gl, version));
+        if (data == null)
+            return [];
+        var gameDir = gl.GameDirFor(version);
+        var tasks = new List<DownloadTask>();
+        foreach (var file in data.Items("files"))
+        {
+            var rel = file.Str("path");
+            var url = file.Str("url");
+            if (string.IsNullOrEmpty(rel) || string.IsNullOrEmpty(url))
+                continue;
+            var size = file.Get("size") != null ? file.Long("size") : (long?)null;
+            var alts = file.Items("alternates").Select(a => a.AsStr()).Where(s => !string.IsNullOrEmpty(s));
+            tasks.Add(new DownloadTask(url, SafeJoin(gameDir, rel), file.Str("sha1"), size, alts));
+        }
+        return tasks;
+    }
+
+    public static bool IsAbsent(DownloadTask task)
+    {
+        try
+        {
+            var info = new FileInfo(task.Path);
+            return !info.Exists || info.Length == 0;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    public static int CountMissing(IEnumerable<DownloadTask> tasks) => tasks.Count(IsAbsent);
+
+    /// <summary>
+    /// 按清单补全整合包文件。missingOnly 时只下载缺失或空文件，避免覆盖用户自己换过的模组；
+    /// 安装时用 missingOnly=false，按大小 / SHA1 校验不完整的文件。
+    /// </summary>
+    public static async Task<int> RepairAsync(GameLauncher gl, string version, Action<string> log = null,
+                                              Action<int, int, string> progress = null, bool missingOnly = true)
+    {
+        log ??= _ => { };
+        var tasks = LoadTasks(gl, version);
+        if (tasks.Count == 0)
+            return 0;
+        if (missingOnly)
+            tasks = tasks.Where(IsAbsent).ToList();
+        if (tasks.Count == 0)
+        {
+            log(T("整合包文件完整"));
+            return 0;
+        }
+        log(F("正在补全 {0} 个整合包文件...", tasks.Count));
+        var count = await gl.Dl.DownloadManyAsync(tasks, (d, t) => progress?.Invoke(d, t, T("补全整合包文件")));
+        log(count > 0 ? F("已补全 {0} 个整合包文件", count) : T("整合包文件完整"));
+        return count;
     }
 
     // ------------------------------------------------------------------ 导出

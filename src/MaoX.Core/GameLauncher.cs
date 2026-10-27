@@ -825,6 +825,8 @@ public class GameLauncher
         if (Platform.IsMobile && vjson.Items("libraries").Any(l => l.Str("name")?.StartsWith("org.lwjgl:lwjgl-sdl:") == true))
             throw new PlatformNotSupportedException(
                 F("{0} 的窗口和输入改用了 SDL3，手机版运行环境暂时还不支持，请先玩 26.2 或更早的版本", versionId));
+        if (Cfg.RepairModpackOn)
+            await Modpack.RepairAsync(this, versionId, Log, Progress);
         Log(F("正在检查 {0} 的游戏文件...", versionId));
 
         var tasks = new List<DownloadTask>();

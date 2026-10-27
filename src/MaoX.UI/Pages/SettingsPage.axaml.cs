@@ -59,6 +59,7 @@ public partial class SettingsPage : UserControl, IPage
         IsolationBox.SelectedIndex = Math.Max(0, Array.FindIndex(Isolation.Modes, m => m.Key == Isolation.Normalize(cfg.IsolationMode)));
         AutoBackupSwitch.IsChecked = cfg.AutoBackupWorlds;
         PreLaunchSwitch.IsChecked = cfg.PreLaunchCheckOn;
+        RepairModpackSwitch.IsChecked = cfg.RepairModpackOn;
         LiveLogSwitch.IsChecked = cfg.LiveLog;
         ProxyBox.Text = cfg.Proxy;
         DohSwitch.IsChecked = cfg.Doh;
@@ -127,6 +128,7 @@ public partial class SettingsPage : UserControl, IPage
 
         AutoBackupSwitch.IsCheckedChanged += (_, _) => Cfg.AutoBackupWorlds = AutoBackupSwitch.IsChecked == true;
         PreLaunchSwitch.IsCheckedChanged += (_, _) => Cfg.PreLaunchCheck = PreLaunchSwitch.IsChecked == true;
+        RepairModpackSwitch.IsCheckedChanged += (_, _) => Cfg.RepairModpack = RepairModpackSwitch.IsChecked == true;
         LiveLogSwitch.IsCheckedChanged += (_, _) =>
         {
             Cfg.LiveLog = LiveLogSwitch.IsChecked == true;

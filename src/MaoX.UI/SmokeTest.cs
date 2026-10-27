@@ -115,6 +115,7 @@ internal static class SmokeTest
         await Check("launcher extras", () => Task.FromResult(CheckExtras()));
         await Check("pcl extras", () => Task.FromResult(CheckPclExtras()));
         await Check("large mod list", () => CheckLargeModList());
+        await Check("modpack repair", () => Task.FromResult(CheckModpackRepair()));
         await Check("languages", () => Task.FromResult(CheckLanguages()));
         await Check("site feed", () => Task.FromResult(CheckMcSiteFeed()));
         await Check("game dir switch", () => Task.FromResult(CheckGameDirSwitch(window)));
@@ -874,6 +875,48 @@ internal static class SmokeTest
             if (readMs > 4000)
                 throw new Exception($"ListLocalMods took {readMs}ms for {count} jars");
             return $"{count} mods listed in {readMs}ms, card {uiMs}ms ({card.GetType().Name})";
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, true);
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    private static string CheckModpackRepair()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "maox-smoke-packrepair-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            var gl = new GameLauncher(new LauncherConfig { MinecraftDir = root, VersionIsolation = true });
+            const string version = "TestPack";
+            Directory.CreateDirectory(gl.VersionDir(version));
+            var dest = Path.Combine(gl.GameDirFor(version), "mods", "example.jar");
+            var info = new ModpackManifest { Name = "TestPack", Format = "modrinth" };
+            Modpack.SaveTasks(gl, version, [new DownloadTask("https://example.invalid/example.jar", dest, "abc", 12)], info);
+            if (!Modpack.HasIndex(gl, version))
+                throw new Exception("index not saved");
+            var tasks = Modpack.LoadTasks(gl, version);
+            if (tasks.Count != 1 || !tasks[0].Path.EndsWith("example.jar", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("load path " + tasks.FirstOrDefault()?.Path);
+            if (Modpack.CountMissing(tasks) != 1)
+                throw new Exception("missing should be 1");
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            File.WriteAllText(dest, "");
+            if (Modpack.CountMissing(tasks) != 1)
+                throw new Exception("empty file should count as missing");
+            File.WriteAllText(dest, "hello pack");
+            if (Modpack.CountMissing(tasks) != 0)
+                throw new Exception("present file should not be missing");
+            var checks = LaunchCheck.Run(gl, version, null);
+            if (checks.All(c => c.Title != I18n.T("整合包文件")))
+                throw new Exception("launch check missing pack row: " + string.Join(", ", checks.Select(c => c.Title)));
+            return $"index={tasks.Count} missing=0 check=ok";
         }
         finally
         {

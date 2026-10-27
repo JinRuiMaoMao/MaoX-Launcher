@@ -106,6 +106,9 @@ public class LauncherConfig
     /// <summary>启动游戏前先检查 Java、磁盘和文件。</summary>
     public bool? PreLaunchCheck { get; set; }
     public bool PreLaunchCheckOn => PreLaunchCheck != false;
+    /// <summary>启动整合包时按清单补缺失的模组文件。安装时总会补全。</summary>
+    public bool? RepairModpack { get; set; }
+    public bool RepairModpackOn => RepairModpack != false;
     /// <summary>已经看过的公告 id（GitHub Release tag）。</summary>
     public string LastAnnouncement { get; set; } = "";
     public string JavaPath { get; set; } = "";
@@ -255,6 +258,7 @@ public class LauncherConfig
                     cfg.AutoMemory ??= true;
                     cfg.OptimizeMemory ??= true;
                     cfg.PreLaunchCheck ??= true;
+                    cfg.RepairModpack ??= true;
                     return cfg;
                 }
             }

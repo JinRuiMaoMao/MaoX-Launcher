@@ -63,6 +63,13 @@
               </Grid>
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="3" Margin="0,0,14,0">
+                  <TextBlock Text="{c:Tr 启动时补全整合包}" />
+                  <TextBlock Text="{c:Tr 按整合包清单检查模组，缺的会自动下载。关掉后只在安装时补全}" Classes="small dim wrap" />
+                </StackPanel>
+                <ToggleSwitch Name="RepairModpackSwitch" Grid.Column="1" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3" Margin="0,0,14,0">
                   <TextBlock Text="{c:Tr 实时日志}" />
                   <TextBlock Text="{c:Tr 在启动页滚动显示游戏输出。默认关闭，避免刷屏。}" Classes="small dim wrap" />
                 </StackPanel>

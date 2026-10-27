@@ -136,5 +136,20 @@
   "需要 JIT。用 StikDebug / SideStore / TrollStore，或设置里打开内置 JIT（实验）。26.3 及以上目前还不能启动。": "JIT is required. Use StikDebug / SideStore / TrollStore, or turn on built-in JIT in settings (experimental). 26.3 and newer cannot launch yet.",
   "启动器如何更新？": "How do I update the launcher?",
   "设置里可以检查更新。更新频道选「预览」时会包含测试版。正式版会通过 GitHub Release 自动提示。": "Check for updates in Settings. The Preview channel includes prereleases. Release builds also prompt from GitHub Releases.",
-  "JDK {0} 解压后找不到 java": "java was not found after extracting JDK {0}"
+  "JDK {0} 解压后找不到 java": "java was not found after extracting JDK {0}",
+  "启动时补全整合包": "Repair pack files on launch",
+  "按整合包清单检查模组，缺的会自动下载。关掉后只在安装时补全": "Check the pack list and download missing mods. Turn off to repair only while installing",
+  "整合包文件完整": "Pack files are complete",
+  "正在补全 {0} 个整合包文件...": "Repairing {0} pack files...",
+  "已补全 {0} 个整合包文件": "Repaired {0} pack files",
+  "补全整合包文件": "Repair pack files",
+  "整合包文件不完整": "Pack files are incomplete",
+  "缺少 {0} 个文件，启动时会自动补全": "{0} files are missing and will be downloaded on launch",
+  "整合包文件": "Pack files",
+  "{0} 个文件": "{0} files",
+  "补全文件": "Repair files",
+  "这个版本没有整合包文件清单。重新安装整合包后就能自动补全": "This version has no pack file list. Reinstall the pack to enable automatic repair",
+  "已补全 {0} 个文件": "Repaired {0} files",
+  "没有需要补全的文件": "Nothing needs repairing",
+  "安装整合包会创建一个新的游戏版本，之后启动会自动补全缺失的模组": "Installing a pack creates a new version. Missing mods are downloaded again on launch"
 }
