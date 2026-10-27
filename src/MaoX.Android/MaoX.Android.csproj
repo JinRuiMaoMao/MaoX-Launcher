@@ -12,7 +12,9 @@
     <ApplicationId>io.github.jinruimaomao.maox</ApplicationId>
     <ApplicationTitle>MaoX Launcher</ApplicationTitle>
     <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
-    <ApplicationVersion>$([System.Version]::Parse($(VersionCore)).Major)$([System.Version]::Parse($(VersionCore)).Minor.ToString("00"))$([System.Version]::Parse($(VersionCore)).Build.ToString("00"))$([MSBuild]::Max(0, $([System.Version]::Parse($(VersionCore)).Revision)))</ApplicationVersion>
+    <_AndroidRev>$([System.Version]::Parse($(VersionCore)).Revision)</_AndroidRev>
+    <_AndroidRev Condition="'$(_AndroidRev)' == '-1'">0</_AndroidRev>
+    <ApplicationVersion>$([System.Version]::Parse($(VersionCore)).Major)$([System.Version]::Parse($(VersionCore)).Minor.ToString("00"))$([System.Version]::Parse($(VersionCore)).Build.ToString("00"))$(_AndroidRev)</ApplicationVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
