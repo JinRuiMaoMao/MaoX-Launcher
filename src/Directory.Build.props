@@ -1,7 +1,8 @@
 <Project>
   <PropertyGroup>
-    <!-- 启动器版本号：发布时打 tag v<版本号>，GitHub Actions 会检查两者一致 -->
-    <Version>2.2.0-HotFix.1</Version>
+    <!-- 启动器版本号：发布时打 tag v<版本号>，GitHub Actions 会检查两者一致。
+         2.2.0 及更早的更新器会丢掉 -HotFix 这类后缀，所以热修复必须升数字（2.2.1），不能只加后缀。 -->
+    <Version>2.2.1</Version>
     <VersionCore Condition="$(Version.Contains('-'))">$(Version.Substring(0, $(Version.IndexOf('-'))))</VersionCore>
     <VersionCore Condition="'$(VersionCore)' == ''">$(Version)</VersionCore>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
