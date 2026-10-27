@@ -682,6 +682,23 @@ internal static class SmokeTest
             }
         }, required: false, timeout: TimeSpan.FromMinutes(3));
 
+        await Check("version compare", () =>
+        {
+            if (!Updater.IsNewer("2.2.0-HotFix.1", "2.2.0"))
+                throw new Exception("hotfix should be newer than the same numeric version");
+            if (Updater.IsNewer("2.2.0", "2.2.0-HotFix.1"))
+                throw new Exception("numeric version should not be newer than its hotfix");
+            if (!Updater.IsNewer("2.2.1", "2.2.0-HotFix.1"))
+                throw new Exception("next patch should beat a hotfix");
+            if (!Updater.IsNewer("2.2.0-HotFix.2", "2.2.0-HotFix.1"))
+                throw new Exception("later hotfix should win");
+            if (Updater.IsNewer("2.2.0-HotFix.1", "2.2.0-HotFix.1"))
+                throw new Exception("same hotfix should not be newer");
+            if (Updater.IsNewer("2.2.0-beta.1", "2.2.0"))
+                throw new Exception("other suffixes are not newer than the release");
+            return Task.FromResult(Mc.LauncherVersion);
+        });
+
         await Check("update", async () =>
         {
             var info = await Updater.CheckAsync();

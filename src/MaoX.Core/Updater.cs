@@ -72,19 +72,40 @@ public static class Updater
                   : AppBundle != null);
 #pragma warning restore IL3000
 
-    /// <summary>比较版本号（忽略开头的 v 和 -beta 之类的后缀）。</summary>
+    /// <summary>
+    /// 比较版本号（忽略开头的 v）。-HotFix.N 比同号正式版更新；-beta 等其它后缀仍视为同一正式号。
+    /// </summary>
     public static bool IsNewer(string candidate, string current) =>
-        TryParse(candidate, out var a) && TryParse(current, out var b) && a > b;
+        TryParse(candidate, out var a, out var aHotfix) && TryParse(current, out var b, out var bHotfix)
+        && (a > b || a == b && aHotfix > bHotfix);
 
-    private static bool TryParse(string text, out Version version)
+    private static bool TryParse(string text, out Version version, out int hotfix)
     {
+        version = null;
+        hotfix = 0;
         text = (text ?? "").Trim().TrimStart('v', 'V');
-        var dash = text.IndexOfAny(['-', '+']);
+        var plus = text.IndexOf('+');
+        if (plus >= 0)
+            text = text[..plus];
+        var dash = text.IndexOf('-');
+        var core = dash >= 0 ? text[..dash] : text;
         if (dash >= 0)
-            text = text[..dash];
-        if (!text.Contains('.'))
-            text += ".0";
-        return Version.TryParse(text, out version);
+        {
+            var suffix = text[(dash + 1)..];
+            if (suffix.StartsWith("hotfix", StringComparison.OrdinalIgnoreCase))
+            {
+                var rest = suffix["hotfix".Length..];
+                if (rest.StartsWith('.'))
+                    rest = rest[1..];
+                var digits = 0;
+                while (digits < rest.Length && char.IsDigit(rest[digits]))
+                    digits++;
+                hotfix = digits > 0 && int.TryParse(rest[..digits], out var n) ? n : 1;
+            }
+        }
+        if (!core.Contains('.'))
+            core += ".0";
+        return Version.TryParse(core, out version);
     }
 
     /// <summary>检查最新发布。没有更新（或还没有任何发布）时返回 null。preview 时包含预发布。</summary>

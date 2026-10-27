@@ -2,8 +2,8 @@
 // 需要环境变量 DISCORD_WEBHOOK、RELEASE_TAG；GITHUB_REPOSITORY 可选。
 const webhook = process.env.DISCORD_WEBHOOK;
 if (!webhook) {
-  console.log("未设置 DISCORD_WEBHOOK，跳过通知");
-  process.exit(0);
+  console.error("未设置 DISCORD_WEBHOOK，发布必须推送到 Discord");
+  process.exit(1);
 }
 
 const repo = process.env.GITHUB_REPOSITORY || "JinRuiMaoMao/MaoX-Launcher";
