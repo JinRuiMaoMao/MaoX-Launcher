@@ -688,8 +688,8 @@ internal static class SmokeTest
                 throw new Exception("hotfix should be newer than the same numeric version");
             if (Updater.IsNewer("2.2.0", "2.2.0-HotFix.1"))
                 throw new Exception("numeric version should not be newer than its hotfix");
-            if (!Updater.IsNewer("2.2.1", "2.2.0"))
-                throw new Exception("2.2.1 must look newer to 2.2.0 clients that strip -HotFix");
+            if (!Updater.IsNewer("2.2.0-HotFix.2", "2.2.0"))
+                throw new Exception("later hotfix should be newer than the release");
             if (!Updater.IsNewer("2.2.1", "2.2.0-HotFix.1"))
                 throw new Exception("next patch should beat a hotfix");
             if (!Updater.IsNewer("2.2.0-HotFix.2", "2.2.0-HotFix.1"))
