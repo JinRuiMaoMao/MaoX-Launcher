@@ -56,6 +56,8 @@ public class VersionSettingsPage : UserControl, IPage
     private DateTime _pillUntil;
     private Border _pill;
     private Panel _tabHost;
+    private Panel _fillHost;
+    private ScrollViewer _scroll;
     private TextBlock _title, _subtitle;
     private VersionFilesCard _files;
     private StackPanel _worlds, _snapshots, _logs, _shots, _recommend, _check;
@@ -97,13 +99,14 @@ public class VersionSettingsPage : UserControl, IPage
         };
 
         _tabHost = new Panel();
-        var scroll = new ScrollViewer { Content = _tabHost, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        _fillHost = new Panel { IsVisible = false };
+        _scroll = new ScrollViewer { Content = _tabHost, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         var root = new DockPanel();
         DockPanel.SetDock(head, Dock.Top);
         DockPanel.SetDock(tabBar, Dock.Top);
         root.Children.Add(head);
         root.Children.Add(tabBar);
-        root.Children.Add(scroll);
+        root.Children.Add(new Panel { Children = { _scroll, _fillHost } });
         Content = root;
     }
 
@@ -156,6 +159,9 @@ public class VersionSettingsPage : UserControl, IPage
         UpdateChips();
         if (!_panels.TryGetValue(key, out var panel))
             return;
+        var files = key == "files";
+        _scroll.IsVisible = !files;
+        _fillHost.IsVisible = files;
         if (_tabReady)
             PageTabs.Swap(panel, _panels.Values.ToArray(), PageTabs.Direction(Tabs.Select(t => t.Key).ToList(), from, key));
         else
@@ -311,7 +317,7 @@ public class VersionSettingsPage : UserControl, IPage
         settingsBody.Children.Add(ActionsCard());
 
         var modded = Mods.ModLoaders.Contains(_gl.DetectLoader(_version).Loader);
-        _files = new VersionFilesCard(GameDir, modded);
+        _files = new VersionFilesCard(GameDir, modded, () => _version, fill: true);
         _isolation.SelectionChanged += (_, _) => _files.Reload();
 
         _snapCount = new TextBlock { Classes = { "accent", "bold" } };
@@ -329,6 +335,7 @@ public class VersionSettingsPage : UserControl, IPage
 
         _panels.Clear();
         _tabHost.Children.Clear();
+        _fillHost.Children.Clear();
         _tabReady = false;
         AddPanel("settings", settingsBody);
         AddPanel("files", _files);
@@ -346,7 +353,7 @@ public class VersionSettingsPage : UserControl, IPage
     {
         content.IsVisible = false;
         _panels[key] = content;
-        _tabHost.Children.Add(content);
+        (key == "files" ? _fillHost : _tabHost).Children.Add(content);
     }
 
     private Control ActionsCard()

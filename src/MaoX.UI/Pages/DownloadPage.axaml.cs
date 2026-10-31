@@ -81,6 +81,19 @@ public partial class DownloadPage : UserControl, IPage
         Main.RefreshNav();
     }
 
+    /// <summary>打开某个已安装文件对应的 Modrinth / CurseForge 项目页。</summary>
+    public void ShowProject(string version, string kind, SearchHit hit, string source)
+    {
+        if (hit == null)
+            return;
+        var tab = kind is "mod" or "resourcepack" or "shader" or "datapack" or "modpack" ? kind : "mod";
+        ShowTab(tab);
+        if (!string.IsNullOrEmpty(version) && TargetVersionBox.Items.Cast<object>().Contains(version)
+            && !Equals(TargetVersionBox.SelectedItem, version))
+            TargetVersionBox.SelectedItem = version;
+        _resources?.OpenProject(kind, hit, source);
+    }
+
     private void OnDownloadTabClick(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleButton { Tag: string key })

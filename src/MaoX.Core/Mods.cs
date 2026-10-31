@@ -1075,6 +1075,24 @@ public class ModrinthClient : IModClient
         }
     }
 
+    /// <summary>用文件 SHA1 找到对应项目。类型不符或查不到时返回 null。</summary>
+    public async Task<SearchHit> FindByFileAsync(string path, string kind)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return null;
+        try
+        {
+            var sha1 = Http.FileSha1(path);
+            var found = await IdentifyAsync([sha1]);
+            var projectId = found[sha1]?.Str("project_id");
+            return string.IsNullOrEmpty(projectId) ? null : await LookupAsync(projectId, kind);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     /// <summary>项目的版本列表（Modrinth 原始数据，新版本在前）。gameVersion / loaders 为空时不过滤。</summary>
     public async Task<List<JsonNode>> ProjectVersionsAsync(string projectId, string gameVersion,
                                                            IReadOnlyList<string> loaders)
@@ -1382,6 +1400,28 @@ public partial class CurseForgeClient : IModClient
             return mod != null ? ToHit(mod) : null;
         }
         catch (HttpStatusException e) when (e.Status is 400 or 404)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>用 CurseForge 指纹找到对应项目。类型不符或查不到时返回 null。</summary>
+    public async Task<SearchHit> FindByFileAsync(string path, string kind)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path) || !Mods.CfClasses.TryGetValue(kind, out var classId))
+            return null;
+        try
+        {
+            var fingerprint = Mods.CurseForgeFingerprint(path);
+            var map = await IdentifyFingerprintsAsync([fingerprint]);
+            if (!map.TryGetValue(fingerprint, out var ids))
+                return null;
+            var mod = (await GetAsync($"/mods/{ids.ProjectId}")).Get("data");
+            if (mod == null || mod.Int("classId") != classId)
+                return null;
+            return ToHit(mod);
+        }
+        catch (Exception)
         {
             return null;
         }

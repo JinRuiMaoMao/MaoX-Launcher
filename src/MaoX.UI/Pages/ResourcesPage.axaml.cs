@@ -124,6 +124,24 @@ public partial class ResourcesPage : UserControl, IPage
             _hostVersionBox.SelectionChanged += OnVersionChanged;
     }
 
+    /// <summary>从版本文件页跳过来：切到对应分类并打开这个项目。</summary>
+    public void OpenProject(string kind, SearchHit hit, string source)
+    {
+        if (string.IsNullOrEmpty(hit?.Id) || !Mods.KindNames.ContainsKey(kind))
+            return;
+        _source = source == "curseforge" ? "curseforge" : "modrinth";
+        _tab = _source;
+        SearchBox.Text = string.IsNullOrEmpty(hit.Slug) ? hit.Title : hit.Slug;
+        if (_kind != kind)
+            SetKind(kind);
+        else
+        {
+            ShowTab();
+            Search(true);
+        }
+        ShowVersions(hit, _source);
+    }
+
     /// <summary>community 显示全部分类；其余锁定到对应资源类型。</summary>
     public void OpenSection(string kind)
     {

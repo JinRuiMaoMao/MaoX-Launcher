@@ -130,7 +130,7 @@ public class VersionDialog : DialogView
 
         // 模组 / 资源包 / 光影包
         var modded = Mods.ModLoaders.Contains(_gl.DetectLoader(version).Loader);
-        var files = new VersionFilesCard(GameDir, modded) { Margin = new Thickness(0, 14, 0, 0) };
+        var files = new VersionFilesCard(GameDir, modded, () => _version) { Margin = new Thickness(0, 14, 0, 0) };
         _isolation.IsCheckedChanged += (_, _) => files.Reload();
         root.Children.Add(files);
 

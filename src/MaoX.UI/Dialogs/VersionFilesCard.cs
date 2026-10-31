@@ -2,11 +2,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MaoX.Controls;
 using MaoX.Core;
 using static MaoX.Core.I18n;
@@ -19,10 +21,11 @@ public class VersionFilesCard : UserControl
     private record Kind(string Key, string Folder, string Icon, string Name, string Pattern);
 
     private readonly Func<string> _gameDir;
+    private readonly Func<string> _versionId;
     private readonly List<Kind> _kinds = [];
     private readonly Dictionary<string, ToggleButton> _tabs = [];
     private readonly Dictionary<string, int> _counts = [];
-    private readonly ListBox _list = new() { Classes = { "plain" }, MaxHeight = 300, Padding = new Thickness(0, 0, 8, 0) };
+    private readonly ListBox _list = new() { Classes = { "plain" }, Padding = new Thickness(0, 0, 8, 0) };
     private readonly TextBlock _empty = new() { Classes = { "muted", "wrap" }, Margin = new Thickness(0, 6) };
     private readonly TextBox _search = new() { Watermark = T("搜索"), MinWidth = 150 };
     private readonly DispatcherTimer _searchDebounce = new() { Interval = TimeSpan.FromMilliseconds(160) };
@@ -31,12 +34,16 @@ public class VersionFilesCard : UserControl
     private readonly Dictionary<string, Bitmap> _icons = [];
     private readonly Dictionary<string, (Image Image, Control Placeholder)> _iconViews = [];
     private int _loadId;
+    private bool _opening;
 
     private static MainView Main => MainView.Current;
 
-    public VersionFilesCard(Func<string> gameDir, bool modded)
+    public VersionFilesCard(Func<string> gameDir, bool modded, Func<string> versionId = null, bool fill = false)
     {
         _gameDir = gameDir;
+        _versionId = versionId;
+        if (!fill)
+            _list.MaxHeight = 300;
         if (modded)
             _kinds.Add(new Kind("mod", "mods", "box", T("模组"), "*.jar"));
         _kinds.Add(new Kind("resourcepack", "resourcepacks", "image", T("资源包"), "*.zip"));
@@ -279,7 +286,84 @@ public class VersionFilesCard : UserControl
         delete.Click += (_, _) => Delete(item);
         Grid.SetColumn(delete, 3);
         grid.Children.Add(delete);
-        return new Border { Classes = { "row" }, Padding = new Thickness(10, 7), Margin = new Thickness(0, 0, 0, 6), Child = grid };
+        var row = new Border
+        {
+            Classes = { "row" }, Padding = new Thickness(10, 7), Margin = new Thickness(0, 0, 0, 6),
+            Child = grid, Cursor = new Cursor(StandardCursorType.Hand),
+        };
+        ToolTip.SetTip(row, T("在下载页打开"));
+        row.Tapped += (_, e) =>
+        {
+            if (e.Source is Visual origin
+                && (origin.FindAncestorOfType<Button>() != null || origin.FindAncestorOfType<ToggleSwitch>() != null))
+                return;
+            OpenOnline(item);
+        };
+        return row;
+    }
+
+    private async void OpenOnline(LocalFile item)
+    {
+        if (_opening || item == null)
+            return;
+        if (item.IsDir || string.IsNullOrEmpty(item.Path) || !File.Exists(item.Path))
+        {
+            Main.Toast(T("文件夹没有对应的在线页面"), "info");
+            return;
+        }
+        _opening = true;
+        var name = string.IsNullOrEmpty(item.Name) ? item.Filename : item.Name;
+        Main.SetStatus(F("正在查找 {0}…", name));
+        try
+        {
+            var dl = Main.MakeLauncher().Dl;
+            var kind = _kind.Key;
+            var modrinth = new ModrinthClient(dl);
+            var curseforge = new CurseForgeClient(dl);
+            var found = await Task.WhenAll(
+                modrinth.FindByFileAsync(item.Path, kind),
+                curseforge.FindByFileAsync(item.Path, kind));
+            var hit = found[0] ?? found[1];
+            var source = found[0] != null ? "modrinth" : found[1] != null ? "curseforge" : null;
+            if (hit == null)
+            {
+                foreach (var (key, client) in new (string, IModClient)[] { ("modrinth", modrinth), ("curseforge", curseforge) })
+                {
+                    try
+                    {
+                        var result = await client.SearchAsync(name, null, null, 0, 8, "relevance", kind);
+                        hit = result.Hits.FirstOrDefault(h =>
+                            string.Equals(h.Title, name, StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(h.Slug, name, StringComparison.OrdinalIgnoreCase));
+                    }
+                    catch (Exception)
+                    {
+                        continue;
+                    }
+                    if (hit == null)
+                        continue;
+                    source = key;
+                    break;
+                }
+            }
+            if (hit == null)
+            {
+                Main.Toast(F("没有在 Modrinth 或 CurseForge 上找到 {0}", name), "warn");
+                return;
+            }
+            var version = _versionId?.Invoke();
+            Main.ShowPage("download");
+            Main.DownloadPage.ShowProject(version, kind, hit, source);
+        }
+        catch (Exception e)
+        {
+            Main.Toast(F("查找失败：{0}", MainView.ErrorText(e)), "error");
+        }
+        finally
+        {
+            _opening = false;
+            Main.SetStatus(T("就绪"));
+        }
     }
 
     private async void Toggle(LocalFile mod, ToggleSwitch toggle)
