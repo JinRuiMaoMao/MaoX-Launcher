@@ -28,6 +28,7 @@ internal sealed class GameViewController : UIViewController
     private DateTime _copiedUntil;
     private int _width, _height;
     private bool _launched;
+    private DateTime _started = DateTime.Now;
     private GamepadInput _gamepad;
 
     public GameViewController(string gameDir, ScreenInfo screen, ControlLayout layout)
@@ -195,6 +196,7 @@ internal sealed class GameViewController : UIViewController
                 if (code == 0)
                 {
                     _launched = true;
+                    _started = DateTime.Now;
                     UIApplication.SharedApplication.IdleTimerDisabled = true;
                     NSTimer.CreateRepeatingScheduledTimer(2, _ => UpdateRoom());
                     _gamepad = new GamepadInput(_controls);
@@ -250,12 +252,13 @@ internal sealed class GameViewController : UIViewController
         {
             UIApplication.SharedApplication.IdleTimerDisabled = false;
             _current?._gamepad?.Stop();
-            if (code != 0 && _current != null)
+            var current = _current;
+            if (current != null && !CleanExit(current, code))
             {
-                UIViewController top = _current;
+                UIViewController top = current;
                 while (top.PresentedViewController != null)
                     top = top.PresentedViewController;
-                var alert = UIAlertController.Create(F("游戏已退出（代码 {0}）", code), LogTail(), UIAlertControllerStyle.Alert);
+                var alert = UIAlertController.Create(T("游戏崩溃了"), CrashMessage(current, code), UIAlertControllerStyle.Alert);
                 alert.AddAction(UIAlertAction.Create(T("回到启动器"), UIAlertActionStyle.Default, _ => ReturnToLauncher()));
                 top.PresentViewController(alert, true, null);
                 return;
@@ -280,21 +283,56 @@ internal sealed class GameViewController : UIViewController
         current.DismissViewController(false, () => GameNative.Relaunch());
     }
 
-    private static string LogTail()
+    private static bool CleanExit(GameViewController current, int code)
+    {
+        try
+        {
+            var report = AnalyzeExit(current, code);
+            return report.MenuQuit || (code == 0 && report.Reasons.All(r => r.Kind != CrashAnalyzer.Mod));
+        }
+        catch (Exception)
+        {
+            return code == 0;
+        }
+    }
+
+    private static string CrashMessage(GameViewController current, int code)
+    {
+        try
+        {
+            var report = AnalyzeExit(current, code);
+            var lines = report.Reasons.Select(r => r.Text).Take(4).ToList();
+            if (lines.Count == 0 && !string.IsNullOrWhiteSpace(report.Detail))
+                lines.Add(report.Detail);
+            if (lines.Count == 0)
+                lines.Add(CrashAnalyzer.ExitCaption(code));
+            return string.Join("\n", lines);
+        }
+        catch (Exception)
+        {
+            return CrashAnalyzer.ExitCaption(code);
+        }
+    }
+
+    private static CrashReport AnalyzeExit(GameViewController current, int code) =>
+        CrashAnalyzer.Analyze(ReadLogLines(), current._gameDir, current._started, code);
+
+    private static List<string> ReadLogLines()
     {
         try
         {
             using var file = new FileStream(GameHost.LogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var length = Math.Min(file.Length, 4096);
+            var length = Math.Min(file.Length, 256 * 1024);
+            if (length <= 0)
+                return [];
             file.Seek(-length, SeekOrigin.End);
             var buffer = new byte[length];
             file.ReadExactly(buffer);
-            var lines = System.Text.Encoding.UTF8.GetString(buffer).Split('\n');
-            return string.Join("\n", lines.Skip(1).TakeLast(20)).Trim();
+            return System.Text.Encoding.UTF8.GetString(buffer).Split('\n').TakeLast(2000).ToList();
         }
         catch (Exception)
         {
-            return "";
+            return [];
         }
     }
 

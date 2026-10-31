@@ -1093,6 +1093,8 @@ public class GameLauncher
     public async Task<Process> LaunchAsync(string versionId, string server = null, LaunchAuth auth = null)
     {
         var (cmd, gameDir) = await PrepareCommandAsync(versionId, server, auth);
+        if (ApplyLauncherLanguage(gameDir))
+            Log(F("已按启动器语言设置游戏语言：{0}", I18n.DisplayName(I18n.Language)));
         Log(F("正在启动 {0}（玩家 {1}，最大内存 {2} MB）...", versionId, auth?.Name ?? Cfg.Username, Cfg.MaxMemory));
         if (Cfg.AutoMemoryOn)
             Log(F("已按可用内存自动分配 {0} MB（可用 {1:0.0} GB）", Cfg.MaxMemory, GameMemory.AvailableMb() / 1024.0));
@@ -1169,9 +1171,48 @@ public class GameLauncher
         var starter = MobileStarter ?? throw new PlatformNotSupportedException(T("这个平台还不能启动游戏"));
         Cfg = EffectiveConfig(versionId);
         var info = await PrepareAsync(versionId);
+        if (ApplyLauncherLanguage(info.GameDir))
+            Log(F("已按启动器语言设置游戏语言：{0}", I18n.DisplayName(I18n.Language)));
         Log(F("正在启动 {0}（玩家 {1}，最大内存 {2} MB）...", versionId, auth?.Name ?? Cfg.Username, Cfg.MaxMemory));
         if (Cfg.AutoMemoryOn)
             Log(F("已按可用内存自动分配 {0} MB（可用 {1:0.0} GB）", Cfg.MaxMemory, GameMemory.AvailableMb() / 1024.0));
         return await starter(this, info, server, auth);
+    }
+
+    /// <summary>把 options.txt 的 lang 改成启动器当前语言。已经一致时不改文件。</summary>
+    public static bool ApplyLauncherLanguage(string gameDir)
+    {
+        var lang = I18n.Language;
+        if (string.IsNullOrWhiteSpace(gameDir) || string.IsNullOrWhiteSpace(lang))
+            return false;
+        if (!I18n.Locales.Any(l => string.Equals(l.Key, lang, StringComparison.OrdinalIgnoreCase)))
+            return false;
+        Directory.CreateDirectory(gameDir);
+        var path = Path.Combine(gameDir, "options.txt");
+        var newline = "\n";
+        var lines = new List<string>();
+        if (File.Exists(path))
+        {
+            var text = File.ReadAllText(path);
+            if (text.Contains("\r\n", StringComparison.Ordinal))
+                newline = "\r\n";
+            lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').ToList();
+            if (lines.Count > 0 && lines[^1].Length == 0)
+                lines.RemoveAt(lines.Count - 1);
+        }
+        var value = "lang:" + lang;
+        var index = lines.FindIndex(line => line.StartsWith("lang:", StringComparison.Ordinal));
+        if (index >= 0)
+        {
+            if (lines[index].Trim() == value)
+                return false;
+            lines[index] = value;
+        }
+        else
+        {
+            lines.Add(value);
+        }
+        File.WriteAllText(path, string.Join(newline, lines) + newline);
+        return true;
     }
 }

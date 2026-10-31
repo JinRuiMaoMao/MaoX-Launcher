@@ -1394,6 +1394,12 @@ public partial class MainView : UserControl
             window?.Show();
             window?.Activate();
         }
+        if (report.MenuQuit)
+        {
+            Log(T("游戏已退出"), "launcher");
+            UpdateStatusBar();
+            return;
+        }
         Log(F("游戏已退出（退出码 {0}）", code), code == 0 ? "launcher" : "error");
         UpdateStatusBar();
         var reasons = report.Reasons.Where(r => code != 0 || r.Kind == CrashAnalyzer.Mod).Select(r => r.Text).ToList();

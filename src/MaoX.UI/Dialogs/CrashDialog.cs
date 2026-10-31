@@ -21,7 +21,7 @@ public class CrashDialog : DialogView
         head.Children.Add(new Icon { Kind = "error", Size = 30, Foreground = error });
         var titles = new StackPanel { Spacing = 2 };
         titles.Children.Add(new TextBlock { Text = code != 0 ? T("游戏崩溃了") : T("模组加载失败"), Classes = { "h2" } });
-        titles.Children.Add(Text(F("退出码 {0}", code), "small", "dim"));
+        titles.Children.Add(Text(CrashAnalyzer.ExitCaption(code), "small", "dim"));
         head.Children.Add(titles);
         root.Children.Add(head);
 
@@ -38,6 +38,23 @@ public class CrashDialog : DialogView
                     Child = new SelectableTextBlock { Text = reason, TextWrapping = TextWrapping.Wrap, LineHeight = 22 },
                 };
                 body.Children.Add(row);
+            }
+            if (!string.IsNullOrWhiteSpace(report.Detail))
+            {
+                body.Children.Add(FieldLabel(T("原始错误")));
+                body.Children.Add(new Border
+                {
+                    Classes = { "log" },
+                    CornerRadius = new CornerRadius(10),
+                    Padding = new Thickness(14, 10),
+                    Child = new SelectableTextBlock
+                    {
+                        Text = report.Detail,
+                        TextWrapping = TextWrapping.Wrap,
+                        FontFamily = (FontFamily)Application.Current.FindResource("MonoFont")!,
+                        FontSize = 12.5,
+                    },
+                });
             }
         }
         else

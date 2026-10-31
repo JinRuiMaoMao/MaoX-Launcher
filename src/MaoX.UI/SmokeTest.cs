@@ -837,6 +837,37 @@ internal static class SmokeTest
         if (UiFonts.Fallbacks.Length < 8)
             throw new Exception("font fallbacks: " + UiFonts.Fallbacks.Length);
         I18n.SetLanguage(LauncherConfig.Load().Language);
+        var langDir = Path.Combine(Path.GetTempPath(), "maox-lang-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(langDir);
+            File.WriteAllText(Path.Combine(langDir, "options.txt"), "fov:70\nlang:not_a_locale\n");
+            if (!GameLauncher.ApplyLauncherLanguage(langDir))
+                throw new Exception("launcher language was not applied");
+            var options = File.ReadAllText(Path.Combine(langDir, "options.txt"));
+            if (!options.Contains("fov:70") || !options.Contains("lang:" + I18n.Language))
+                throw new Exception("options lang: " + options);
+            if (GameLauncher.ApplyLauncherLanguage(langDir))
+                throw new Exception("language apply should stay unchanged");
+            var quit = CrashAnalyzer.Analyze(["[Render thread/INFO]: Stopping!"], langDir, DateTime.Now, 1);
+            if (!quit.MenuQuit)
+                throw new Exception("menu quit should not be a crash");
+            var crash = CrashAnalyzer.Analyze(
+                ["java.lang.NullPointerException: Cannot invoke \"a.b()\""], langDir, DateTime.Now, 1);
+            if (crash.MenuQuit || crash.Reasons.Count == 0 || !crash.Reasons[0].Text.Contains("空指针"))
+                throw new Exception("npe explain: " + string.Join(" | ", crash.Reasons.Select(r => r.Text)));
+            var english = I18n.Lookup("en_us", "游戏遇到了空指针错误。这通常是某个模组与当前 Minecraft 版本不兼容，或两个模组互相冲突。");
+            if (!english.Contains("null pointer", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("npe english: " + english);
+            var caption = CrashAnalyzer.ExitCaption(-1073741819);
+            if (!caption.Contains("显卡") && !I18n.Lookup("en_us", "内存访问冲突，多半是显卡驱动或光影").Contains("graphics"))
+                throw new Exception("exit caption: " + caption);
+        }
+        finally
+        {
+            if (Directory.Exists(langDir))
+                Directory.Delete(langDir, true);
+        }
         return $"locales={I18n.Locales.Length} follow={follow} ja={ja}";
     }
 

@@ -14,6 +14,8 @@ public class CrashReport
     public string Detail { get; init; } = "";
     /// <summary>相关的崩溃报告 / JVM 错误日志路径。</summary>
     public List<string> Files { get; init; } = [];
+    /// <summary>玩家在游戏里点了退出，关闭过程中的退出码或收尾异常不算崩溃。</summary>
+    public bool MenuQuit { get; init; }
 }
 
 /// <summary>游戏崩溃分析：从游戏输出、崩溃报告和 JVM 错误日志中找出常见原因，给出中文说明。</summary>
@@ -299,6 +301,10 @@ public static class CrashAnalyzer
         if ((exitCode is -1073741819 or 3221225477) && reasons.Count == 0)
             Add(Other, T("游戏进程发生内存访问冲突，通常是显卡驱动或光影导致：请更新显卡驱动并关闭光影"));
 
+        var menuQuit = IsMenuQuit(output, report, hsErr);
+        if (!menuQuit && reasons.Count == 0)
+            AddFallback(text, exitCode, Add);
+
         var detail = "";
         if (report.Length > 0 && (m = Description.Match(report)).Success)
             detail = F("{0}：{1}", m.Groups[1].Value.Trim(), m.Groups[2].Value.Trim());
@@ -311,6 +317,73 @@ public static class CrashAnalyzer
             Reasons = reasons,
             Detail = detail,
             Files = new[] { reportPath, hsErrPath }.Where(p => p != null).ToList(),
+            MenuQuit = menuQuit,
         };
+    }
+
+    /// <summary>
+    /// 标题画面或暂停菜单里点「退出游戏」会先写 Stopping!。
+    /// 之后关闭窗口偶尔会带非 0 退出码，甚至在 Minecraft.close 里抛异常，这不是崩溃。
+    /// </summary>
+    public static bool IsMenuQuit(string output, string report, string hsErr)
+    {
+        if (string.IsNullOrEmpty(output) || !output.Contains("Stopping!", StringComparison.Ordinal))
+            return false;
+        if (!string.IsNullOrEmpty(hsErr)
+            || output.Contains("A fatal error has been detected by the Java Runtime Environment", StringComparison.Ordinal))
+            return false;
+        var crashed = output.Contains("Game crashed!", StringComparison.Ordinal)
+                      || output.Contains("---- Minecraft Crash Report ----", StringComparison.Ordinal)
+                      || (report ?? "").Contains("---- Minecraft Crash Report ----", StringComparison.Ordinal);
+        if (!crashed)
+            return true;
+        var blob = string.IsNullOrEmpty(report) ? output : report;
+        return blob.Contains("at net.minecraft.client.Minecraft.close", StringComparison.Ordinal)
+               || blob.Contains("at net.minecraft.client.Minecraft.doClose", StringComparison.Ordinal);
+    }
+
+    /// <summary>对话框副标题：用当前语言说明退出码，而不是只留一个数字。</summary>
+    public static string ExitCaption(long code)
+    {
+        var meaning = code switch
+        {
+            0 => T("正常退出"),
+            1 => T("游戏报告了错误后退出"),
+            -1 => T("游戏异常结束"),
+            -1073741819 or 3221225477 => T("内存访问冲突，多半是显卡驱动或光影"),
+            -1073740791 => T("游戏内存被破坏，多半是显卡驱动或光影"),
+            -1073741571 => T("游戏栈空间用尽，通常是模组冲突"),
+            -1073741515 => T("缺少游戏需要的系统库"),
+            _ => null,
+        };
+        return meaning == null ? F("退出码 {0}", code) : F("{0}（退出码 {1}）", meaning, code);
+    }
+
+    private static void AddFallback(string text, long exitCode, Action<string, string> add)
+    {
+        if (text.Contains("NullPointerException", StringComparison.Ordinal))
+            add(Other, T("游戏遇到了空指针错误。这通常是某个模组与当前 Minecraft 版本不兼容，或两个模组互相冲突。"));
+        else if (text.Contains("IllegalStateException", StringComparison.Ordinal)
+                 || text.Contains("IllegalArgumentException", StringComparison.Ordinal))
+            add(Other, T("游戏内部状态不对。这通常是模组版本和当前游戏版本不匹配。"));
+        else if (text.Contains("ConcurrentModificationException", StringComparison.Ordinal))
+            add(Other, T("有模组在错误的时机修改了游戏数据，多半是模组冲突。"));
+        else if (text.Contains("IndexOutOfBoundsException", StringComparison.Ordinal)
+                 || text.Contains("ArrayIndexOutOfBoundsException", StringComparison.Ordinal))
+            add(Other, T("游戏读到了不存在的数据。这通常是模组或存档与当前版本不匹配。"));
+        else if (text.Contains("MixinApplyError", StringComparison.Ordinal)
+                 || text.Contains("MixinTransformerError", StringComparison.Ordinal)
+                 || text.Contains("InvalidMixinException", StringComparison.Ordinal))
+            add(Other, T("模组注入失败。请更新相关模组，或暂时移出最近安装的模组。"));
+        else if (text.Contains("BootstrapMethodError", StringComparison.Ordinal)
+                 || text.Contains("IncompatibleClassChangeError", StringComparison.Ordinal))
+            add(Other, T("模组编译时用的游戏版本和当前版本对不上。请换一个支持这个版本的模组。"));
+        else if (text.Contains("UnsupportedClassVersionError", StringComparison.Ordinal))
+            add(Other, T("Java 版本太低，跑不了这个游戏或模组。请在设置里换一个更新的 Java。"));
+        else if (text.Contains("NoSuchMethodError", StringComparison.Ordinal)
+                 || text.Contains("NoSuchFieldError", StringComparison.Ordinal))
+            add(Other, T("模组调用了一个当前版本里不存在的方法。请更新模组，或检查是不是装错了版本。"));
+        else if (exitCode != 0)
+            add(Other, T("游戏异常退出了。可以打开崩溃报告或游戏日志查看详情。"));
     }
 }
