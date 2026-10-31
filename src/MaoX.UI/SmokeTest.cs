@@ -854,7 +854,9 @@ internal static class SmokeTest
                 throw new Exception("menu quit should not be a crash");
             var crash = CrashAnalyzer.Analyze(
                 ["java.lang.NullPointerException: Cannot invoke \"a.b()\""], langDir, DateTime.Now, 1);
-            if (crash.MenuQuit || crash.Reasons.Count == 0 || !crash.Reasons[0].Text.Contains("空指针"))
+            var npe = "游戏遇到了空指针错误。这通常是某个模组与当前 Minecraft 版本不兼容，或两个模组互相冲突。";
+            if (crash.MenuQuit || crash.Reasons.Count == 0
+                || (crash.Reasons[0].Text != npe && crash.Reasons[0].Text != I18n.Lookup("en_us", npe)))
                 throw new Exception("npe explain: " + string.Join(" | ", crash.Reasons.Select(r => r.Text)));
             var english = I18n.Lookup("en_us", "游戏遇到了空指针错误。这通常是某个模组与当前 Minecraft 版本不兼容，或两个模组互相冲突。");
             if (!english.Contains("null pointer", StringComparison.OrdinalIgnoreCase))
