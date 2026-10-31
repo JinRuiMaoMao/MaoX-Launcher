@@ -2,7 +2,7 @@
   <PropertyGroup>
     <!-- 启动器版本号：发布时打 tag v<版本号>，GitHub Actions 会检查两者一致。
          2.2.0 认得出 2.2.0.2 这种四段数字；-HotFix.N 留给已经装了新更新器的版本。 -->
-    <Version>2.2.0.2</Version>
+    <Version>2.2.0.3</Version>
     <VersionCore Condition="$(Version.Contains('-'))">$(Version.Substring(0, $(Version.IndexOf('-'))))</VersionCore>
     <VersionCore Condition="'$(VersionCore)' == ''">$(Version)</VersionCore>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
