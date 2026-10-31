@@ -30,7 +30,7 @@ public class SearchHit
     public JsonNode Raw { get; set; }
 }
 
-public record SearchResult(List<SearchHit> Hits, long Total);
+public record SearchResult(List<SearchHit> Hits, long Total, bool Relaxed = false);
 
 /// <summary>整合包的一个可下载版本。</summary>
 public class ModpackVersion
@@ -191,6 +191,214 @@ public static partial class Mods
     {
         ["relevance"] = 2, ["downloads"] = 6, ["follows"] = 2, ["updated"] = 3, ["newest"] = 11,
     };
+
+    [GeneratedRegex(@"modrinth\.com/(mod|modpack|resourcepack|shader|datapack|plugin)/([A-Za-z0-9][A-Za-z0-9._-]*)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ModrinthUrl();
+
+    [GeneratedRegex(
+        @"curseforge\.com/minecraft/(mc-mods|modpacks|texture-packs|shaders|data-packs|customization)/([A-Za-z0-9][A-Za-z0-9._-]*)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CurseForgeUrl();
+
+    [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]*$")]
+    private static partial Regex ProjectKey();
+
+    /// <summary>搜索框原文变成发给 API 的检索词：链接抽出 slug，其余去空白和引号。</summary>
+    public static string SearchText(string query)
+    {
+        query = (query ?? "").Trim().Trim('"', '\'', '“', '”');
+        return TryParseProjectUrl(query, out var slug, out _) ? slug : query;
+    }
+
+    /// <summary>从链接、slug、中文译名里抽出可以直接查项目的键，用来补搜索引擎漏掉的结果。</summary>
+    public static List<string> SearchKeys(string query)
+    {
+        query = (query ?? "").Trim().Trim('"', '\'', '“', '”');
+        if (query.Length == 0)
+            return [];
+        var keys = new List<string>();
+        void Add(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+            key = key.Trim();
+            if (keys.Exists(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase)))
+                return;
+            keys.Add(key);
+        }
+        if (TryParseProjectUrl(query, out var slug, out _))
+            Add(slug);
+        if (LooksLikeProjectKey(query))
+            Add(query);
+        var slugified = Slugify(query);
+        if (slugified != null)
+            Add(slugified);
+        foreach (var extra in ModCn.ExpandQuery(query))
+            Add(extra);
+        return keys.Take(5).ToList();
+    }
+
+    public static bool TryParseProjectUrl(string query, out string slug, out string kind)
+    {
+        slug = null;
+        kind = null;
+        query = (query ?? "").Trim();
+        if (query.Length == 0)
+            return false;
+        var mr = ModrinthUrl().Match(query);
+        if (mr.Success)
+        {
+            kind = mr.Groups[1].Value.ToLowerInvariant();
+            slug = mr.Groups[2].Value;
+            return true;
+        }
+        var cf = CurseForgeUrl().Match(query);
+        if (!cf.Success)
+            return false;
+        kind = cf.Groups[1].Value.ToLowerInvariant() switch
+        {
+            "mc-mods" or "customization" => "mod",
+            "modpacks" => "modpack",
+            "texture-packs" => "resourcepack",
+            "shaders" => "shader",
+            "data-packs" => "datapack",
+            _ => "mod",
+        };
+        slug = cf.Groups[2].Value;
+        return true;
+    }
+
+    public static bool LooksLikeProjectKey(string text)
+    {
+        text = (text ?? "").Trim();
+        if (text.Length is < 2 or > 64)
+            return false;
+        if (text.All(char.IsDigit))
+            return text.Length >= 3;
+        return ProjectKey().IsMatch(text) && text.Any(char.IsLetter);
+    }
+
+    public static string Slugify(string text)
+    {
+        text = (text ?? "").Trim().ToLowerInvariant();
+        if (text.Length == 0)
+            return null;
+        var chars = new char[text.Length];
+        var n = 0;
+        foreach (var c in text)
+        {
+            if (char.IsAsciiLetterOrDigit(c))
+                chars[n++] = c;
+            else if (c is ' ' or '_' or '.' or '-' && n > 0 && chars[n - 1] != '-')
+                chars[n++] = '-';
+        }
+        while (n > 0 && chars[n - 1] == '-')
+            n--;
+        if (n < 2)
+            return null;
+        var slug = new string(chars, 0, n);
+        return slug.Any(char.IsLetter) ? slug : null;
+    }
+
+    /// <summary>1.21.1 / 1.21.1-rc2 → 1.21。作者只标了大版本时，按补丁号搜会漏掉。</summary>
+    public static string ParentGameVersion(string version)
+    {
+        if (string.IsNullOrEmpty(version))
+            return null;
+        var core = version;
+        var cut = version.IndexOfAny(['-', '+']);
+        if (cut > 0)
+            core = version[..cut];
+        var parts = core.Split('.');
+        if (parts.Length < 3 || parts.Any(p => p.Length == 0 || !p.All(char.IsDigit)))
+            return null;
+        return parts[0] + "." + parts[1];
+    }
+
+    public static bool SameProject(SearchHit hit, string key) =>
+        hit != null && !string.IsNullOrEmpty(key)
+        && (string.Equals(hit.Id, key, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(hit.Slug, key, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// 搜索漏了、镜像索引不全、或版本过滤太死时：用 slug / 链接 / 中文译名直接查项目，
+    /// 再放宽到父版本、最后去掉版本和加载器。
+    /// </summary>
+    public static async Task<SearchResult> CompleteSearchAsync(
+        string query, string gameVersion, string loader, int offset,
+        Func<string, string, string, Task<SearchResult>> search, Func<string, Task<SearchHit>> lookup)
+    {
+        var text = SearchText(query);
+        if (ModCn.HasCjk(text))
+        {
+            var mapped = ModCn.ApiQuery(text);
+            if (!string.IsNullOrEmpty(mapped) && !string.Equals(mapped, text, StringComparison.Ordinal))
+                text = mapped;
+        }
+        if (offset > 0 || string.IsNullOrWhiteSpace(query))
+            return await search(text, gameVersion, loader);
+
+        var searchTask = search(text, gameVersion, loader);
+        var lookupTask = LookupMissingAsync(query, lookup);
+        var result = await searchTask;
+        var extra = await lookupTask;
+        if (CountHits(result, extra) == 0)
+        {
+            var parent = ParentGameVersion(gameVersion);
+            if (parent != null)
+                result = await search(text, parent, loader);
+        }
+        var relaxed = false;
+        if (CountHits(result, extra) == 0
+            && (!string.IsNullOrEmpty(gameVersion) || !string.IsNullOrEmpty(loader)))
+        {
+            result = await search(text, null, null);
+            relaxed = result.Hits.Count > 0 || extra.Count > 0;
+        }
+        return MergeHits(extra, result, relaxed);
+    }
+
+    private static int CountHits(SearchResult result, List<SearchHit> extra) =>
+        (result?.Hits.Count ?? 0) + extra.Count;
+
+    private static async Task<List<SearchHit>> LookupMissingAsync(string query, Func<string, Task<SearchHit>> lookup)
+    {
+        var keys = SearchKeys(query);
+        if (keys.Count == 0)
+            return [];
+        var found = await Task.WhenAll(keys.Select(async key =>
+        {
+            try
+            {
+                return await lookup(key);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }));
+        var hits = new List<SearchHit>();
+        foreach (var hit in found)
+        {
+            if (hit == null || string.IsNullOrEmpty(hit.Id))
+                continue;
+            if (hits.Exists(h => string.Equals(h.Id, hit.Id, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            hits.Add(hit);
+        }
+        return hits;
+    }
+
+    private static SearchResult MergeHits(List<SearchHit> extra, SearchResult result, bool relaxed)
+    {
+        result ??= new SearchResult([], 0);
+        if (extra.Count == 0)
+            return relaxed && !result.Relaxed ? result with { Relaxed = true } : result;
+        var seen = extra.Select(h => h.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var merged = extra.Concat(result.Hits.Where(h => h.Id == null || !seen.Contains(h.Id))).ToList();
+        return new SearchResult(merged, Math.Max(result.Total, merged.Count), relaxed || result.Relaxed);
+    }
 
     public const int CfRequiredDependency = 3;
 
@@ -767,13 +975,25 @@ public class ModrinthClient : IModClient
         _dl = downloader;
     }
 
-    public async Task<SearchResult> SearchAsync(string query, string gameVersion, string loader, int offset = 0,
-                                                int limit = 20, string index = "relevance", string kind = "mod")
+    public Task<SearchResult> SearchAsync(string query, string gameVersion, string loader, int offset = 0,
+                                          int limit = 20, string index = "relevance", string kind = "mod") =>
+        Mods.CompleteSearchAsync(query, gameVersion, loader, offset,
+            (text, game, load) => SearchRawAsync(text, game, load, offset, limit, index, kind),
+            key => LookupAsync(key, kind));
+
+    private async Task<SearchResult> SearchRawAsync(string query, string gameVersion, string loader, int offset,
+                                                    int limit, string index, string kind)
     {
         var loaders = kind == "mod" ? Mods.ModrinthLoaders(loader) : [];
         var facets = new JsonArray(new JsonArray("project_type:" + kind));
         if (!string.IsNullOrEmpty(gameVersion))
-            facets.Add(new JsonArray("versions:" + gameVersion));
+        {
+            var versions = new JsonArray((JsonNode)("versions:" + gameVersion));
+            var parent = Mods.ParentGameVersion(gameVersion);
+            if (parent != null)
+                versions.Add("versions:" + parent);
+            facets.Add(versions);
+        }
         if (loaders.Count > 0)
             facets.Add(new JsonArray(loaders.Select(l => (JsonNode)("categories:" + l)).ToArray()));
         var qs = Web.Query(new Dictionary<string, string>
@@ -784,27 +1004,75 @@ public class ModrinthClient : IModClient
             ["limit"] = limit.ToString(),
             ["index"] = index,
         });
-        var data = await _dl.FetchJsonAsync(Mods.ModrinthApi + "/search?" + qs);
-        var hits = data.Items("hits").Select(h =>
+        var url = Mods.ModrinthApi + "/search?" + qs;
+        var data = await _dl.FetchJsonAsync(url);
+        var hits = data.Items("hits").Select(h => FromSearchHit(h, kind)).ToList();
+        if (hits.Count == 0 && !string.IsNullOrEmpty(query))
         {
-            var display = h.Arr("display_categories");
-            var categories = display is { Count: > 0 } ? display : h.Arr("categories");
-            var slug = h.Str("slug", "");
+            try
+            {
+                data = await _dl.FetchJsonAsync(url, mirror: false);
+                hits = data.Items("hits").Select(h => FromSearchHit(h, kind)).ToList();
+            }
+            catch (Exception)
+            {
+            }
+        }
+        return new SearchResult(hits, data.Long("total_hits"));
+    }
+
+    private static SearchHit FromSearchHit(JsonNode h, string kind)
+    {
+        var display = h.Arr("display_categories");
+        var categories = display is { Count: > 0 } ? display : h.Arr("categories");
+        var slug = h.Str("slug", "");
+        var id = h.Str("project_id") ?? h.Str("id");
+        return new SearchHit
+        {
+            Id = id,
+            Slug = slug,
+            Title = h.Str("title", ""),
+            Author = h.Str("author", ""),
+            Description = h.Str("description", ""),
+            Downloads = h.Long("downloads"),
+            IconUrl = h.Str("icon_url") ?? "",
+            Categories = categories.Items().Select(c => c.AsStr()).Where(c => !Mods.HiddenCategories.Contains(c)).ToList(),
+            Url = $"https://modrinth.com/{kind}/{(string.IsNullOrEmpty(slug) ? id : slug)}",
+            Raw = h,
+        };
+    }
+
+    private async Task<SearchHit> LookupAsync(string idOrSlug, string kind)
+    {
+        if (string.IsNullOrWhiteSpace(idOrSlug))
+            return null;
+        try
+        {
+            var data = await _dl.FetchJsonAsync($"{Mods.ModrinthApi}/project/{Web.Quote(idOrSlug)}");
+            var type = data.Str("project_type", kind);
+            if (!string.IsNullOrEmpty(kind) && !string.Equals(type, kind, StringComparison.OrdinalIgnoreCase))
+                return null;
+            var slug = data.Str("slug", "");
+            var id = data.Str("id");
             return new SearchHit
             {
-                Id = h.Str("project_id"),
+                Id = id,
                 Slug = slug,
-                Title = h.Str("title", ""),
-                Author = h.Str("author", ""),
-                Description = h.Str("description", ""),
-                Downloads = h.Long("downloads"),
-                IconUrl = h.Str("icon_url") ?? "",
-                Categories = categories.Items().Select(c => c.AsStr()).Where(c => !Mods.HiddenCategories.Contains(c)).ToList(),
-                Url = $"https://modrinth.com/{kind}/{(string.IsNullOrEmpty(slug) ? h.Str("project_id") : slug)}",
-                Raw = h,
+                Title = data.Str("title", ""),
+                Author = data.Str("author", ""),
+                Description = data.Str("description", ""),
+                Downloads = data.Long("downloads"),
+                IconUrl = data.Str("icon_url") ?? "",
+                Categories = data.Items("categories").Select(c => c.AsStr())
+                    .Where(c => c != null && !Mods.HiddenCategories.Contains(c)).ToList(),
+                Url = $"https://modrinth.com/{type}/{(string.IsNullOrEmpty(slug) ? id : slug)}",
+                Raw = data,
             };
-        }).ToList();
-        return new SearchResult(hits, data.Long("total_hits"));
+        }
+        catch (HttpStatusException e) when (e.Status is 400 or 404)
+        {
+            return null;
+        }
     }
 
     /// <summary>项目的版本列表（Modrinth 原始数据，新版本在前）。gameVersion / loaders 为空时不过滤。</summary>
@@ -1037,8 +1305,14 @@ public partial class CurseForgeClient : IModClient
         return _dl.FetchJsonAsync(url, mirror: false);
     }
 
-    public async Task<SearchResult> SearchAsync(string query, string gameVersion, string loader, int offset = 0,
-                                                int limit = 20, string index = "relevance", string kind = "mod")
+    public Task<SearchResult> SearchAsync(string query, string gameVersion, string loader, int offset = 0,
+                                          int limit = 20, string index = "relevance", string kind = "mod") =>
+        Mods.CompleteSearchAsync(query, gameVersion, loader, offset,
+            (text, game, load) => SearchRawAsync(text, game, load, offset, limit, index, kind),
+            key => LookupAsync(key, kind));
+
+    private async Task<SearchResult> SearchRawAsync(string query, string gameVersion, string loader, int offset,
+                                                    int limit, string index, string kind)
     {
         if (!Mods.CfClasses.TryGetValue(kind, out var classId))
             throw new ArgumentException(F("未知的资源类型：{0}", kind));
@@ -1061,22 +1335,56 @@ public partial class CurseForgeClient : IModClient
         else if (types != null)
             parameters["modLoaderTypes"] = "[" + string.Join(", ", types) + "]";
         var data = await GetAsync("/mods/search", parameters);
-        var hits = data.Items("data").Select(mod => new SearchHit
-        {
-            Id = mod.Get("id")?.AsStr(),
-            Slug = mod.Str("slug", ""),
-            Title = mod.Str("name", ""),
-            Author = string.Join(", ", mod.Items("authors").Take(2).Select(a => a.Str("name"))),
-            Description = mod.Str("summary", ""),
-            Downloads = mod.Long("downloadCount"),
-            IconUrl = mod.Get("logo").Str("thumbnailUrl") ?? "",
-            Categories = mod.Items("categories").Select(c => c.Str("name")).ToList(),
-            Url = mod.Get("links").Str("websiteUrl") ?? "",
-            Raw = mod,
-        }).ToList();
+        var hits = data.Items("data").Select(ToHit).ToList();
         // CurseForge 的分页上限为 10000 条
         var total = Math.Min(data.Get("pagination").Long("totalCount"), 10000 - limit);
         return new SearchResult(hits, total);
+    }
+
+    private static SearchHit ToHit(JsonNode mod) => new()
+    {
+        Id = mod.Get("id")?.AsStr(),
+        Slug = mod.Str("slug", ""),
+        Title = mod.Str("name", ""),
+        Author = string.Join(", ", mod.Items("authors").Take(2).Select(a => a.Str("name"))),
+        Description = mod.Str("summary", ""),
+        Downloads = mod.Long("downloadCount"),
+        IconUrl = mod.Get("logo").Str("thumbnailUrl") ?? "",
+        Categories = mod.Items("categories").Select(c => c.Str("name")).ToList(),
+        Url = mod.Get("links").Str("websiteUrl") ?? "",
+        Raw = mod,
+    };
+
+    private async Task<SearchHit> LookupAsync(string idOrSlug, string kind)
+    {
+        if (string.IsNullOrWhiteSpace(idOrSlug) || !Mods.CfClasses.TryGetValue(kind, out var classId))
+            return null;
+        try
+        {
+            JsonNode mod = null;
+            if (idOrSlug.All(char.IsDigit))
+            {
+                mod = (await GetAsync($"/mods/{idOrSlug}")).Get("data");
+                if (mod?.Get("classId") != null && mod.Int("classId") != classId)
+                    return null;
+            }
+            else
+            {
+                var data = await GetAsync("/mods/search", new Dictionary<string, string>
+                {
+                    ["gameId"] = Mods.CfGameId.ToString(),
+                    ["classId"] = classId.ToString(),
+                    ["slug"] = idOrSlug,
+                    ["pageSize"] = "1",
+                });
+                mod = data.Items("data").FirstOrDefault();
+            }
+            return mod != null ? ToHit(mod) : null;
+        }
+        catch (HttpStatusException e) when (e.Status is 400 or 404)
+        {
+            return null;
+        }
     }
 
     private async Task<List<JsonNode>> FilesAsync(string modId, string gameVersion, string loader, string kind = "mod")

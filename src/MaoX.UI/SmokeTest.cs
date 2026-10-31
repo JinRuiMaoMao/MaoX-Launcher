@@ -484,6 +484,12 @@ internal static class SmokeTest
                 }
 
                 var curseforge = new CurseForgeClient(dl);
+                var mrSearch = await modrinth.SearchAsync("https://modrinth.com/mod/sodium", "1.21.1", "fabric", 0, 5);
+                if (!mrSearch.Hits.Any(h => h.Slug == "sodium" || h.Id == sodium))
+                    throw new Exception("modrinth slug/url search missed sodium");
+                var cfSearch = await curseforge.SearchAsync("jei", "1.20.1", "forge", 0, 5);
+                if (!cfSearch.Hits.Any(h => h.Slug == "jei" || h.Id == "238222"))
+                    throw new Exception("curseforge slug search missed jei");
                 const string jei = "238222";
                 var filtered = (await curseforge.VersionsAsync(jei, "1.20.1", "forge")).Versions;
                 if (filtered.Count == 0 || filtered.Any(v => !v.GameVersions.Contains("1.20.1")))
@@ -1176,6 +1182,12 @@ internal static class SmokeTest
             throw new Exception("live log should be off by default");
         if (ModCn.ApiQuery("钠") != "sodium" || ModCn.ExpandQuery("小地图").Count == 0)
             throw new Exception("mod cn expand: " + ModCn.ApiQuery("钠"));
+        if (Mods.SearchText("https://modrinth.com/mod/sodium") != "sodium"
+            || Mods.SearchText("https://www.curseforge.com/minecraft/mc-mods/jei") != "jei"
+            || Mods.ParentGameVersion("1.21.1") != "1.21"
+            || Mods.Slugify("Just Enough Items") != "just-enough-items"
+            || !Mods.SearchKeys("钠").Exists(k => k.Equals("sodium", StringComparison.OrdinalIgnoreCase)))
+            throw new Exception("mod search keys");
         if (Homepage.PresetKey("preset:news") != "preset:news" || Homepage.Presets.Length < 4)
             throw new Exception("homepage presets");
         if (Modpack.ExportFormats.Length < 4 || Modpack.ExportFormats.All(f => f.Key != "multimc"))

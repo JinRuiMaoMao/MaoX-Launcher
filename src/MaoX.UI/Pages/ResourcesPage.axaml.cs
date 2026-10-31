@@ -456,13 +456,12 @@ public partial class ResourcesPage : UserControl, IPage
         try
         {
             await ModCn.EnsureAsync();
-            var apiQuery = ModCn.ApiQuery(query);
-            result = await Task.Run(() => client.SearchAsync(apiQuery, game, loader, offset, PageSize, index, kind));
-            if (offset == 0 && apiQuery != query && result.Hits.Count > 1)
+            result = await Task.Run(() => client.SearchAsync(query, game, loader, offset, PageSize, index, kind));
+            if (offset == 0 && ModCn.HasCjk(query) && result.Hits.Count > 1)
             {
                 result = new SearchResult(
                     result.Hits.OrderByDescending(h => ModCn.RankScore(query, h.Slug, h.Title)).ToList(),
-                    result.Total);
+                    result.Total, result.Relaxed);
             }
         }
         catch (Exception e)
@@ -482,6 +481,8 @@ public partial class ResourcesPage : UserControl, IPage
             Status(game != null ? F("没有找到适用于 {0} 的{1}", game, name) : F("没有找到{0}", name));
             return;
         }
+        if (result.Relaxed && offset == 0 && game != null)
+            Status(F("没有适用于 {0} 的结果，显示了其他版本", game));
         foreach (var hit in result.Hits)
             BrowseList.Children.Add(Card(hit, source));
         _offset = offset + result.Hits.Count;

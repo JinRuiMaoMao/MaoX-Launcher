@@ -166,7 +166,7 @@ public static class HelpFaq
     public static readonly (string Q, string A)[] Items =
     [
         ("游戏闪退或黑屏怎么办？", "先看启动页日志和版本设置里的崩溃分析。常见原因是 Java 版本不对、内存不够、模组冲突。可以打开自动分配内存，或到版本设置单独指定 Java。"),
-        ("模组搜不到或装不上？", "可以用中文名搜，例如「钠」「小地图」。搜索用的是真实 Minecraft 版本号，自定义名称也能识别。下载时会尽量把 Fabric API、Cloth Config 等前置一并装上。换 BMCLAPI 源通常更快。"),
+        ("模组搜不到或装不上？", "可以用中文名、英文名、slug 或 Modrinth / CurseForge 链接搜。当前版本没有时会显示其他版本的结果。下载时会尽量把 Fabric API、Cloth Config 等前置一并装上。换 BMCLAPI 源通常更快。"),
         ("版本隔离是什么？", "不隔离时所有版本共用存档和模组。隔离后每个版本用自己的文件夹。完全隔离还会尽量把资源文件也放到版本目录。"),
         ("外置登录皮肤不显示？", "用 LittleSkin、Blessing Skin 或 Ely.by 等皮肤站的认证服务器地址登录。默认已经填好 LittleSkin。"),
         ("iOS 上打不开游戏？", "需要 JIT。用 StikDebug / SideStore / TrollStore，或设置里打开内置 JIT（实验）。26.3 及以上目前还不能启动。"),

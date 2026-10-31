@@ -127,7 +127,7 @@
   "游戏闪退或黑屏怎么办？": "The game crashes or stays black?",
   "先看启动页日志和版本设置里的崩溃分析。常见原因是 Java 版本不对、内存不够、模组冲突。可以打开自动分配内存，或到版本设置单独指定 Java。": "Check the launch log and the crash analysis in version settings. Common causes are the wrong Java, too little RAM, or a mod conflict. Turn on automatic memory, or pick Java in version settings.",
   "模组搜不到或装不上？": "Mods do not show up or fail to install?",
-  "可以用中文名搜，例如「钠」「小地图」。搜索用的是真实 Minecraft 版本号，自定义名称也能识别。下载时会尽量把 Fabric API、Cloth Config 等前置一并装上。换 BMCLAPI 源通常更快。": "You can search by Chinese name, for example Sodium or minimap. Search uses the real Minecraft version, even if you renamed the instance. Dependencies like Fabric API and Cloth Config are installed when possible. BMCLAPI is usually faster.",
+  "可以用中文名、英文名、slug 或 Modrinth / CurseForge 链接搜。当前版本没有时会显示其他版本的结果。下载时会尽量把 Fabric API、Cloth Config 等前置一并装上。换 BMCLAPI 源通常更快。": "Search by Chinese name, English name, slug, or a Modrinth / CurseForge link. If nothing matches this version, other versions are shown. Dependencies like Fabric API and Cloth Config are installed when possible. BMCLAPI is usually faster.",
   "版本隔离是什么？": "What is version isolation?",
   "不隔离时所有版本共用存档和模组。隔离后每个版本用自己的文件夹。完全隔离还会尽量把资源文件也放到版本目录。": "Off shares worlds and mods. Isolate gives each version its own folder. Full isolate also keeps assets in the version folder when possible.",
   "外置登录皮肤不显示？": "Skins from authlib login are missing?",
