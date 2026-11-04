@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
@@ -117,6 +118,7 @@ internal static class SmokeTest
         await Check("large mod list", () => CheckLargeModList());
         await Check("modpack repair", () => Task.FromResult(CheckModpackRepair()));
         await Check("languages", () => Task.FromResult(CheckLanguages()));
+        await Check("server import", () => Task.FromResult(CheckServerImport()));
         await Check("site feed", () => Task.FromResult(CheckMcSiteFeed()));
         await Check("game dir switch", () => Task.FromResult(CheckGameDirSwitch(window)));
 
@@ -871,6 +873,94 @@ internal static class SmokeTest
                 Directory.Delete(langDir, true);
         }
         return $"locales={I18n.Locales.Length} follow={follow} ja={ja}";
+    }
+
+    private static string CheckServerImport()
+    {
+        var list = new List<ServerEntry> { new() { Name = "旧的", Address = "mc.example.com" } };
+        var found = new List<ServerEntry>
+        {
+            new() { Name = "地铁", Address = "mc.example.com", Version = "中国地铁还原" },
+            new() { Name = "另一份", Address = "mc.example.com", Version = "1.21.1" },
+            new() { Name = "公共", Address = "mc.example.com", Version = "" },
+            new() { Name = "Hypixel", Address = "mc.hypixel.net", Version = "中国地铁还原" },
+        };
+        var once = ServerPing.MergeImported(list, found);
+        if (once.Linked != 1 || once.Added != 2 || list.Count != 3)
+            throw new Exception($"merge linked={once.Linked} added={once.Added} count={list.Count}");
+        if (list[0].Version != "中国地铁还原" || list[0].Name != "旧的")
+            throw new Exception("existing server was not linked to its instance");
+        if (!list.Any(s => s.Address == "mc.example.com" && s.Version == "1.21.1"))
+            throw new Exception("second instance missing");
+        if (list.Count(s => s.Address.Equals("mc.example.com", StringComparison.OrdinalIgnoreCase)) != 2)
+            throw new Exception("shared copy was kept as an extra row");
+        var again = ServerPing.MergeImported(list, found);
+        if (again.Added != 0 || again.Linked != 0)
+            throw new Exception("import was not idempotent");
+        var matched = I18n.Lookup("en_us", "已把 {0} 个服务器对应到所在版本");
+        if (!matched.Contains("instance", StringComparison.OrdinalIgnoreCase))
+            throw new Exception("en match: " + matched);
+        if (!I18n.Lookup("zh_tw", "已把 {0} 个服务器对应到所在版本").Contains('對'))
+            throw new Exception("zh_tw match");
+
+        var dir = Path.Combine(Path.GetTempPath(), "maox-servers-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var raw = SampleServersDat();
+            File.WriteAllBytes(Path.Combine(dir, "servers.dat"), Gzip(raw));
+            var read = ServerPing.ReadServersDat(dir);
+            if (read.Count != 1 || read[0].Address != "mc.hypixel.net" || read[0].Name != "Hypixel")
+                throw new Exception("gzip servers.dat: " + string.Join(",", read.Select(s => s.Name + "=" + s.Address)));
+            File.WriteAllBytes(Path.Combine(dir, "servers.dat"), raw);
+            read = ServerPing.ReadServersDat(dir);
+            if (read.Count != 1 || read[0].Address != "mc.hypixel.net")
+                throw new Exception("raw servers.dat");
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
+        return "linked instance, skipped shared duplicate";
+    }
+
+    private static byte[] SampleServersDat()
+    {
+        using var ms = new MemoryStream();
+        void Text(string value)
+        {
+            var raw = Encoding.UTF8.GetBytes(value);
+            Span<byte> len = stackalloc byte[2];
+            BinaryPrimitives.WriteUInt16BigEndian(len, (ushort)raw.Length);
+            ms.Write(len);
+            ms.Write(raw);
+        }
+        ms.WriteByte(10);
+        Text("");
+        ms.WriteByte(9);
+        Text("servers");
+        ms.WriteByte(10);
+        Span<byte> count = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32BigEndian(count, 1);
+        ms.Write(count);
+        ms.WriteByte(8);
+        Text("name");
+        Text("Hypixel");
+        ms.WriteByte(8);
+        Text("ip");
+        Text("mc.hypixel.net");
+        ms.WriteByte(0);
+        ms.WriteByte(0);
+        return ms.ToArray();
+    }
+
+    private static byte[] Gzip(byte[] raw)
+    {
+        using var ms = new MemoryStream();
+        using (var gzip = new GZipStream(ms, CompressionLevel.SmallestSize, leaveOpen: true))
+            gzip.Write(raw);
+        return ms.ToArray();
     }
 
     private static string CheckMcSiteFeed()

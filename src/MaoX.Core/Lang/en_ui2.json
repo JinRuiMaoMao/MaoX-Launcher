@@ -83,6 +83,8 @@
   "读取 {0} 失败：{1}": "Failed to read {0}: {1}",
   "游戏的多人游戏列表里没有新的服务器": "No new servers found in the game's multiplayer list",
   "已导入 {0} 个服务器": "Imported {0} server(s)",
+  "已导入 {0} 个服务器，并对应到所在版本": "Imported {0} server(s) and matched them to the instance they came from",
+  "已把 {0} 个服务器对应到所在版本": "Matched {0} server(s) to the instance they came from",
   "这个服务器设置的版本 {0} 不存在，请编辑服务器重新选择": "The version {0} set for this server isn't installed. Edit the server to choose another one",
   "已复制服务器地址": "Server address copied",
   "找不到这个地址，请检查是否拼写正确": "Address not found. Check the spelling",

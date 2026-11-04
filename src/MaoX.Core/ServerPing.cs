@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -16,6 +17,9 @@ public class ServerEntry
     public string Address { get; set; } = "";
     public string Version { get; set; } = "";
 }
+
+/// <summary>从游戏导入服务器的结果。NewServers 是新加进列表的项。</summary>
+public sealed record ServerImport(int Added, int Linked, List<ServerEntry> NewServers);
 
 /// <summary>MOTD 的一段文字及样式。Color 为 #RRGGBB，null 表示默认颜色。</summary>
 public record MotdSpan(string Text, string Color, bool Bold, bool Italic, bool Underline, bool Strike);
@@ -334,13 +338,13 @@ public static class ServerPing
         Flush();
     }
 
-    /// <summary>读取游戏自己的服务器列表（游戏目录下的 servers.dat）。</summary>
+    /// <summary>读取游戏自己的服务器列表（游戏目录下的 servers.dat，原版是 gzip，有的启动器写成未压缩的）。</summary>
     public static List<ServerEntry> ReadServersDat(string gameDir)
     {
         var path = Path.Combine(gameDir, "servers.dat");
         if (!File.Exists(path))
             return [];
-        var root = Instance.ReadNbt(File.ReadAllBytes(path));
+        var root = Instance.ReadNbt(Ungzip(File.ReadAllBytes(path)));
         if (root.GetValueOrDefault("servers") is not List<object> list)
             return [];
         return list.OfType<Dictionary<string, object>>()
@@ -351,6 +355,56 @@ public static class ServerPing
                    })
                    .Where(s => s.Address.Length > 0)
                    .ToList();
+    }
+
+    /// <summary>
+    /// 把从各个实例读到的服务器并进启动器列表。带版本的优先：
+    /// 同一地址已经在列表里但还没选版本时，补上它所在的实例；同一个地址出现在多个实例里就各留一条。
+    /// 共用目录里的同地址不再重复添加。
+    /// </summary>
+    public static ServerImport MergeImported(List<ServerEntry> target, IEnumerable<ServerEntry> found)
+    {
+        var added = new List<ServerEntry>();
+        var linked = 0;
+        foreach (var server in found.Where(s => !string.IsNullOrWhiteSpace(s?.Address))
+                                     .OrderByDescending(s => !string.IsNullOrEmpty(s.Version)))
+        {
+            server.Address = server.Address.Trim();
+            server.Version ??= "";
+            var same = target.Where(s => s.Address.Equals(server.Address, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (same.Any(s => string.Equals(s.Version ?? "", server.Version, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            if (server.Version.Length > 0)
+            {
+                var unbound = same.FirstOrDefault(s => string.IsNullOrEmpty(s.Version));
+                if (unbound != null)
+                {
+                    unbound.Version = server.Version;
+                    linked++;
+                    continue;
+                }
+            }
+            else if (same.Count > 0)
+            {
+                continue;
+            }
+            if (string.IsNullOrWhiteSpace(server.Name))
+                server.Name = server.Address;
+            target.Add(server);
+            added.Add(server);
+        }
+        return new ServerImport(added.Count, linked, added);
+    }
+
+    private static byte[] Ungzip(byte[] bytes)
+    {
+        if (bytes.Length < 2 || bytes[0] != 0x1f || bytes[1] != 0x8b)
+            return bytes;
+        using var input = new MemoryStream(bytes);
+        using var gzip = new GZipStream(input, CompressionMode.Decompress);
+        using var buffer = new MemoryStream();
+        gzip.CopyTo(buffer);
+        return buffer.ToArray();
     }
 
     public static string StripCodes(string text)

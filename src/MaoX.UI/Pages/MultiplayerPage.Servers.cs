@@ -139,21 +139,23 @@ public partial class MultiplayerPage
 
     private void OnImportServers(object sender, RoutedEventArgs e)
     {
-        var root = Main.Cfg.MinecraftDir;
-        var dirs = new List<string> { root };
-        var versions = Path.Combine(root, "versions");
-        if (Directory.Exists(versions))
-            dirs.AddRange(Directory.GetDirectories(versions));
-        var known = new HashSet<string>(Servers.Select(s => s.Address), StringComparer.OrdinalIgnoreCase);
-        var added = new List<ServerEntry>();
-        foreach (var dir in dirs)
+        var gl = Main.MakeLauncher();
+        var byFolder = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in gl.InstalledVersions())
+            byFolder.TryAdd(id, id);
+        var found = new List<ServerEntry>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Take(string dir, string version)
         {
             try
             {
                 foreach (var server in ServerPing.ReadServersDat(dir))
                 {
-                    if (known.Add(server.Address))
-                        added.Add(server);
+                    server.Version = version ?? "";
+                    if (!seen.Add(server.Address.Trim() + "\n" + server.Version))
+                        continue;
+                    found.Add(server);
                 }
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
@@ -161,17 +163,34 @@ public partial class MultiplayerPage
                 Main.Log(F("读取 {0} 失败：{1}", Path.Combine(dir, "servers.dat"), ex.Message));
             }
         }
-        if (added.Count == 0)
+
+        var versions = Path.Combine(gl.McDir, "versions");
+        if (Directory.Exists(versions))
+        {
+            foreach (var dir in Directory.GetDirectories(versions))
+            {
+                byFolder.TryGetValue(Path.GetFileName(dir) ?? "", out var id);
+                Take(dir, id ?? "");
+            }
+        }
+        Take(gl.McDir, "");
+
+        var result = ServerPing.MergeImported(Servers, found);
+        if (result.Added == 0 && result.Linked == 0)
         {
             Main.Toast(T("游戏的多人游戏列表里没有新的服务器"), "info");
             return;
         }
-        Servers.AddRange(added);
         SaveServers();
         RenderServers();
-        foreach (var server in added)
+        foreach (var server in result.NewServers)
             Ping(server.Address);
-        Main.Toast(F("已导入 {0} 个服务器", added.Count));
+        var matched = result.Linked > 0 || result.NewServers.Any(s => !string.IsNullOrEmpty(s.Version));
+        Main.Toast(result.Added == 0
+                       ? F("已把 {0} 个服务器对应到所在版本", result.Linked)
+                       : matched
+                           ? F("已导入 {0} 个服务器，并对应到所在版本", result.Added)
+                           : F("已导入 {0} 个服务器", result.Added));
     }
 
     private void Join(ServerEntry server)
