@@ -164,19 +164,45 @@ public class Terracotta : IDisposable
     public int? Port { get; private set; }
     public bool Supported => Classifier != null;
 
-    /// <summary>本对象拉起的进程已经退出（接口可能还短暂存活，或服务卡死）。</summary>
+    /// <summary>
+    /// 真正的服务进程是否已经退出。Terracotta 的启动器进程会再拉起一个 --hmcl2 子进程后自己退出，
+    /// 所以不能只看 _process（父进程）的 HasExited，否则刚启动就会被误判成服务已停止。
+    /// </summary>
     public bool ProcessGone
     {
         get
         {
-            try
+            if (IsMobile)
+                return false;
+            if (_serviceProcess != null)
             {
-                return !IsMobile && _process != null && _process.HasExited;
+                try
+                {
+                    if (!_serviceProcess.HasExited)
+                        return false;
+                }
+                catch (InvalidOperationException)
+                {
+                }
             }
-            catch (InvalidOperationException)
+            if (_process != null)
             {
-                return true;
+                try
+                {
+                    if (!_process.HasExited)
+                        return false;
+                }
+                catch (InvalidOperationException)
+                {
+                }
             }
+            var found = FindServiceProcess(_process);
+            if (found != null)
+            {
+                _serviceProcess = found;
+                return false;
+            }
+            return _process != null || _serviceProcess != null;
         }
     }
 
@@ -186,6 +212,8 @@ public class Terracotta : IDisposable
     private bool _verified;
     private List<string> _nodes;
     private Process _process;
+    /// <summary>父进程退出后真正提供 HTTP 接口的 --hmcl2 子进程。</summary>
+    private Process _serviceProcess;
 
     /// <summary>root 默认为 工具目录/terracotta，实际文件放在 root/版本号 下。</summary>
     public Terracotta(string root, Downloader downloader, Action<string> log = null)
@@ -290,6 +318,61 @@ public class Terracotta : IDisposable
     private bool IsBundled => Classifier == IosClassifier;
 
     public string Executable() => Path.Combine(Dir, ExecutableName(Classifier));
+
+    /// <summary>找到父进程启动的 --hmcl2 服务子进程；只认同一个可执行文件、启动时间不早于父进程的进程。</summary>
+    private Process FindServiceProcess(Process parent)
+    {
+        if (parent == null)
+            return null;
+        var exe = Executable();
+        var name = Path.GetFileNameWithoutExtension(exe);
+        if (string.IsNullOrEmpty(name))
+            return null;
+        DateTime since;
+        try
+        {
+            since = parent.StartTime.AddSeconds(-2);
+        }
+        catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return null;
+        }
+        Process best = null;
+        foreach (var process in Process.GetProcessesByName(name))
+        {
+            try
+            {
+                if (process.Id == parent.Id || process.StartTime < since)
+                {
+                    process.Dispose();
+                    continue;
+                }
+                var path = process.MainModule?.FileName;
+                if (string.IsNullOrEmpty(path)
+                    || !string.Equals(Path.GetFullPath(path), Path.GetFullPath(exe),
+                                      Platform.IsWindows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                {
+                    process.Dispose();
+                    continue;
+                }
+                if (best == null || process.StartTime > best.StartTime)
+                {
+                    best?.Dispose();
+                    best = process;
+                }
+                else
+                {
+                    process.Dispose();
+                }
+            }
+            catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception
+                                          or NotSupportedException)
+            {
+                process.Dispose();
+            }
+        }
+        return best;
+    }
 
     private bool FilesVerified()
     {
@@ -611,6 +694,9 @@ public class Terracotta : IDisposable
             _process?.Dispose();
             _process = process;
             Port = port;
+            // 启动器进程通常会拉起 --hmcl2 子进程后自己退出；提前记住真正的服务进程。
+            _serviceProcess?.Dispose();
+            _serviceProcess = FindServiceProcess(process);
         }
         finally
         {
@@ -755,18 +841,27 @@ public class Terracotta : IDisposable
             }
             Port = null;
         }
-        var process = _process;
+        var parent = _process;
         _process = null;
-        if (process == null)
-            return;
-        using (process)
+        var service = _serviceProcess;
+        _serviceProcess = null;
+        service ??= FindServiceProcess(parent);
+        var processes = new List<Process>();
+        if (service != null)
+            processes.Add(service);
+        if (parent != null && !ReferenceEquals(parent, service))
+            processes.Add(parent);
+        foreach (var process in processes)
         {
-            // 不用 WaitForExitAsync：Windows 上真正的服务进程（--hmcl2）会继承输出管道，等待 EOF 会一直等到它退出
-            var deadline = DateTime.UtcNow.AddSeconds(5);
-            while (!process.HasExited && DateTime.UtcNow < deadline)
-                await Task.Delay(100);
-            if (!process.HasExited)
-                Kill(process);
+            using (process)
+            {
+                // 不用 WaitForExitAsync：Windows 上服务进程会继承输出管道，等待 EOF 会一直等到它退出
+                var deadline = DateTime.UtcNow.AddSeconds(5);
+                while (!process.HasExited && DateTime.UtcNow < deadline)
+                    await Task.Delay(100);
+                if (!process.HasExited)
+                    Kill(process);
+            }
         }
     }
 

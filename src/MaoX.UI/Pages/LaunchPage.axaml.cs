@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -49,6 +50,13 @@ public partial class LaunchPage : UserControl, IPage
         InitializeComponent();
         OpenDirButton.IsVisible = DashDirButton.IsVisible = !Platform.IsMobile;
         HiddenButton.Classes.Set("accent", Main.Cfg.ShowHiddenVersions);
+        // 版本名可能很长：下拉框和下拉列表都按可用宽度省略，避免文字画出控件外压住「游戏版本」。
+        VersionBox.ItemTemplate = new FuncDataTemplate<string>((text, _) => new TextBlock
+        {
+            Text = text, TextWrapping = TextWrapping.NoWrap, MaxLines = 1,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+        });
         LogList.ItemsSource = _lines;
         new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Background, (_, _) => FlushLog()).Start();
 
@@ -340,6 +348,7 @@ public partial class LaunchPage : UserControl, IPage
         _updatingVersions = true;
         VersionBox.ItemsSource = Main.InstalledList.ToList();
         VersionBox.SelectedItem = Main.SelectedVersion;
+        ToolTip.SetTip(VersionBox, Main.SelectedVersion);
         _updatingVersions = false;
         UpdateHero();
     }
@@ -404,6 +413,7 @@ public partial class LaunchPage : UserControl, IPage
             VersionBox.SelectedItem = version;
             _updatingVersions = false;
         }
+        ToolTip.SetTip(VersionBox, string.IsNullOrEmpty(version) ? null : version);
 
         var other = OtherGame;
         AccountPanel.IsVisible = VersionPanel.IsVisible = other == null;

@@ -358,6 +358,47 @@ public static class ServerPing
     }
 
     /// <summary>
+    /// 扫描每个隔离实例自己的 servers.dat（没开隔离时只读共用目录），返回读到的服务器。
+    /// 隔离实例里的服务器会带上版本；共用目录里的服务器 Version 为空，需要让用户选择归属。
+    /// </summary>
+    public static List<ServerEntry> ScanGame(GameLauncher gl, Action<string> log = null)
+    {
+        var found = new List<ServerEntry>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Take(string dir, string version)
+        {
+            try
+            {
+                foreach (var server in ReadServersDat(dir))
+                {
+                    server.Version = version ?? "";
+                    if (seen.Add(server.Address.Trim() + "\n" + server.Version))
+                        found.Add(server);
+                }
+            }
+            catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
+            {
+                log?.Invoke(F("读取 {0} 失败：{1}", Path.Combine(dir, "servers.dat"), e.Message));
+            }
+        }
+
+        foreach (var version in gl.InstalledVersions())
+        {
+            // 只有隔离的实例才会把 servers.dat 放进自己的游戏目录；共用目录留到最后读一次，
+            // 避免把同一份共享列表重复对应到每个版本。
+            if (Isolation.Isolates(gl.IsolationModeFor(version)))
+                Take(gl.GameDirFor(version), version);
+        }
+        Take(gl.McDir, "");
+        return found;
+    }
+
+    /// <summary>扫描并直接并进启动器列表（不询问版本归属；需要交互时用 ScanGame）。</summary>
+    public static ServerImport ImportFromGame(GameLauncher gl, List<ServerEntry> target, Action<string> log = null) =>
+        MergeImported(target, ScanGame(gl, log));
+
+    /// <summary>
     /// 把从各个实例读到的服务器并进启动器列表。带版本的优先：
     /// 同一地址已经在列表里但还没选版本时，补上它所在的实例；同一个地址出现在多个实例里就各留一条。
     /// 共用目录里的同地址不再重复添加。

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Platform.Storage;
 
 namespace MaoX;
 
@@ -14,6 +15,47 @@ public partial class MainWindow : Window
     {
         Current = this;
         InitializeComponent();
+        // 整合包可以直接拖到窗口任意位置；具体导入流程交给 MainView。
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
+        AddHandler(DragDrop.DropEvent, OnDrop);
+    }
+
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        var ok = e.DataTransfer.Contains(DataFormat.File);
+        e.DragEffects = ok ? DragDropEffects.Copy : DragDropEffects.None;
+        View.SetDropHint(ok);
+        e.Handled = true;
+    }
+
+    private void OnDragLeave(object sender, DragEventArgs e) => View.SetDropHint(false);
+
+    private async void OnDrop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        View.SetDropHint(false);
+        var items = e.DataTransfer.TryGetFiles();
+        if (items == null || items.Length == 0)
+            return;
+        var paths = new List<string>();
+        try
+        {
+            foreach (var item in items)
+            {
+                var path = item.TryGetLocalPath();
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                    paths.Add(path);
+            }
+        }
+        finally
+        {
+            foreach (var item in items)
+                item.Dispose();
+        }
+        if (paths.Count > 0)
+            await View.ImportDroppedAsync(paths);
     }
 
     /// <summary>不再询问，直接关闭窗口。</summary>

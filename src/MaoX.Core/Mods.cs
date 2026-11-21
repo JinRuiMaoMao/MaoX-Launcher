@@ -64,6 +64,12 @@ public class ModUpdate
     public string Sha1 { get; set; }
     public long? Size { get; set; }
     public string Version { get; set; }
+    /// <summary>项目 id，用于忽略更新 / 判断依赖。</summary>
+    public string ProjectId { get; set; }
+    /// <summary>新版本的完整信息；更新时用它补装依赖。</summary>
+    public ModFileVersion Target { get; set; }
+    /// <summary>更新日志（目前只有 Modrinth 提供）。</summary>
+    public string Changelog { get; set; }
 }
 
 /// <summary>资源的一个版本（Modrinth 的版本 / CurseForge 的文件）。Type 为 release / beta / alpha。</summary>
@@ -475,6 +481,23 @@ public static partial class Mods
             }
         }
         return updates;
+    }
+
+    /// <summary>
+    /// 通过对应平台的版本安装逻辑更新：会补装新版本要求的必需前置，并保留禁用状态。
+    /// 没有 Target（旧数据 / 特殊来源）时退回只替换文件。
+    /// </summary>
+    public static async Task<string> ApplyUpdateAsync(IModClient client, Downloader dl, ModUpdate update,
+                                                      string gameVersion, string loader,
+                                                      ISet<string> installedProjects, string kind = "mod",
+                                                      Action<string> log = null)
+    {
+        if (client == null || update.Target == null || string.IsNullOrEmpty(update.Target.Url))
+            return await ApplyUpdateAsync(dl, update);
+        var dir = Path.GetDirectoryName(update.Mod.Path)!;
+        var files = await client.InstallVersionAsync(update.Target, gameVersion, loader, dir, installedProjects,
+                                                     [update.Mod], log, kind);
+        return files.Count > 0 ? Path.Combine(dir, files[0]) : update.Mod.Path;
     }
 
     /// <summary>下载新版本并替换旧文件（保留禁用状态），返回新文件路径。</summary>
@@ -1288,6 +1311,7 @@ public class ModrinthClient : IModClient
             var file = PrimaryFile(version);
             if (file == null || file.Get("hashes").Str("sha1") == sha1 || !hashes.TryGetValue(sha1, out var mod))
                 continue;
+            var target = ToVersion(version);
             updates.Add(new ModUpdate
             {
                 Mod = mod,
@@ -1297,6 +1321,9 @@ public class ModrinthClient : IModClient
                 Sha1 = file.Get("hashes").Str("sha1"),
                 Size = file.Get("size") != null ? file.Long("size") : null,
                 Version = version.Str("version_number", ""),
+                ProjectId = target.ProjectId,
+                Target = target,
+                Changelog = version.Str("changelog"),
             });
         }
         var unknown = hashes.Where(p => !known.ContainsKey(p.Key) && !data.ContainsKey(p.Key))
@@ -1574,6 +1601,8 @@ public partial class CurseForgeClient : IModClient
                     && string.CompareOrdinal(best.Str("fileDate", ""), current.Str("fileDate", "")) > 0)
                 {
                     var display = best.Str("displayName");
+                    var target = ToVersion(best);
+                    target.ProjectId ??= match.Get("id")?.AsStr();
                     results[i] = new ModUpdate
                     {
                         Mod = prints[(uint)current.Long("fileFingerprint")],
@@ -1583,6 +1612,8 @@ public partial class CurseForgeClient : IModClient
                         Sha1 = Mods.CfSha1(best),
                         Size = best.Get("fileLength") != null ? best.Long("fileLength") : null,
                         Version = string.IsNullOrEmpty(display) ? best.Str("fileName") : display,
+                        ProjectId = target.ProjectId,
+                        Target = target,
                     };
                 }
             }

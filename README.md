@@ -4,6 +4,8 @@
 
 - 原版、Forge、NeoForge、Fabric、Quilt、OptiFine 一键安装
 - Modrinth / CurseForge 模组、资源包、光影、数据包、整合包下载与更新
+- Modrinth、CurseForge、Packwiz 整合包导入，支持把整合包直接拖进窗口自动安装
+- 从游戏 servers.dat 导入服务器，并自动对应到保存它的实例
 - 离线、外置登录（authlib-injector）、微软正版账号
 - 基于陶瓦联机（Terracotta）的多人联机，邀请码与 HMCL、PCL 社区版互通
 - 崩溃分析、版本隔离、整合包导入导出、背景图、自动更新

@@ -28,6 +28,7 @@ public partial class ResourcesPage : UserControl, IPage
     private string _kind = "mod";
     private string _source = "modrinth";
     private string _tab = "modrinth";
+    private string _localFilter = "all";
     private Dictionary<string, IModClient> _clients = [];
     private Dictionary<string, HashSet<string>> _installedProjects = NewProjectSets();
     private List<LocalFile> _localItems = [];
@@ -237,6 +238,10 @@ public partial class ResourcesPage : UserControl, IPage
 
     private void Reset()
     {
+        _localFilter = "all";
+        FilterAll.IsChecked = true;
+        FilterUpdates.IsChecked = false;
+        FilterDisabled.IsChecked = false;
         _installedProjects = NewProjectSets();
         _localItems = [];
         _updates = [];
@@ -361,6 +366,17 @@ public partial class ResourcesPage : UserControl, IPage
         }
     }
 
+    private void OnLocalFilter(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleButton { Tag: string filter })
+            return;
+        _localFilter = filter;
+        FilterAll.IsChecked = filter == "all";
+        FilterUpdates.IsChecked = filter == "updates";
+        FilterDisabled.IsChecked = filter == "disabled";
+        RenderLocal();
+    }
+
     private void UpdateTabs()
     {
         ModrinthTab.IsChecked = _tab == "modrinth";
@@ -386,6 +402,7 @@ public partial class ResourcesPage : UserControl, IPage
         var browse = content == "browse";
         BrowseTools.IsVisible = browse;
         LocalTools.IsVisible = _tab == "local";
+        LocalFilterBar.IsVisible = _tab == "local" && CanUpdate && Available();
         CheckUpdateButton.IsVisible = CanUpdate;
         if (!CanUpdate)
             UpdateAllButton.IsVisible = false;
@@ -831,15 +848,32 @@ public partial class ResourcesPage : UserControl, IPage
 
     private void RenderLocal()
     {
+        var kindName = T(Mods.KindNames[_kind]);
         if (_localItems.Count == 0)
         {
             LocalList.ItemsSource = new object[]
             {
-                F("还没有安装{0}，去 Modrinth 或 CurseForge 装一些吧", T(Mods.KindNames[_kind])),
+                F("还没有安装{0}，去 Modrinth 或 CurseForge 装一些吧", kindName),
             };
             return;
         }
-        LocalList.ItemsSource = _localItems.Cast<object>().ToList();
+        var items = _localItems.Where(item => _localFilter switch
+        {
+            "updates" => _updates.ContainsKey(item.Path),
+            "disabled" => !item.Enabled,
+            _ => true,
+        }).ToList();
+        if (items.Count == 0)
+        {
+            LocalList.ItemsSource = new object[]
+            {
+                _localFilter == "updates"
+                    ? F("没有可更新的{0}", kindName)
+                    : F("没有已禁用的{0}", kindName),
+            };
+            return;
+        }
+        LocalList.ItemsSource = items.Cast<object>().ToList();
     }
 
     private Control LocalRow(LocalFile item)
@@ -874,10 +908,27 @@ public partial class ResourcesPage : UserControl, IPage
         grid.Children.Add(text);
         if (update != null)
         {
-            var updateButton = new Button { Content = new IconLabel { Icon = "download", Text = T("更新") }, Margin = new Thickness(0, 0, 6, 0) };
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0),
+            };
+            if (!string.IsNullOrWhiteSpace(update.Changelog))
+            {
+                var notes = new Button
+                {
+                    Classes = { "ghost" }, Content = T("更新说明"), Padding = new Thickness(9, 0), FontSize = 12,
+                };
+                ToolTip.SetTip(notes, T("查看这个版本的更新日志"));
+                notes.Click += async (_, _) =>
+                    await Main.Dialog(F("{0} 更新说明", item.Name), update.Changelog, "info");
+                actions.Children.Add(notes);
+            }
+            var updateButton = new Button { Content = new IconLabel { Icon = "download", Text = T("更新") } };
             updateButton.Click += (_, _) => RunUpdates([update]);
-            Grid.SetColumn(updateButton, 2);
-            grid.Children.Add(updateButton);
+            actions.Children.Add(updateButton);
+            Grid.SetColumn(actions, 2);
+            grid.Children.Add(actions);
         }
         var delete = new Button { Classes = { "ghost", "danger-text" }, Content = new Icon { Kind = "delete", Size = 17 }, Padding = new Thickness(9, 0) };
         ToolTip.SetTip(delete, T("删除"));
@@ -986,6 +1037,7 @@ public partial class ResourcesPage : UserControl, IPage
     {
         UpdateAllButton.IsVisible = _updates.Count > 0;
         UpdateAllLabel.Text = F("全部更新（{0}）", _updates.Count);
+        FilterUpdates.Content = _updates.Count > 0 ? F("可更新（{0}）", _updates.Count) : T("可更新");
     }
 
     private void OnUpdateAll(object sender, RoutedEventArgs e) => RunUpdates(_updates.Values.ToList());
@@ -994,32 +1046,42 @@ public partial class ResourcesPage : UserControl, IPage
     {
         var dl = Main.MakeLauncher().Dl;
         var name = KindName;
+        var ctx = _ctx;
+        var kind = _kind;
+        var clients = _clients;
+        var projects = _installedProjects;
         _ = Main.RunTask(F("更新{0}", name), async () =>
         {
+            var updated = new List<ModUpdate>();
             var failed = new List<string>();
             for (var i = 0; i < updates.Count; i++)
             {
                 Main.Progress(i, updates.Count, F("更新{0}", name));
+                var update = updates[i];
                 try
                 {
-                    await Mods.ApplyUpdateAsync(dl, updates[i]);
+                    var source = update.Source == "CurseForge" ? "curseforge" : "modrinth";
+                    clients.TryGetValue(source, out var client);
+                    var installed = projects.GetValueOrDefault(source) ?? new HashSet<string>();
+                    await Mods.ApplyUpdateAsync(client, dl, update, ctx?.Game, ctx?.Loader, installed, kind, Main.Log);
+                    updated.Add(update);
                 }
                 catch (Exception ex)
                 {
-                    failed.Add(F("{0}：{1}", updates[i].Mod.Name, MainView.ErrorText(ex)));
+                    failed.Add(F("{0}：{1}", update.Mod.Name, MainView.ErrorText(ex)));
                 }
             }
-            return failed;
-        }, failed =>
+            return (Updated: updated, Failed: failed);
+        }, result =>
         {
-            foreach (var u in updates)
+            foreach (var u in result.Updated)
                 _updates.Remove(u.Mod.Path);
             UpdateUpdateAll();
             ReloadLocal(false);
-            if (failed.Count > 0)
-                _ = Main.Dialog(F("部分{0}更新失败", name), string.Join("\n", failed.Take(8)), "error");
+            if (result.Failed.Count > 0)
+                _ = Main.Dialog(F("部分{0}更新失败", name), string.Join("\n", result.Failed.Take(8)), "error");
             else
-                Main.Toast(F("已更新 {0} 个{1}", updates.Count, name));
+                Main.Toast(F("已更新 {0} 个{1}", result.Updated.Count, name));
         });
     }
 

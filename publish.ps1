@@ -17,11 +17,16 @@ $project = Join-Path $root "src\MaoX\MaoX.csproj"
 $work = Join-Path $root "build\publish"
 $dist = Join-Path $root "dist"
 
+# 机器上可能只装了 .NET 运行时（C:\Program Files\dotnet 里有 dotnet.exe 但没有 SDK），
+# 这时 PATH 里的 dotnet 不能用，要找用户目录里用 dotnet-install 装的那个。
 $dotnet = (Get-Command dotnet -ErrorAction SilentlyContinue).Source
-if (-not $dotnet) {
+if (-not $dotnet -or -not (& $dotnet --list-sdks 2>$null)) {
     $dotnet = Join-Path $env:LOCALAPPDATA "Microsoft\dotnet\dotnet.exe"
-    if (-not (Test-Path $dotnet)) { throw "找不到 .NET SDK，请先安装 .NET 10 SDK：https://dotnet.microsoft.com/download" }
+    if (-not (Test-Path $dotnet) -or -not (& $dotnet --list-sdks 2>$null)) {
+        throw "找不到 .NET SDK，请先安装 .NET 10 SDK：https://dotnet.microsoft.com/download"
+    }
 }
+
 $version = (Select-Xml -Path (Join-Path $root "src\Directory.Build.props") -XPath "//Version").Node.InnerText
 
 function Fetch-Terracotta([string]$rid) {

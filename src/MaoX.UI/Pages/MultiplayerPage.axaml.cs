@@ -156,7 +156,7 @@ public partial class MultiplayerPage : UserControl, IPage
     // ------------------------------------------------------------------ 轮询
 
     private static readonly TimeSpan IdleStopAfter = TimeSpan.FromMinutes(3);
-    private const int FailLimit = 2;
+    private const int FailLimit = 3;
 
     /// <summary>人不在联机房间页、也没进房间时，后台挂着的陶瓦服务过一段时间会自己坏掉。</summary>
     private bool WatchingRoom => _tab == "room" && IsEffectivelyVisible;
@@ -261,7 +261,8 @@ public partial class MultiplayerPage : UserControl, IPage
         _polling = false;
         SetPhase("fatal", reason);
         Main.Log(F("[警告] {0}", reason), "warn");
-        Main.Toast(T("联机服务出现问题，已停止联机"), "warn");
+        // 卡片和 Toast 显示同一个具体原因，避免所有联机异常都被“服务出现问题”盖住。
+        Main.Toast(reason, "warn");
     }
 
     /// <summary>没在房间里又离开联机页：关掉后台进程，下次打开再拉起来。</summary>

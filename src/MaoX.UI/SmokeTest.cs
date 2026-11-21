@@ -117,8 +117,24 @@ internal static class SmokeTest
         await Check("pcl extras", () => Task.FromResult(CheckPclExtras()));
         await Check("large mod list", () => CheckLargeModList());
         await Check("modpack repair", () => Task.FromResult(CheckModpackRepair()));
+        await Check("packwiz manifest", () => Task.FromResult(CheckPackwiz()));
         await Check("languages", () => Task.FromResult(CheckLanguages()));
         await Check("server import", () => Task.FromResult(CheckServerImport()));
+        await Check("server import dialog", async () =>
+        {
+            var servers = new List<ServerEntry>
+            {
+                new() { Name = "共用目录", Address = "shared.example.com" },
+                new() { Name = "已识别", Address = "known.example.com", Version = "1.21.1" },
+            };
+            var dialog = new Dialogs.ServerImportDialog(servers);
+            _ = window.ShowDialogAsync(dialog);
+            await Task.Delay(600);
+            ScreenshotControl(dialog, Path.Combine(output, "server-import.png"));
+            dialog.Close();
+            await Task.Delay(200);
+            return "dialog rendered";
+        });
         await Check("site feed", () => Task.FromResult(CheckMcSiteFeed()));
         await Check("game dir switch", () => Task.FromResult(CheckGameDirSwitch(window)));
 
@@ -339,7 +355,7 @@ internal static class SmokeTest
             // 只加在内存里，不写入配置
             if (window.Cfg.Servers.Count == 0)
                 window.Cfg.Servers.AddRange([
-                    new ServerEntry { Name = "Hypixel", Address = "mc.hypixel.net" },
+                    new ServerEntry { Name = "Hypixel", Address = "mc.hypixel.net", Version = "1.21.1" },
                     new ServerEntry { Name = "2b2t（SRV 记录）", Address = "2b2t.org" },
                     new ServerEntry { Name = "不存在的服务器", Address = "nonexistent.invalid" },
                 ]);
@@ -600,7 +616,14 @@ internal static class SmokeTest
 
         await Check("resource card click", async () =>
         {
+            // 没有装整合包时要先有游戏版本才能搜模组，这里按可用类型选；整合包的卡片打开的是安装表单，
+            // 模组的卡片打开的是版本列表，以前写死找 ModVersionsDialog 会在全新目录里误报。
+            var launcher = window.MakeLauncher();
+            var modded = launcher.InstalledVersions()
+                .FirstOrDefault(v => Mods.ModLoaders.Contains(launcher.DetectLoader(v).Loader));
+            var kind = modded != null ? "mod" : "modpack";
             window.ShowPage("resources");
+            window.ResourcesPage.OpenSection(kind);
             Border card = null;
             for (var i = 0; i < 30 && card == null; i++)
             {
@@ -609,22 +632,23 @@ internal static class SmokeTest
                     .FirstOrDefault(b => b.Classes.Contains("row") && b.Cursor != null && b.IsEffectivelyVisible);
             }
             if (card == null)
-                return "no search results (no modded version installed)";
+                return $"no {kind} search results";
             var title = card.GetVisualDescendants().OfType<TextBlock>().First(t => !string.IsNullOrEmpty(t.Text));
             title.RaiseEvent(new Avalonia.Input.TappedEventArgs(Avalonia.Input.Gestures.TappedEvent, null));
-            Dialogs.ModVersionsDialog dialog = null;
-            for (var i = 0; i < 10 && dialog == null; i++)
+            Controls.DialogView dialog = null;
+            for (var i = 0; i < 60 && dialog == null; i++)
             {
                 await Task.Delay(300);
-                dialog = window.GetVisualDescendants().OfType<Dialogs.ModVersionsDialog>().FirstOrDefault();
+                dialog = window.GetVisualDescendants().OfType<Controls.DialogView>()
+                    .FirstOrDefault(d => d is Dialogs.ModVersionsDialog or Dialogs.FormDialog);
             }
             if (dialog == null)
-                throw new Exception("clicking a card did not open the versions dialog");
-            await Task.Delay(3000);
-            ScreenshotControl(dialog, Path.Combine(output, "card-versions.png"));
+                throw new Exception($"clicking a {kind} card did not open a dialog");
+            await Task.Delay(dialog is Dialogs.ModVersionsDialog ? 3000 : 600);
+            ScreenshotControl(dialog, Path.Combine(output, $"card-{kind}.png"));
             dialog.Close();
             await Task.Delay(300);
-            return $"opened versions of {title.Text}";
+            return $"opened {(dialog is Dialogs.ModVersionsDialog ? "versions" : "install form")} of {title.Text}";
         }, required: false);
 
         await Check("terracotta urls", () =>
@@ -681,8 +705,12 @@ internal static class SmokeTest
             try
             {
                 await tc.StartAsync();
+                // Terracotta 的启动器进程会拉起 --hmcl2 子进程后自己退出；不能因此误判服务已停止。
+                await Task.Delay(1500);
+                if (tc.ProcessGone)
+                    throw new Exception("service is alive but ProcessGone was true");
                 var state = await tc.StateAsync();
-                return $"started, state={state.Str("state")}";
+                return $"started, state={state.Str("state")}, alive={await tc.AliveAsync()}";
             }
             finally
             {
@@ -922,10 +950,45 @@ internal static class SmokeTest
             if (Directory.Exists(dir))
                 Directory.Delete(dir, true);
         }
+
+        // 再模拟一次真实目录结构：两个隔离实例各有 servers.dat，共用目录也有一份，
+        // 导入后必须分别带上自己的版本，共用的那份不能重复挂到某个版本上。
+        var home = Path.Combine(Path.GetTempPath(), "maox-import-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            var mc = Path.Combine(home, ".minecraft");
+            var gl = new GameLauncher(new LauncherConfig { MinecraftDir = mc, IsolationMode = Isolation.Isolate });
+            foreach (var (version, address) in new[] { ("实例甲", "a.example.com"), ("实例乙", "b.example.com") })
+            {
+                var vdir = gl.VersionDir(version);
+                Directory.CreateDirectory(vdir);
+                File.WriteAllText(gl.VersionJsonPath(version), "{}");
+                File.WriteAllBytes(Path.Combine(vdir, "servers.dat"), Gzip(SampleServersDat(version, address)));
+            }
+            Directory.CreateDirectory(mc);
+            File.WriteAllBytes(Path.Combine(mc, "servers.dat"), Gzip(SampleServersDat("共用", "shared.example.com")));
+            var scanned = ServerPing.ScanGame(gl);
+            if (!scanned.Any(s => s.Address == "shared.example.com" && s.Version == ""))
+                throw new Exception("shared servers should be scanned without a version");
+            var imported = new List<ServerEntry>();
+            var result = ServerPing.ImportFromGame(gl, imported);
+            if (result.Added != 3)
+                throw new Exception("import from game added " + result.Added);
+            if (!imported.Any(s => s.Version == "实例甲" && s.Address == "a.example.com")
+                || !imported.Any(s => s.Version == "实例乙" && s.Address == "b.example.com"))
+                throw new Exception("imported servers did not keep their instance versions");
+            if (!imported.Any(s => s.Version == "" && s.Address == "shared.example.com"))
+                throw new Exception("shared server should not be bound to an instance");
+        }
+        finally
+        {
+            if (Directory.Exists(home))
+                Directory.Delete(home, true);
+        }
         return "linked instance, skipped shared duplicate";
     }
 
-    private static byte[] SampleServersDat()
+    private static byte[] SampleServersDat(string name = "Hypixel", string address = "mc.hypixel.net")
     {
         using var ms = new MemoryStream();
         void Text(string value)
@@ -946,10 +1009,10 @@ internal static class SmokeTest
         ms.Write(count);
         ms.WriteByte(8);
         Text("name");
-        Text("Hypixel");
+        Text(name);
         ms.WriteByte(8);
         Text("ip");
-        Text("mc.hypixel.net");
+        Text(address);
         ms.WriteByte(0);
         ms.WriteByte(0);
         return ms.ToArray();
@@ -1116,6 +1179,55 @@ internal static class SmokeTest
             catch (Exception)
             {
             }
+        }
+    }
+
+    private static string CheckPackwiz()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "maox-packwiz-" + Guid.NewGuid().ToString("N")[..8] + ".zip");
+        try
+        {
+            using (var zip = ZipFile.Open(path, ZipArchiveMode.Create))
+            {
+                void Write(string name, string text)
+                {
+                    using var writer = new StreamWriter(zip.CreateEntry(name).Open(), new UTF8Encoding(false));
+                    writer.Write(text);
+                }
+                Write("pack.toml", """
+                    name = "Test Pack"
+                    author = "Tester"
+                    version = "1.2.3"
+                    pack-format = "packwiz:1.1.0"
+
+                    [versions]
+                    fabric = "0.15.11"
+                    minecraft = "1.20.1"
+                    """);
+                Write("index.toml", "hash-format = \"sha256\"\n\n[[files]]\nfile = \"mods/a.pw.toml\"\nmetafile = true\n");
+                Write("mods/a.pw.toml", """
+                    name = "A"
+                    filename = "a-1.0.jar"
+
+                    [download]
+                    url = "https://example.invalid/a-1.0.jar"
+                    hash-format = "sha1"
+                    hash = "abc"
+                    """);
+                Write("config/test.txt", "hello");
+                Write("mods/a-1.0.jar", "bundled");
+            }
+            var info = Modpack.ReadManifest(path);
+            if (info.Format != "packwiz" || info.Name != "Test Pack" || info.Version != "1.2.3"
+                || info.Mc != "1.20.1" || info.Loader != "fabric" || info.LoaderVersion != "0.15.11"
+                || info.FileCount != 1 || info.PackRoot != "")
+                throw new Exception($"packwiz={info.Format}/{info.Name}/{info.Mc}/{info.Loader}/{info.LoaderVersion}/{info.FileCount}/{info.PackRoot}");
+            return "pack.toml + pw.toml recognized";
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
         }
     }
 

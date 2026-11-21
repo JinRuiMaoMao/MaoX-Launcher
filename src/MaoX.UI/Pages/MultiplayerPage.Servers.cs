@@ -137,44 +137,22 @@ public partial class MultiplayerPage
         RenderServers();
     }
 
-    private void OnImportServers(object sender, RoutedEventArgs e)
+    private async void OnImportServers(object sender, RoutedEventArgs e)
     {
-        var gl = Main.MakeLauncher();
-        var byFolder = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var id in gl.InstalledVersions())
-            byFolder.TryAdd(id, id);
-        var found = new List<ServerEntry>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        void Take(string dir, string version)
+        var found = ServerPing.ScanGame(Main.MakeLauncher(), Main.Log);
+        if (found.Count == 0)
         {
-            try
-            {
-                foreach (var server in ServerPing.ReadServersDat(dir))
-                {
-                    server.Version = version ?? "";
-                    if (!seen.Add(server.Address.Trim() + "\n" + server.Version))
-                        continue;
-                    found.Add(server);
-                }
-            }
-            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
-            {
-                Main.Log(F("读取 {0} 失败：{1}", Path.Combine(dir, "servers.dat"), ex.Message));
-            }
+            Main.Toast(T("游戏的多人游戏列表里没有新的服务器"), "info");
+            return;
         }
-
-        var versions = Path.Combine(gl.McDir, "versions");
-        if (Directory.Exists(versions))
+        // 共用目录里的 servers.dat 不知道属于哪个版本：有多个版本时先让用户指定，
+        // 不要把同一批服务器硬塞给当前版本。
+        if (found.Any(server => string.IsNullOrEmpty(server.Version)))
         {
-            foreach (var dir in Directory.GetDirectories(versions))
-            {
-                byFolder.TryGetValue(Path.GetFileName(dir) ?? "", out var id);
-                Take(dir, id ?? "");
-            }
+            if (await Main.ShowDialogAsync(new ServerImportDialog(found)) is not List<ServerEntry> assigned)
+                return;
+            found = assigned;
         }
-        Take(gl.McDir, "");
-
         var result = ServerPing.MergeImported(Servers, found);
         if (result.Added == 0 && result.Linked == 0)
         {
@@ -305,8 +283,23 @@ public partial class MultiplayerPage
 
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         titleRow.Children.Add(new TextBlock { Text = server.Name, FontWeight = FontWeight.SemiBold, FontSize = 15 });
-        var address = server.Address + (string.IsNullOrEmpty(server.Version) ? "" : "  ·  " + server.Version);
-        titleRow.Children.Add(new TextBlock { Text = address, Classes = { "small", "dim" }, VerticalAlignment = VerticalAlignment.Center });
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = server.Address, Classes = { "small", "dim" }, VerticalAlignment = VerticalAlignment.Center,
+        });
+        if (!string.IsNullOrEmpty(server.Version))
+        {
+            var badge = new Border
+            {
+                Classes = { "badge" }, VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = server.Version, MaxWidth = 190, TextTrimming = TextTrimming.CharacterEllipsis,
+                },
+            };
+            ToolTip.SetTip(badge, F("进服时自动切换到 {0}", server.Version));
+            titleRow.Children.Add(badge);
+        }
 
         var motd = new TextBlock
         {

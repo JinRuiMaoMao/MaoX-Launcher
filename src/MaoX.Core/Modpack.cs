@@ -24,6 +24,8 @@ public class ModpackManifest
     public string Loader { get; set; }
     public string LoaderVersion { get; set; }
     public int FileCount { get; set; }
+    /// <summary>Packwiz 整合包在压缩包里的根目录（带结尾斜杠；在根目录时为空）。</summary>
+    public string PackRoot { get; set; } = "";
     /// <summary>modrinth.index.json 或 manifest.json 的原始内容。</summary>
     public JsonNode Raw { get; set; }
 }
@@ -75,6 +77,125 @@ public static class Modpack
     {
         using var reader = new StreamReader(zip.GetEntry(name)!.Open(), new UTF8Encoding(false), true);
         return JsonNode.Parse(reader.ReadToEnd());
+    }
+
+    private static string ReadEntryText(ZipArchive zip, string name)
+    {
+        var entry = zip.GetEntry(name)
+                    ?? zip.Entries.FirstOrDefault(e => e.FullName.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    ?? throw new InvalidDataException(name);
+        using var reader = new StreamReader(entry.Open(), new UTF8Encoding(false), true);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>Packwiz 的 pack.toml 可能在压缩包根目录，也可能在一个顶层文件夹里；返回带结尾斜杠的根目录。</summary>
+    private static string PackwizRoot(IEnumerable<string> names)
+    {
+        var candidate = names
+            .Where(n => n.Equals("pack.toml", StringComparison.OrdinalIgnoreCase)
+                        || n.EndsWith("/pack.toml", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(n => n.Length)
+            .FirstOrDefault();
+        if (candidate == null)
+            return null;
+        return candidate.Length == "pack.toml".Length ? "" : candidate[..^"pack.toml".Length];
+    }
+
+    /// <summary>读取 Packwiz 的 pack.toml（name / version / author / versions.*）。</summary>
+    private static ModpackManifest ReadPackwizManifest(ZipArchive zip, string root)
+    {
+        var map = PackwizToml.Parse(ReadEntryText(zip, root + "pack.toml"));
+        string V(string key) => map.GetValueOrDefault("versions." + key);
+        string loader = null, loaderVersion = null;
+        // NeoForge 的 pack.toml 也可能同时写 forge，优先更具体的加载器。
+        foreach (var key in new[] { "neoforge", "forge", "quilt", "fabric" })
+        {
+            if (string.IsNullOrWhiteSpace(V(key)))
+                continue;
+            loader = key;
+            loaderVersion = V(key);
+            break;
+        }
+        var mc = V("minecraft");
+        if (string.IsNullOrEmpty(mc))
+            throw new FormatException("pack.toml 缺少 versions.minecraft");
+        var index = zip.Entries.FirstOrDefault(e => e.FullName.Equals(root + "index.toml", StringComparison.OrdinalIgnoreCase));
+        var fileCount = index == null
+            ? 0
+            : ReadEntryText(zip, index.FullName).Split('\n').Count(line => line.Trim() == "[[files]]");
+        var name = map.GetValueOrDefault("name");
+        return new ModpackManifest
+        {
+            Format = "packwiz",
+            Name = string.IsNullOrWhiteSpace(name) ? T("整合包") : name,
+            Version = map.GetValueOrDefault("version", ""),
+            Summary = map.GetValueOrDefault("author", ""),
+            Mc = mc,
+            Loader = loader,
+            LoaderVersion = loaderVersion,
+            FileCount = fileCount,
+            PackRoot = root,
+        };
+    }
+
+    /// <summary>够用的 TOML 读取器：只处理 pack.toml / *.pw.toml 里的键值、表头和带引号字符串。</summary>
+    private static class PackwizToml
+    {
+        public static Dictionary<string, string> Parse(string text)
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var section = "";
+            foreach (var raw in (text ?? "").Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line[0] == '#')
+                    continue;
+                if (line[0] == '[')
+                {
+                    var end = line.IndexOf(']');
+                    if (end > 0)
+                        section = line[1..end].Trim();
+                    continue;
+                }
+                var equals = line.IndexOf('=');
+                if (equals <= 0)
+                    continue;
+                var key = line[..equals].Trim();
+                var value = ParseValue(line[(equals + 1)..].Trim());
+                map[section.Length == 0 ? key : section + "." + key] = value;
+            }
+            return map;
+        }
+
+        private static string ParseValue(string value)
+        {
+            if (value.Length == 0)
+                return "";
+            if (value[0] is '"' or '\'')
+            {
+                var quote = value[0];
+                var sb = new StringBuilder();
+                for (var i = 1; i < value.Length; i++)
+                {
+                    var c = value[i];
+                    if (c == quote)
+                        break;
+                    if (c == '\\' && quote == '"' && i + 1 < value.Length)
+                    {
+                        var escaped = value[++i];
+                        sb.Append(escaped switch
+                        {
+                            'n' => '\n', 't' => '\t', 'r' => '\r', '"' => '"', '\\' => '\\', _ => escaped,
+                        });
+                        continue;
+                    }
+                    sb.Append(c);
+                }
+                return sb.ToString();
+            }
+            var comment = value.IndexOf('#');
+            return (comment >= 0 ? value[..comment] : value).Trim();
+        }
     }
 
     /// <summary>读取整合包信息。不支持或已损坏时抛出 ModpackException。</summary>
@@ -142,13 +263,15 @@ public static class Modpack
                     Raw = manifest,
                 };
             }
+            if (PackwizRoot(names) is { } root)
+                return ReadPackwizManifest(zip, root);
         }
         catch (Exception e) when (e is InvalidDataException or JsonException or KeyNotFoundException
-                                      or InvalidOperationException)
+                                      or InvalidOperationException or IOException or FormatException)
         {
             throw new ModpackException(F("整合包文件已损坏：{0}", e.Message), e);
         }
-        throw new ModpackException(T("不是支持的整合包（支持 Modrinth .mrpack 与 CurseForge 整合包 .zip）"));
+        throw new ModpackException(T("不是支持的整合包（支持 Modrinth .mrpack、CurseForge 整合包和 Packwiz 整合包 .zip）"));
     }
 
     private static async Task<LoaderItem> LoaderItemAsync(LoaderInstaller installer, string loader, string mc,
@@ -255,6 +378,78 @@ public static class Modpack
         return tasks;
     }
 
+    /// <summary>
+    /// Packwiz 的 mods 目录里既有已经打包好的 jar，也有只记录下载地址的 *.pw.toml。
+    /// jar 已随压缩包带上的直接解压，其余按 pw.toml 里的 download.url 下载。
+    /// </summary>
+    private static List<DownloadTask> PackwizTasks(string path, ModpackManifest info, string gameDir, Action<string> log)
+    {
+        var root = info.PackRoot ?? "";
+        var tasks = new List<DownloadTask>();
+        using var zip = ZipFile.OpenRead(path);
+        var names = zip.Entries.Select(e => e.FullName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in zip.Entries)
+        {
+            if (entry.FullName.EndsWith('/')
+                || !entry.FullName.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+                || !entry.FullName.EndsWith(".pw.toml", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var rel = entry.FullName[root.Length..].Replace('\\', '/');
+            var slash = rel.LastIndexOf('/');
+            var folder = slash >= 0 ? rel[..slash] : "";
+            var map = PackwizToml.Parse(ReadEntryText(zip, entry.FullName));
+            var filename = map.GetValueOrDefault("filename");
+            if (string.IsNullOrWhiteSpace(filename))
+                filename = Path.GetFileNameWithoutExtension(rel);
+            var target = folder.Length == 0 ? filename : folder + "/" + filename;
+            if (names.Contains(root + target))
+                continue;
+            var url = map.GetValueOrDefault("download.url");
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                log(F("[警告] {0} 只记录了 CurseForge 元数据，没有直接下载地址，已跳过", filename));
+                continue;
+            }
+            var hashFormat = map.GetValueOrDefault("download.hash-format");
+            var hash = map.GetValueOrDefault("download.hash");
+            // DownloadTask 只校验 SHA1；SHA512 等格式仍然下载，只是不做本地校验。
+            var sha1 = string.Equals(hashFormat, "sha1", StringComparison.OrdinalIgnoreCase) ? hash : null;
+            tasks.Add(new DownloadTask(url, SafeJoin(gameDir, target), sha1));
+        }
+        return tasks;
+    }
+
+    private static bool IsPackwizMetadata(string rel) =>
+        rel.Equals("pack.toml", StringComparison.OrdinalIgnoreCase)
+        || rel.Equals("index.toml", StringComparison.OrdinalIgnoreCase)
+        || rel.EndsWith(".pw.toml", StringComparison.OrdinalIgnoreCase)
+        || rel.StartsWith("instance/", StringComparison.OrdinalIgnoreCase)
+        || rel.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)
+        || rel is ".gitignore" or ".gitattributes" or ".packwizignore" or "README.md";
+
+    /// <summary>把 Packwiz 压缩包里的 config、模组 jar、servers.dat 等复制进新实例。</summary>
+    private static int ExtractPackwiz(string path, ModpackManifest info, string gameDir, Action<string> log)
+    {
+        var root = info.PackRoot ?? "";
+        var count = 0;
+        using var zip = ZipFile.OpenRead(path);
+        foreach (var entry in zip.Entries)
+        {
+            if (entry.FullName.EndsWith('/')
+                || !entry.FullName.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var rel = entry.FullName[root.Length..].Replace('\\', '/');
+            if (IsPackwizMetadata(rel))
+                continue;
+            var dest = SafeJoin(gameDir, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            entry.ExtractToFile(dest, true);
+            count++;
+        }
+        log(F("已解压 {0} 个整合包文件（含随包附带的模组）", count));
+        return count;
+    }
+
     private static int ExtractOverrides(string path, IReadOnlyList<string> prefixes, string gameDir)
     {
         var count = 0;
@@ -287,11 +482,15 @@ public static class Modpack
             await CreateVersionAsync(gl, info, name);
             var gameDir = gl.GameDirFor(name);
             List<DownloadTask> tasks;
-            List<string> prefixes;
+            List<string> prefixes = [];
             if (info.Format == "modrinth")
             {
                 tasks = ModrinthTasks(info.Raw, gameDir);
                 prefixes = ["overrides", "client-overrides"];
+            }
+            else if (info.Format == "packwiz")
+            {
+                tasks = PackwizTasks(path, info, gameDir, log);
             }
             else
             {
@@ -302,8 +501,15 @@ public static class Modpack
             SaveTasks(gl, name, tasks, info);
             log(F("正在下载整合包中的 {0} 个文件...", tasks.Count));
             await RepairAsync(gl, name, log, progress, missingOnly: false);
-            var extracted = await Task.Run(() => ExtractOverrides(path, prefixes, gameDir));
-            log(F("已解压 {0} 个配置文件", extracted));
+            if (info.Format == "packwiz")
+            {
+                await Task.Run(() => ExtractPackwiz(path, info, gameDir, log));
+            }
+            else
+            {
+                var extracted = await Task.Run(() => ExtractOverrides(path, prefixes, gameDir));
+                log(F("已解压 {0} 个配置文件", extracted));
+            }
             await gl.PrepareAsync(name);
         }
         catch

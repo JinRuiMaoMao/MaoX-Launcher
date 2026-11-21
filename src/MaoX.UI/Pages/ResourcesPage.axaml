@@ -27,7 +27,7 @@
           <ComboBox Name="VersionBox" Width="220" SelectionChanged="OnVersionChanged"
                     PlaceholderText="{c:Tr 未安装任何版本}" />
         </StackPanel>
-        <Button Click="OnImportModpack">
+        <Button Click="OnImportModpack" ToolTip.Tip="{c:Tr 支持 Modrinth、CurseForge、Packwiz；也可以直接把整合包拖进窗口}">
           <c:IconLabel Icon="archive" Text="{c:Tr 导入整合包文件}" />
         </Button>
       </StackPanel>
@@ -66,6 +66,16 @@
         </Button>
       </StackPanel>
     </Grid>
+
+    <StackPanel Name="LocalFilterBar" DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8"
+                Margin="0,0,0,10" IsVisible="False">
+      <ToggleButton Name="FilterAll" Classes="chip" Content="{c:Tr 全部}" Tag="all"
+                    Click="OnLocalFilter" IsChecked="True" />
+      <ToggleButton Name="FilterUpdates" Classes="chip" Content="{c:Tr 可更新}" Tag="updates"
+                    Click="OnLocalFilter" />
+      <ToggleButton Name="FilterDisabled" Classes="chip" Content="{c:Tr 已禁用}" Tag="disabled"
+                    Click="OnLocalFilter" />
+    </StackPanel>
 
     <Panel>
       <ScrollViewer Name="BrowseView" Padding="0,0,12,0">

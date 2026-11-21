@@ -123,6 +123,20 @@
       </StackPanel>
     </Border>
 
+    <!-- 把整合包拖进窗口时的提示层 -->
+    <Border Name="DropOverlay" IsVisible="False" IsHitTestVisible="False" Background="#99000000">
+      <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+              Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+              CornerRadius="18" Padding="36,28">
+        <StackPanel Spacing="10" HorizontalAlignment="Center">
+          <c:Icon Kind="download" Size="42" Foreground="{StaticResource Accent}" HorizontalAlignment="Center" />
+          <TextBlock Text="{c:Tr 松开以导入整合包}" Classes="h2" HorizontalAlignment="Center" />
+          <TextBlock Text="{c:Tr 支持 Packwiz、Modrinth .mrpack 与 CurseForge 整合包}" Classes="small dim"
+                     HorizontalAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </Border>
+
     <!-- 窗口内对话框 -->
     <Panel Name="DialogLayer" IsVisible="False">
       <Border Name="DialogBackdrop" Background="{StaticResource Overlay}" Opacity="0">

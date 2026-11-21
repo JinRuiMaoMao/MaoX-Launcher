@@ -25,7 +25,8 @@
                    VerticalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality" />
             <StackPanel Grid.Column="1" Spacing="2">
               <TextBlock Name="HeroOverline" Text="READY  TO  PLAY" Classes="overline" />
-              <TextBlock Name="HeroTitle" Classes="hero" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+              <TextBlock Name="HeroTitle" Classes="hero" Margin="0,4,0,0" TextWrapping="NoWrap" MaxLines="1"
+                         TextTrimming="CharacterEllipsis" />
               <TextBlock Name="HeroMeta" Classes="muted" TextTrimming="CharacterEllipsis" />
             </StackPanel>
           </Grid>
@@ -71,8 +72,9 @@
                           ToolTip.Tip="{c:Tr 版本设置}" Click="OnVersionSettings">
                     <c:Icon Kind="settings" Size="18" />
                   </Button>
-                  <ComboBox Name="VersionBox" Height="40" HorizontalAlignment="Stretch"
-                            PlaceholderText="{c:Tr 未安装任何版本}" SelectionChanged="OnVersionChanged" />
+                  <ComboBox Name="VersionBox" Height="40" HorizontalAlignment="Stretch" ClipToBounds="True"
+                            MaxDropDownHeight="320" PlaceholderText="{c:Tr 未安装任何版本}"
+                            SelectionChanged="OnVersionChanged" />
                 </DockPanel>
               </StackPanel>
             </Panel>

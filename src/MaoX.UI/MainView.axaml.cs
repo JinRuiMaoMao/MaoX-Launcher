@@ -938,6 +938,33 @@ public partial class MainView : UserControl
         return await LocalizePickedFile(result[0]);
     }
 
+    /// <summary>拖入文件时显示 / 收起全窗口提示层。</summary>
+    public void SetDropHint(bool visible) => DropOverlay.IsVisible = visible;
+
+    /// <summary>把拖进窗口的文件当整合包依次导入。仅接受 .mrpack / .zip，其余文件给出提示。</summary>
+    public async Task ImportDroppedAsync(IReadOnlyList<string> paths)
+    {
+        var archives = (paths ?? [])
+            .Where(p => p.EndsWith(".mrpack", StringComparison.OrdinalIgnoreCase)
+                        || p.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (archives.Count == 0)
+        {
+            Toast(T("请拖入整合包文件（.mrpack 或 .zip）"), "warn");
+            return;
+        }
+        if (_dialogs.Count > 0)
+        {
+            Toast(T("请先关闭当前对话框再拖入整合包"), "warn");
+            return;
+        }
+        if (archives.Count > 1)
+            Toast(F("将依次导入 {0} 个整合包", archives.Count));
+        foreach (var archive in archives)
+            await Dialogs.ModpackActions.ImportFile(archive);
+    }
+
     /// <summary>电脑上通常是真实路径；手机上相册 / 文件选择器常常只有流，复制到缓存再给后面用。</summary>
     private static async Task<string> LocalizePickedFile(IStorageFile file)
     {

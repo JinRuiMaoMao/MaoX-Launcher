@@ -33,8 +33,12 @@ public class VersionFilesCard : UserControl
     private List<LocalFile> _items = [];
     private readonly Dictionary<string, Bitmap> _icons = [];
     private readonly Dictionary<string, (Image Image, Control Placeholder)> _iconViews = [];
+    private readonly Dictionary<string, ModUpdate> _updates = new(StringComparer.OrdinalIgnoreCase);
+    private Button _checkButton;
+    private Button _updateAllButton;
     private int _loadId;
     private bool _opening;
+    private bool _checking;
 
     private static MainView Main => MainView.Current;
 
@@ -78,9 +82,14 @@ public class VersionFilesCard : UserControl
             Directory.CreateDirectory(folder);
             Platform.OpenPath(folder);
         });
-        add.MinWidth = open.MinWidth = 0;
+        _checkButton = DialogView.MakeButton(T("检查更新"), "ghost", "refresh", CheckUpdates);
+        _updateAllButton = DialogView.MakeButton(T("全部更新"), "primary", "download", UpdateAll);
+        _updateAllButton.IsVisible = false;
+        add.MinWidth = open.MinWidth = _checkButton.MinWidth = _updateAllButton.MinWidth = 0;
         var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
         tools.Children.Add(_search);
+        tools.Children.Add(_checkButton);
+        tools.Children.Add(_updateAllButton);
         tools.Children.Add(add);
         tools.Children.Add(open);
 
@@ -107,6 +116,8 @@ public class VersionFilesCard : UserControl
     private void Select(Kind kind)
     {
         _kind = kind;
+        _updates.Clear();
+        UpdateUpdateAll();
         _search.Text = "";
         UpdateTabs();
         Reload();
@@ -237,7 +248,7 @@ public class VersionFilesCard : UserControl
 
     private Control Row(LocalFile item)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto") };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto,Auto") };
         if (_kind.Key == "mod")
         {
             var toggle = new ToggleSwitch { IsChecked = item.Enabled, Margin = new Thickness(0, 0, 10, 0), OnContent = null, OffContent = null };
@@ -275,16 +286,47 @@ public class VersionFilesCard : UserControl
             line.Children.Add(new TextBlock { Text = item.Version, Classes = { "small", "muted" }, VerticalAlignment = VerticalAlignment.Center });
         if (!item.Enabled)
             line.Children.Add(new TextBlock { Text = T("已禁用"), Classes = { "small", "dim" }, VerticalAlignment = VerticalAlignment.Center });
+        _updates.TryGetValue(item.Path, out var update);
+        if (update != null)
+            line.Children.Add(new TextBlock
+            {
+                Text = F("可更新 → {0}", update.Version), Classes = { "small", "bold" },
+                Foreground = Res("Success"), VerticalAlignment = VerticalAlignment.Center,
+            });
         var text = new StackPanel { Spacing = 2, Margin = new Thickness(12, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(line);
         text.Children.Add(new TextBlock { Text = item.Filename, Classes = { "small", "dim" }, TextTrimming = TextTrimming.CharacterEllipsis });
         Grid.SetColumn(text, 2);
         grid.Children.Add(text);
 
+        if (update != null)
+        {
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center,
+            };
+            if (!string.IsNullOrWhiteSpace(update.Changelog))
+            {
+                var notes = new Button
+                {
+                    Classes = { "ghost" }, Content = T("说明"), Padding = new Thickness(7, 0), FontSize = 12,
+                };
+                ToolTip.SetTip(notes, T("查看这个版本的更新日志"));
+                notes.Click += async (_, _) =>
+                    await Main.Dialog(F("{0} 更新说明", item.Name), update.Changelog, "info");
+                actions.Children.Add(notes);
+            }
+            var updateButton = new Button { Content = new IconLabel { Icon = "download", Text = T("更新") } };
+            updateButton.Click += (_, _) => RunUpdates([update]);
+            actions.Children.Add(updateButton);
+            Grid.SetColumn(actions, 3);
+            grid.Children.Add(actions);
+        }
+
         var delete = new Button { Classes = { "ghost", "danger-text" }, Content = new Icon { Kind = "delete", Size = 17 }, Padding = new Thickness(9, 0) };
         ToolTip.SetTip(delete, T("删除"));
         delete.Click += (_, _) => Delete(item);
-        Grid.SetColumn(delete, 3);
+        Grid.SetColumn(delete, 4);
         grid.Children.Add(delete);
         var row = new Border
         {
@@ -377,6 +419,8 @@ public class VersionFilesCard : UserControl
             mod.Path = Mods.SetModEnabled(mod, enabled);
             if (_icons.Remove(old, out var bitmap))
                 _icons[mod.Path] = bitmap;
+            _updates.Remove(old);
+            UpdateUpdateAll();
         }
         catch (Exception e)
         {
@@ -404,7 +448,151 @@ public class VersionFilesCard : UserControl
             return;
         }
         _icons.Remove(item.Path);
+        _updates.Remove(item.Path);
+        UpdateUpdateAll();
         Reload();
+    }
+
+    private (string Game, string Loader)? GameContext()
+    {
+        var version = _versionId?.Invoke();
+        if (string.IsNullOrEmpty(version))
+            return null;
+        try
+        {
+            var info = Main.MakeLauncher().DetectLoader(version);
+            return (info.Game, info.Loader);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private async void CheckUpdates()
+    {
+        if (_checking)
+            return;
+        var ctx = GameContext();
+        if (ctx == null)
+        {
+            Main.Toast(T("找不到当前版本，请从「启动」页重新打开版本设置"), "warn");
+            return;
+        }
+        var items = _items.Where(i => !i.IsDir && File.Exists(i.Path)).ToList();
+        if (items.Count == 0)
+        {
+            Main.Toast(F("没有可以检查的{0}", _kind.Name), "warn");
+            return;
+        }
+        var kind = _kind.Key;
+        var version = _versionId?.Invoke();
+        var dl = Main.MakeLauncher().Dl;
+        var modrinth = new ModrinthClient(dl);
+        var curseforge = new CurseForgeClient(dl);
+        _checking = true;
+        _checkButton.IsEnabled = false;
+        var oldContent = _checkButton.Content;
+        _checkButton.Content = new IconLabel { Icon = "refresh", Text = T("检查中…") };
+        try
+        {
+            var updates = await Task.Run(() =>
+                Mods.CheckUpdatesAsync(modrinth, curseforge, items, ctx.Value.Game, ctx.Value.Loader, kind));
+            if (_kind.Key != kind || _versionId?.Invoke() != version)
+                return;
+            _updates.Clear();
+            foreach (var update in updates)
+                _updates[update.Mod.Path] = update;
+            Render();
+            UpdateUpdateAll();
+            Main.Toast(updates.Count > 0
+                           ? F("有 {0} 个{1}可以更新", updates.Count, _kind.Name)
+                           : F("所有{0}都是最新版本", _kind.Name));
+        }
+        catch (Exception e)
+        {
+            await Main.Dialog(T("检查更新失败"), MainView.ErrorText(e), "error");
+        }
+        finally
+        {
+            _checking = false;
+            _checkButton.IsEnabled = true;
+            _checkButton.Content = oldContent;
+        }
+    }
+
+    private void UpdateUpdateAll()
+    {
+        // 检查按钮和「全部更新」占同一个位置，避免小窗口里工具栏挤成两行。
+        var hasUpdates = _updates.Count > 0;
+        _updateAllButton.IsVisible = hasUpdates;
+        _checkButton.IsVisible = !hasUpdates;
+        _updateAllButton.Content = new IconLabel
+        {
+            Icon = "download", Text = F("全部更新（{0}）", _updates.Count),
+        };
+    }
+
+    private void UpdateAll() => RunUpdates(_updates.Values.ToList());
+
+    private void RunUpdates(List<ModUpdate> updates)
+    {
+        if (updates.Count == 0)
+            return;
+        var ctx = GameContext();
+        if (ctx == null)
+        {
+            Main.Toast(T("找不到当前版本，请从「启动」页重新打开版本设置"), "warn");
+            return;
+        }
+        var dl = Main.MakeLauncher().Dl;
+        var kind = _kind.Key;
+        var name = _kind.Name;
+        var items = _items.Where(i => !i.IsDir).ToList();
+        _ = Main.RunTask(F("更新{0}", name), async () =>
+        {
+            var modrinth = new ModrinthClient(dl);
+            var curseforge = new CurseForgeClient(dl);
+            var installed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (var client in new IModClient[] { modrinth, curseforge })
+                    installed.UnionWith(await client.InstalledIdsAsync(items));
+            }
+            catch (Exception)
+            {
+                // 识别失败最多多下一次前置，不影响更新
+            }
+            var updated = new List<ModUpdate>();
+            var failed = new List<string>();
+            for (var i = 0; i < updates.Count; i++)
+            {
+                Main.Progress(i, updates.Count, F("更新{0}", name));
+                var update = updates[i];
+                try
+                {
+                    var client = update.Source == "CurseForge" ? (IModClient)curseforge : modrinth;
+                    await Mods.ApplyUpdateAsync(client, dl, update, ctx.Value.Game, ctx.Value.Loader, installed, kind,
+                                                Main.Log);
+                    updated.Add(update);
+                }
+                catch (Exception e)
+                {
+                    failed.Add(F("{0}：{1}", update.Mod.Name, MainView.ErrorText(e)));
+                }
+            }
+            return (Updated: updated, Failed: failed);
+        }, result =>
+        {
+            foreach (var update in result.Updated)
+                _updates.Remove(update.Mod.Path);
+            UpdateUpdateAll();
+            Reload();
+            if (result.Failed.Count > 0)
+                _ = Main.Dialog(F("部分{0}更新失败", name), string.Join("\n", result.Failed.Take(8)), "error");
+            else
+                Main.Toast(F("已更新 {0} 个{1}", result.Updated.Count, name));
+        });
     }
 
     private async void Import()
@@ -445,7 +633,11 @@ public class VersionFilesCard : UserControl
             }
         }
         if (copied > 0)
+        {
+            _updates.Clear();
+            UpdateUpdateAll();
             Main.Toast(F("已导入 {0} 个文件", copied));
+        }
         Reload();
     }
 }
