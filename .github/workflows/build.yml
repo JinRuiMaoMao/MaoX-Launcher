@@ -317,6 +317,13 @@ jobs:
           sudo xcode-select -s "$xcode/Contents/Developer"
           xcodebuild -version
 
+      # macos-latest 镜像自带 .NET 11 的 workload 清单，会和 10.0.401 的 Emscripten 清单冲突
+      - name: Drop conflicting .NET 11 workload manifests
+        run: |
+          root="${DOTNET_ROOT:-$HOME/.dotnet}"
+          rm -rf "$root/sdk-manifests/11.0.100" "$root/metadata/workloads/11.0.100"
+          ls "$root/sdk-manifests" || true
+
       - name: Install iOS workload
         run: dotnet workload install ios --version 10.0.401
 

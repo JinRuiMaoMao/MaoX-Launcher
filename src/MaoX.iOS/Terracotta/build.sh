@@ -40,8 +40,11 @@ export IPHONEOS_DEPLOYMENT_TARGET=15.0
 export TERRACOTTA_VERSION="$VERSION"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$SRC/target}"
 export RUSTFLAGS="-Zunstable-options -Cpanic=unwind"
-# libc 0.2.190 limited mach_task_self to macOS, which breaks num_threads on iOS
-(cd "$SRC" && cargo +"$TOOLCHAIN" generate-lockfile && cargo +"$TOOLCHAIN" update -p libc --precise 0.2.189)
+# libc 0.2.190 limited mach_task_self to macOS, which breaks num_threads on iOS.
+# mio 1.2.5 requires libc ^0.2.190, so downgrade mio first and then pin libc.
+(cd "$SRC" && cargo +"$TOOLCHAIN" generate-lockfile \
+    && cargo +"$TOOLCHAIN" update -p mio --precise 1.2.4 \
+    && cargo +"$TOOLCHAIN" update -p libc --precise 0.2.189)
 (cd "$SRC" && cargo +"$TOOLCHAIN" build --release --lib --target "$TARGET" \
     -Z build-std=core,std,alloc,proc_macro,panic_abort \
     -Z build-std-features=default,optimize_for_size)
